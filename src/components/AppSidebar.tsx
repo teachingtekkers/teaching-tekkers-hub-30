@@ -9,28 +9,31 @@ import {
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
 
-const adminItems = [
+const overviewItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Camps", url: "/camps", icon: Tent },
-  { title: "Players", url: "/players", icon: Users },
-  { title: "Coaches", url: "/coaches", icon: UserCog },
-  { title: "Attendance", url: "/attendance", icon: ClipboardCheck },
+  { title: "Control Centre", url: "/control-centre", icon: Gauge },
 ];
 
 const operationsItems = [
-  { title: "Control Centre", url: "/control-centre", icon: Gauge },
+  { title: "Camps", url: "/camps", icon: Tent },
   { title: "Roster", url: "/roster", icon: CalendarClock },
-  { title: "Payroll", url: "/payroll", icon: DollarSign },
-  { title: "Invoices", url: "/invoices", icon: FileText },
-];
-
-const campToolsItems = [
+  { title: "Attendance", url: "/attendance", icon: ClipboardCheck },
   { title: "Fixtures", url: "/fixtures", icon: Swords },
   { title: "Session Plans", url: "/session-plans", icon: BookOpen },
   { title: "Equipment", url: "/equipment", icon: Package },
 ];
 
-const businessItems = [
+const peopleItems = [
+  { title: "Players", url: "/players", icon: Users },
+  { title: "Coaches", url: "/coaches", icon: UserCog },
+];
+
+const financeItems = [
+  { title: "Payroll", url: "/payroll", icon: DollarSign },
+  { title: "Invoices", url: "/invoices", icon: FileText },
+];
+
+const toolsItems = [
   { title: "Communications", url: "/communications", icon: MessageSquare },
   { title: "Proposals", url: "/proposals", icon: FileBarChart },
   { title: "Reports", url: "/reports", icon: BarChart3 },
@@ -49,17 +52,24 @@ export function AppSidebar() {
     items.map((item) => (
       <SidebarMenuItem key={item.title}>
         <SidebarMenuButton asChild>
-          <NavLink to={item.url} end className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" activeClassName="bg-sidebar-accent text-sidebar-primary font-medium">
-            <item.icon className="mr-2 h-4 w-4" />
-            {!collapsed && <span>{item.title}</span>}
+          <NavLink
+            to={item.url}
+            end
+            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+            activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+          >
+            <item.icon className="mr-2.5 h-4 w-4 shrink-0" />
+            {!collapsed && <span className="text-sm">{item.title}</span>}
           </NavLink>
         </SidebarMenuButton>
       </SidebarMenuItem>
     ));
 
   const renderGroup = (label: string, items: { title: string; url: string; icon: React.ElementType }[]) => (
-    <SidebarGroup>
-      <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">{label}</SidebarGroupLabel>
+    <SidebarGroup key={label}>
+      <SidebarGroupLabel className="text-sidebar-foreground/40 text-[10px] uppercase tracking-[0.1em] font-semibold mb-1">
+        {label}
+      </SidebarGroupLabel>
       <SidebarGroupContent><SidebarMenu>{renderItems(items)}</SidebarMenu></SidebarGroupContent>
     </SidebarGroup>
   );
@@ -67,22 +77,26 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarContent className="bg-sidebar">
-        <div className="flex items-center gap-2 px-4 py-5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
-            <Trophy className="h-4 w-4 text-sidebar-primary-foreground" />
+        <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary shrink-0">
+            <Trophy className="h-4.5 w-4.5 text-sidebar-primary-foreground" />
           </div>
           {!collapsed && (
             <div>
-              <p className="text-sm font-bold text-sidebar-primary-foreground">Teaching Tekkers</p>
-              <p className="text-xs text-sidebar-foreground">Operations</p>
+              <p className="text-sm font-bold text-sidebar-primary-foreground leading-tight">Teaching Tekkers</p>
+              <p className="text-[11px] text-sidebar-foreground/50">Operations Platform</p>
             </div>
           )}
         </div>
 
-        {renderGroup("Admin", adminItems)}
+        {renderGroup("Overview", overviewItems)}
         {renderGroup("Operations", operationsItems)}
-        {renderGroup("Camp Tools", campToolsItems)}
-        {renderGroup("Business", businessItems)}
+        {renderGroup("People", peopleItems)}
+        {renderGroup("Finance", financeItems)}
+        {renderGroup("Tools", toolsItems)}
+
+        <div className="my-2 mx-4 border-t border-sidebar-border" />
+
         {renderGroup("Coach Portal", coachItems)}
       </SidebarContent>
 
@@ -90,9 +104,9 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <NavLink to="/" className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" activeClassName="">
-                <LogOut className="mr-2 h-4 w-4" />
-                {!collapsed && <span>Logout</span>}
+              <NavLink to="/" className="text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" activeClassName="">
+                <LogOut className="mr-2.5 h-4 w-4" />
+                {!collapsed && <span className="text-sm">Logout</span>}
               </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>

@@ -6,25 +6,25 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 220 20% 10%;
+    --background: 210 18% 97%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 222 47% 11%;
 
     --primary: 213 94% 45%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 14% 96%;
-    --secondary-foreground: 220 20% 10%;
+    --secondary-foreground: 222 47% 11%;
 
     --muted: 220 14% 96%;
-    --muted-foreground: 220 10% 46%;
+    --muted-foreground: 220 9% 46%;
 
-    --accent: 213 94% 95%;
+    --accent: 213 94% 96%;
     --accent-foreground: 213 94% 30%;
 
     --destructive: 0 84% 60%;
@@ -34,21 +34,22 @@
     --input: 220 13% 91%;
     --ring: 213 94% 45%;
 
-    --radius: 0.625rem;
+    --radius: 0.5rem;
 
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning-foreground: 38 92% 14%;
 
-    --sidebar-background: 220 20% 10%;
-    --sidebar-foreground: 220 14% 80%;
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 220 14% 70%;
     --sidebar-primary: 213 94% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 20% 16%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 220 20% 18%;
+    --sidebar-accent: 222 47% 16%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 222 47% 18%;
     --sidebar-ring: 213 94% 55%;
+    --sidebar-muted: 222 47% 25%;
   }
 }
 
@@ -59,5 +60,40 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1 {
+    @apply text-2xl font-bold tracking-tight text-foreground;
+  }
+
+  h2 {
+    @apply text-xl font-semibold tracking-tight text-foreground;
+  }
+
+  h3 {
+    @apply text-lg font-semibold text-foreground;
+  }
+}
+
+@layer components {
+  .page-header {
+    @apply flex flex-col gap-1 mb-6;
+  }
+
+  .page-header h1 {
+    @apply text-2xl font-bold tracking-tight;
+  }
+
+  .page-header p {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .stat-grid {
+    @apply grid gap-4 sm:grid-cols-2 lg:grid-cols-4;
+  }
+
+  .section-label {
+    @apply text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3;
   }
 }
