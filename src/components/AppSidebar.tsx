@@ -10,9 +10,11 @@ import {
   CalendarClock,
   DollarSign,
   FileText,
+  Swords,
+  BookOpen,
+  Package,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -41,15 +43,22 @@ const operationsItems = [
   { title: "Invoices", url: "/invoices", icon: FileText },
 ];
 
+const campToolsItems = [
+  { title: "Fixtures", url: "/fixtures", icon: Swords },
+  { title: "Session Plans", url: "/session-plans", icon: BookOpen },
+  { title: "Equipment", url: "/equipment", icon: Package },
+];
+
 const coachItems = [
   { title: "My Camps", url: "/my-camps", icon: Trophy },
+  { title: "Session Plans", url: "/coach-session-plans", icon: BookOpen },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
-  const renderItems = (items: typeof adminItems) =>
+  const renderItems = (items: { title: string; url: string; icon: React.ElementType }[]) =>
     items.map((item) => (
       <SidebarMenuItem key={item.title}>
         <SidebarMenuButton asChild>
@@ -82,30 +91,23 @@ export function AppSidebar() {
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">
-            Admin
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>{renderItems(adminItems)}</SidebarMenu>
-          </SidebarGroupContent>
+          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">Admin</SidebarGroupLabel>
+          <SidebarGroupContent><SidebarMenu>{renderItems(adminItems)}</SidebarMenu></SidebarGroupContent>
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">
-            Operations
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>{renderItems(operationsItems)}</SidebarMenu>
-          </SidebarGroupContent>
+          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">Operations</SidebarGroupLabel>
+          <SidebarGroupContent><SidebarMenu>{renderItems(operationsItems)}</SidebarMenu></SidebarGroupContent>
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">
-            Coach Portal
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>{renderItems(coachItems)}</SidebarMenu>
-          </SidebarGroupContent>
+          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">Camp Tools</SidebarGroupLabel>
+          <SidebarGroupContent><SidebarMenu>{renderItems(campToolsItems)}</SidebarMenu></SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">Coach Portal</SidebarGroupLabel>
+          <SidebarGroupContent><SidebarMenu>{renderItems(coachItems)}</SidebarMenu></SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
@@ -113,11 +115,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <NavLink
-                to="/"
-                className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                activeClassName=""
-              >
+              <NavLink to="/" className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" activeClassName="">
                 <LogOut className="mr-2 h-4 w-4" />
                 {!collapsed && <span>Logout</span>}
               </NavLink>

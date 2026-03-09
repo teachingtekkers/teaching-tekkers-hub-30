@@ -283,6 +283,210 @@ export type Database = {
         }
         Relationships: []
       }
+      equipment_assignments: {
+        Row: {
+          camp_id: string | null
+          coach_id: string | null
+          created_at: string
+          equipment_item_id: string
+          id: string
+          notes: string | null
+          quantity_out: number
+          quantity_returned: number
+        }
+        Insert: {
+          camp_id?: string | null
+          coach_id?: string | null
+          created_at?: string
+          equipment_item_id: string
+          id?: string
+          notes?: string | null
+          quantity_out?: number
+          quantity_returned?: number
+        }
+        Update: {
+          camp_id?: string | null
+          coach_id?: string | null
+          created_at?: string
+          equipment_item_id?: string
+          id?: string
+          notes?: string | null
+          quantity_out?: number
+          quantity_returned?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_assignments_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_assignments_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_assignments_equipment_item_id_fkey"
+            columns: ["equipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_items: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          total_quantity: number
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          total_quantity?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          total_quantity?: number
+        }
+        Relationships: []
+      }
+      fixture_matches: {
+        Row: {
+          away_score: number | null
+          away_team_id: string | null
+          created_at: string
+          fixture_set_id: string
+          home_score: number | null
+          home_team_id: string | null
+          id: string
+          kickoff_order: number
+          round_name: string
+        }
+        Insert: {
+          away_score?: number | null
+          away_team_id?: string | null
+          created_at?: string
+          fixture_set_id: string
+          home_score?: number | null
+          home_team_id?: string | null
+          id?: string
+          kickoff_order?: number
+          round_name?: string
+        }
+        Update: {
+          away_score?: number | null
+          away_team_id?: string | null
+          created_at?: string
+          fixture_set_id?: string
+          home_score?: number | null
+          home_team_id?: string | null
+          id?: string
+          kickoff_order?: number
+          round_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixture_matches_away_team_id_fkey"
+            columns: ["away_team_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_matches_fixture_set_id_fkey"
+            columns: ["fixture_set_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixture_matches_home_team_id_fkey"
+            columns: ["home_team_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fixture_sets: {
+        Row: {
+          camp_id: string
+          created_at: string
+          format: Database["public"]["Enums"]["fixture_format"]
+          id: string
+          name: string
+        }
+        Insert: {
+          camp_id: string
+          created_at?: string
+          format?: Database["public"]["Enums"]["fixture_format"]
+          id?: string
+          name: string
+        }
+        Update: {
+          camp_id?: string
+          created_at?: string
+          format?: Database["public"]["Enums"]["fixture_format"]
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixture_sets_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fixture_teams: {
+        Row: {
+          colour: string
+          created_at: string
+          fixture_set_id: string
+          id: string
+          name: string
+        }
+        Insert: {
+          colour?: string
+          created_at?: string
+          fixture_set_id: string
+          id?: string
+          name: string
+        }
+        Update: {
+          colour?: string
+          created_at?: string
+          fixture_set_id?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixture_teams_fixture_set_id_fkey"
+            columns: ["fixture_set_id"]
+            isOneToOne: false
+            referencedRelation: "fixture_sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_records: {
         Row: {
           camp_id: string
@@ -373,6 +577,101 @@ export type Database = {
         }
         Relationships: []
       }
+      session_plan_assignments: {
+        Row: {
+          camp_day: string | null
+          camp_id: string
+          created_at: string
+          id: string
+          session_plan_id: string
+        }
+        Insert: {
+          camp_day?: string | null
+          camp_id: string
+          created_at?: string
+          id?: string
+          session_plan_id: string
+        }
+        Update: {
+          camp_day?: string | null
+          camp_id?: string
+          created_at?: string
+          id?: string
+          session_plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_plan_assignments_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_plan_assignments_session_plan_id_fkey"
+            columns: ["session_plan_id"]
+            isOneToOne: false
+            referencedRelation: "session_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_plan_categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      session_plans: {
+        Row: {
+          age_group: string
+          category_id: string | null
+          content: string | null
+          created_at: string
+          description: string | null
+          id: string
+          title: string
+        }
+        Insert: {
+          age_group?: string
+          category_id?: string | null
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          title: string
+        }
+        Update: {
+          age_group?: string
+          category_id?: string | null
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_plans_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "session_plan_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -383,6 +682,7 @@ export type Database = {
     Enums: {
       attendance_status: "present" | "absent"
       coach_role: "head_coach" | "assistant"
+      fixture_format: "group_stage" | "knockout" | "group_knockout"
       invoice_status: "draft" | "sent" | "paid"
       payment_status: "paid" | "pending" | "refunded"
     }
@@ -514,6 +814,7 @@ export const Constants = {
     Enums: {
       attendance_status: ["present", "absent"],
       coach_role: ["head_coach", "assistant"],
+      fixture_format: ["group_stage", "knockout", "group_knockout"],
       invoice_status: ["draft", "sent", "paid"],
       payment_status: ["paid", "pending", "refunded"],
     },
