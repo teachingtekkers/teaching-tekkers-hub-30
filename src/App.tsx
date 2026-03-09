@@ -19,6 +19,9 @@ import FixturesPage from "./pages/FixturesPage";
 import SessionPlansPage from "./pages/SessionPlansPage";
 import EquipmentPage from "./pages/EquipmentPage";
 import CoachSessionPlansPage from "./pages/CoachSessionPlansPage";
+import CommunicationsPage from "./pages/CommunicationsPage";
+import ProposalsPage from "./pages/ProposalsPage";
+import ReportsPage from "./pages/ReportsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +49,9 @@ const App = () => (
             <Route path="/session-plans" element={<SessionPlansPage />} />
             <Route path="/equipment" element={<EquipmentPage />} />
             <Route path="/coach-session-plans" element={<CoachSessionPlansPage />} />
+            <Route path="/communications" element={<CommunicationsPage />} />
+            <Route path="/proposals" element={<ProposalsPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

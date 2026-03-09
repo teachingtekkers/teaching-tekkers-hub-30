@@ -1,4 +1,4 @@
-import { Camp, Player, Booking, Coach, CampCoachAssignment, AttendanceRecord, PayrollRecord, ClubInvoice, FixtureSet, FixtureTeam, FixtureMatch, SessionPlanCategory, SessionPlan, SessionPlanAssignment, EquipmentItem, EquipmentAssignment } from '@/types';
+import { Camp, Player, Booking, Coach, CampCoachAssignment, AttendanceRecord, PayrollRecord, ClubInvoice, FixtureSet, FixtureTeam, FixtureMatch, SessionPlanCategory, SessionPlan, SessionPlanAssignment, EquipmentItem, EquipmentAssignment, MessageTemplate, Proposal } from '@/types';
 
 export const mockCamps: Camp[] = [
   { id: '1', name: 'Easter Camp 2026', club_name: 'Kilmacud Crokes', venue: 'Silverpark', county: 'Dublin', start_date: '2026-03-09', end_date: '2026-03-13', daily_start_time: '10:00', daily_end_time: '15:00', age_group: 'U8-U12', capacity: 40, price_per_child: 120, created_at: '2026-01-15' },
@@ -96,6 +96,36 @@ export const mockEquipmentAssignments: EquipmentAssignment[] = [
   { id: '2', equipment_item_id: '3', camp_id: '1', coach_id: '1', quantity_out: 20, quantity_returned: 0, notes: null, created_at: '2026-03-08' },
   { id: '3', equipment_item_id: '5', camp_id: '1', coach_id: '1', quantity_out: 20, quantity_returned: 0, notes: null, created_at: '2026-03-08' },
   { id: '4', equipment_item_id: '2', camp_id: '2', coach_id: '2', quantity_out: 8, quantity_returned: 8, notes: 'All returned', created_at: '2026-03-08' },
+];
+
+// V4 Mock Data
+
+export const mockMessageTemplates: MessageTemplate[] = [
+  { id: '1', name: 'Camp Reminder', category: 'Reminder', message_text: 'Reminder: Teaching Tekkers Camp at {{club}} starts tomorrow at {{start_time}}. Please arrive 15 minutes early. Bring boots, water and lunch.', created_at: '2026-01-01' },
+  { id: '2', name: 'Weather Update', category: 'Update', message_text: 'Weather Update: The Teaching Tekkers {{camp_name}} at {{club}} will go ahead as planned. Please dress appropriately for the conditions.', created_at: '2026-01-01' },
+  { id: '3', name: 'Final Day', category: 'Reminder', message_text: 'Hi! It\'s the final day of {{camp_name}} at {{club}} today. We\'ll have our presentation at {{end_time}}. Parents welcome to attend!', created_at: '2026-01-01' },
+  { id: '4', name: 'Camp Starting', category: 'Info', message_text: 'Teaching Tekkers {{camp_name}} at {{club}} starts on {{start_date}} at {{start_time}}. Venue: {{venue}}. See you there!', created_at: '2026-01-01' },
+];
+
+export const mockProposals: Proposal[] = [
+  { id: '1', club_name: 'Portmarnock AFC', proposal_title: 'Summer Camp 2026 Proposal', proposed_dates: '29 Jun – 3 Jul 2026', camp_description: '5-day football camp for U7-U14 players. Full coaching programme with tournaments on the final day.', price_details: '€140 per child. Club receives €15 per child from attendance.', status: 'sent', notes: null, created_at: '2026-02-01' },
+  { id: '2', club_name: 'Malahide United', proposal_title: 'Easter Camp 2026', proposed_dates: '6 Apr – 10 Apr 2026', camp_description: '5-day Easter camp programme with age-appropriate coaching.', price_details: '€120 per child.', status: 'draft', notes: 'Follow up next week', created_at: '2026-02-15' },
+];
+
+// Historical camp data for growth reports
+export const mockHistoricalCamps: { club_name: string; year: number; players: number; camps: number; revenue: number }[] = [
+  { club_name: 'Kilmacud Crokes', year: 2024, players: 35, camps: 2, revenue: 4200 },
+  { club_name: 'Kilmacud Crokes', year: 2025, players: 48, camps: 3, revenue: 5760 },
+  { club_name: 'Kilmacud Crokes', year: 2026, players: 40, camps: 1, revenue: 4800 },
+  { club_name: 'Foxrock Cabinteely', year: 2024, players: 22, camps: 1, revenue: 1980 },
+  { club_name: 'Foxrock Cabinteely', year: 2025, players: 30, camps: 2, revenue: 2700 },
+  { club_name: 'Foxrock Cabinteely', year: 2026, players: 30, camps: 1, revenue: 2700 },
+  { club_name: 'Bray Wanderers', year: 2024, players: 45, camps: 2, revenue: 6300 },
+  { club_name: 'Bray Wanderers', year: 2025, players: 55, camps: 3, revenue: 7700 },
+  { club_name: 'Bray Wanderers', year: 2026, players: 60, camps: 1, revenue: 8400 },
+  { club_name: 'Portmarnock AFC', year: 2024, players: 48, camps: 2, revenue: 5760 },
+  { club_name: 'Portmarnock AFC', year: 2025, players: 63, camps: 3, revenue: 7560 },
+  { club_name: 'Portmarnock AFC', year: 2026, players: 71, camps: 2, revenue: 9940 },
 ];
 
 // Utility functions

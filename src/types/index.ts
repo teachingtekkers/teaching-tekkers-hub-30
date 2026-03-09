@@ -170,4 +170,34 @@ export interface EquipmentAssignment {
   created_at: string;
 }
 
+// V4 Types
+
+export interface MessageTemplate {
+  id: string;
+  name: string;
+  category: string;
+  message_text: string;
+  created_at: string;
+}
+
+export interface CampMessage {
+  id: string;
+  camp_id: string;
+  template_id: string | null;
+  generated_text: string;
+  created_at: string;
+}
+
+export interface Proposal {
+  id: string;
+  club_name: string;
+  proposal_title: string;
+  proposed_dates: string;
+  camp_description: string | null;
+  price_details: string | null;
+  status: 'draft' | 'sent' | 'accepted' | 'rejected';
+  notes: string | null;
+  created_at: string;
+}
+
 export type UserRole = 'admin' | 'head_coach';

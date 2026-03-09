@@ -146,6 +146,45 @@ export type Database = {
           },
         ]
       }
+      camp_messages: {
+        Row: {
+          camp_id: string
+          created_at: string
+          generated_text: string
+          id: string
+          template_id: string | null
+        }
+        Insert: {
+          camp_id: string
+          created_at?: string
+          generated_text: string
+          id?: string
+          template_id?: string | null
+        }
+        Update: {
+          camp_id?: string
+          created_at?: string
+          generated_text?: string
+          id?: string
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camp_messages_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camp_messages_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "message_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       camps: {
         Row: {
           age_group: string
@@ -487,6 +526,30 @@ export type Database = {
           },
         ]
       }
+      message_templates: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          message_text: string
+          name: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          message_text: string
+          name: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          message_text?: string
+          name?: string
+        }
+        Relationships: []
+      }
       payroll_records: {
         Row: {
           camp_id: string
@@ -574,6 +637,42 @@ export type Database = {
           last_name?: string
           medical_notes?: string | null
           photo_permission?: boolean
+        }
+        Relationships: []
+      }
+      proposals: {
+        Row: {
+          camp_description: string | null
+          club_name: string
+          created_at: string
+          id: string
+          notes: string | null
+          price_details: string | null
+          proposal_title: string
+          proposed_dates: string
+          status: Database["public"]["Enums"]["proposal_status"]
+        }
+        Insert: {
+          camp_description?: string | null
+          club_name: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          price_details?: string | null
+          proposal_title: string
+          proposed_dates: string
+          status?: Database["public"]["Enums"]["proposal_status"]
+        }
+        Update: {
+          camp_description?: string | null
+          club_name?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          price_details?: string | null
+          proposal_title?: string
+          proposed_dates?: string
+          status?: Database["public"]["Enums"]["proposal_status"]
         }
         Relationships: []
       }
@@ -685,6 +784,7 @@ export type Database = {
       fixture_format: "group_stage" | "knockout" | "group_knockout"
       invoice_status: "draft" | "sent" | "paid"
       payment_status: "paid" | "pending" | "refunded"
+      proposal_status: "draft" | "sent" | "accepted" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -817,6 +917,7 @@ export const Constants = {
       fixture_format: ["group_stage", "knockout", "group_knockout"],
       invoice_status: ["draft", "sent", "paid"],
       payment_status: ["paid", "pending", "refunded"],
+      proposal_status: ["draft", "sent", "accepted", "rejected"],
     },
   },
 } as const
