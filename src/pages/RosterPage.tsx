@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { format, startOfWeek, endOfWeek, parseISO } from "date-fns";
-import { CalendarIcon, UserPlus, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { CalendarIcon, UserPlus, AlertTriangle, CheckCircle, XCircle, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { StatCard } from "@/components/StatCard";
 import { cn } from "@/lib/utils";
 import { mockCamps, mockBookings, mockCoaches, mockCampCoaches, getCoachesRequired } from "@/data/mock";
 import { CampCoachAssignment } from "@/types";
@@ -34,7 +35,6 @@ const RosterPage = () => {
   });
 
   const getPlayerCount = (campId: string) => mockBookings.filter(b => b.camp_id === campId).length;
-
   const getCampAssignments = (campId: string) => assignments.filter(a => a.camp_id === campId);
 
   const getStaffingStatus = (campId: string) => {
@@ -42,7 +42,6 @@ const RosterPage = () => {
     const required = getCoachesRequired(playerCount);
     const assigned = getCampAssignments(campId);
     const hasHeadCoach = assigned.some(a => a.role === "head_coach");
-
     if (assigned.length >= required && hasHeadCoach) return "ready";
     if (assigned.length >= required && !hasHeadCoach) return "review";
     return "action";
@@ -52,7 +51,6 @@ const RosterPage = () => {
     if (!selectedCampId || !selectedCoachId) return;
     const existing = assignments.find(a => a.camp_id === selectedCampId && a.coach_id === selectedCoachId);
     if (existing) return;
-
     const newAssignment: CampCoachAssignment = {
       id: String(assignments.length + 1),
       camp_id: selectedCampId,
@@ -88,12 +86,15 @@ const RosterPage = () => {
     return mockCoaches.filter(c => !assigned.includes(c.id));
   };
 
+  const readyCount = weekCamps.filter(c => getStaffingStatus(c.id) === "ready").length;
+  const totalAssigned = weekCamps.reduce((sum, c) => sum + getCampAssignments(c.id).length, 0);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold">Coach Roster</h1>
-          <p className="text-muted-foreground">Week of {format(weekStart, "d MMM")} — {format(weekEnd, "d MMM yyyy")}</p>
+          <h1 className="text-2xl font-bold tracking-tight">Coach Roster</h1>
+          <p className="text-muted-foreground text-sm">Week of {format(weekStart, "d MMM")} — {format(weekEnd, "d MMM yyyy")}</p>
         </div>
         <Popover>
           <PopoverTrigger asChild>
@@ -108,8 +109,20 @@ const RosterPage = () => {
         </Popover>
       </div>
 
+      <div className="stat-grid">
+        <StatCard label="Camps This Week" value={weekCamps.length} />
+        <StatCard label="Coaches Assigned" value={totalAssigned} />
+        <StatCard label="Fully Staffed" value={`${readyCount}/${weekCamps.length}`} />
+      </div>
+
       {weekCamps.length === 0 ? (
-        <Card><CardContent className="py-12 text-center"><p className="text-muted-foreground">No camps scheduled this week.</p></CardContent></Card>
+        <Card>
+          <CardContent className="py-16 text-center">
+            <Users className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+            <p className="text-muted-foreground font-medium">No camps scheduled this week</p>
+            <p className="text-sm text-muted-foreground/70 mt-1">Select a different week to view the roster</p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-4">
           {weekCamps.map(camp => {
@@ -120,52 +133,52 @@ const RosterPage = () => {
 
             return (
               <Card key={camp.id}>
-                <CardHeader className="pb-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div>
-                      <CardTitle className="text-lg">{camp.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{camp.club_name} • {camp.venue}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {statusBadge(status)}
-                      <Badge variant="secondary">{playerCount} players</Badge>
-                      <Badge variant="outline">{campAssignments.length}/{required} coaches</Badge>
-                    </div>
+                <div className="p-4 sm:p-5 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold">{camp.name}</h3>
+                    <p className="text-sm text-muted-foreground">{camp.club_name} · {camp.venue}</p>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {statusBadge(status)}
+                    <Badge variant="secondary">{playerCount} players</Badge>
+                    <Badge variant="outline">{campAssignments.length}/{required} coaches</Badge>
+                  </div>
+                </div>
+                <CardContent className="p-4 sm:p-5 space-y-3">
                   {campAssignments.length > 0 && (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Coach</TableHead>
-                          <TableHead>Role</TableHead>
-                          <TableHead>Driver</TableHead>
-                          <TableHead>Notes</TableHead>
-                          <TableHead></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {campAssignments.map(a => {
-                          const coach = mockCoaches.find(c => c.id === a.coach_id);
-                          return (
-                            <TableRow key={a.id}>
-                              <TableCell className="font-medium">{coach?.full_name}</TableCell>
-                              <TableCell>
-                                <Badge variant={a.role === "head_coach" ? "default" : "secondary"}>
-                                  {a.role === "head_coach" ? "Head Coach" : "Assistant"}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{coach?.can_drive ? "🚗 Yes" : "No"}</TableCell>
-                              <TableCell className="text-sm text-muted-foreground">{a.notes || "—"}</TableCell>
-                              <TableCell>
-                                <Button variant="ghost" size="sm" onClick={() => handleRemove(a.id)} className="text-destructive">Remove</Button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
+                    <Card className="border shadow-none">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Coach</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead>Driver</TableHead>
+                            <TableHead>Notes</TableHead>
+                            <TableHead></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {campAssignments.map(a => {
+                            const coach = mockCoaches.find(c => c.id === a.coach_id);
+                            return (
+                              <TableRow key={a.id}>
+                                <TableCell className="font-medium">{coach?.full_name}</TableCell>
+                                <TableCell>
+                                  <Badge variant={a.role === "head_coach" ? "default" : "secondary"}>
+                                    {a.role === "head_coach" ? "Head Coach" : "Assistant"}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{coach?.can_drive ? "🚗 Yes" : "No"}</TableCell>
+                                <TableCell className="text-sm text-muted-foreground">{a.notes || "—"}</TableCell>
+                                <TableCell>
+                                  <Button variant="ghost" size="sm" onClick={() => handleRemove(a.id)} className="text-destructive hover:text-destructive">Remove</Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </Card>
                   )}
 
                   {!campAssignments.some(a => a.role === "head_coach") && (

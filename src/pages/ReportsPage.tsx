@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { BarChart3, TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart3, TrendingUp, TrendingDown, Minus, Tent, Users, Receipt, Wallet } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,7 +17,6 @@ const ReportsPage = () => {
   const [countyFilter, setCountyFilter] = useState("All");
   const [clubFilter, setClubFilter] = useState("All");
 
-  // Filtered camps
   const filteredCamps = useMemo(() => {
     return mockCamps.filter(c => {
       const year = c.start_date.substring(0, 4);
@@ -40,16 +39,13 @@ const ReportsPage = () => {
     const camp = filteredCamps.find(c => c.id === b.camp_id);
     return sum + (camp?.price_per_child || 0);
   }, 0);
-
   const totalPayroll = mockPayrollRecords
     .filter(p => filteredCamps.some(c => c.id === p.camp_id))
     .reduce((s, p) => s + p.total_amount, 0);
-
   const totalClubPayments = mockClubInvoices
     .filter(i => filteredCamps.some(c => c.id === i.camp_id))
     .reduce((s, i) => s + (i.manual_amount ?? i.total_amount), 0);
 
-  // Growth data
   const clubs = [...new Set(mockHistoricalCamps.map(h => h.club_name))];
   const growthData = clubs.map(club => {
     const years = mockHistoricalCamps.filter(h => h.club_name === club).sort((a, b) => a.year - b.year);
@@ -59,7 +55,6 @@ const ReportsPage = () => {
     return { club, years, growth };
   });
 
-  // Chart data
   const chartData = SEASONS.map(year => {
     const entry: Record<string, string | number> = { year };
     clubs.forEach(club => {
@@ -73,10 +68,10 @@ const ReportsPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold">Reports</h1>
-          <p className="text-muted-foreground">Operational insights and camp growth</p>
+          <h1 className="text-2xl font-bold tracking-tight">Reports</h1>
+          <p className="text-muted-foreground text-sm">Operational insights and camp growth</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Select value={seasonFilter} onValueChange={setSeasonFilter}>
@@ -94,29 +89,28 @@ const ReportsPage = () => {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Camps</p><p className="text-2xl font-bold">{totalCamps}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Players</p><p className="text-2xl font-bold">{totalPlayers}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Avg Size</p><p className="text-2xl font-bold">{avgCampSize}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Revenue</p><p className="text-2xl font-bold">€{totalRevenue.toLocaleString()}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Payroll</p><p className="text-2xl font-bold">€{totalPayroll.toLocaleString()}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Club Payments</p><p className="text-2xl font-bold">€{totalClubPayments.toLocaleString()}</p></CardContent></Card>
+      <div className="stat-grid">
+        <StatCard label="Camps" value={totalCamps} icon={Tent} />
+        <StatCard label="Players" value={totalPlayers} icon={Users} />
+        <StatCard label="Avg Size" value={avgCampSize} />
+        <StatCard label="Revenue" value={`€${totalRevenue.toLocaleString()}`} icon={Receipt} />
+        <StatCard label="Payroll" value={`€${totalPayroll.toLocaleString()}`} icon={Wallet} />
+        <StatCard label="Club Payments" value={`€${totalClubPayments.toLocaleString()}`} />
       </div>
 
       {/* Growth Chart */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2"><BarChart3 className="h-5 w-5 text-primary" />Player Growth by Club</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <div className="p-4 sm:p-5 border-b">
+          <h3 className="font-semibold flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" />Player Growth by Club</h3>
+        </div>
+        <CardContent className="p-4 sm:p-5">
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="year" className="text-xs" />
                 <YAxis className="text-xs" />
-                <Tooltip contentStyle={{ borderRadius: "0.5rem", border: "1px solid hsl(var(--border))" }} />
+                <Tooltip contentStyle={{ borderRadius: "0.5rem", border: "1px solid hsl(var(--border))", fontSize: "0.875rem" }} />
                 <Legend />
                 {clubs.map((club, i) => (
                   <Bar key={club} dataKey={club} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} />
@@ -129,42 +123,40 @@ const ReportsPage = () => {
 
       {/* Growth Table */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Camp Growth Overview</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Club</TableHead>
-                {SEASONS.map(y => <TableHead key={y}>{y} Players</TableHead>)}
-                <TableHead>Growth</TableHead>
-                <TableHead>Trend</TableHead>
+        <div className="p-4 sm:p-5 border-b">
+          <h3 className="font-semibold">Camp Growth Overview</h3>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Club</TableHead>
+              {SEASONS.map(y => <TableHead key={y}>{y} Players</TableHead>)}
+              <TableHead>Growth</TableHead>
+              <TableHead>Trend</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {growthData.map(({ club, years, growth }) => (
+              <TableRow key={club}>
+                <TableCell className="font-medium">{club}</TableCell>
+                {SEASONS.map(y => {
+                  const record = years.find(yr => yr.year === Number(y));
+                  return <TableCell key={y}>{record?.players || "—"}</TableCell>;
+                })}
+                <TableCell>
+                  <span className={growth > 0 ? "text-[hsl(var(--success))]" : growth < 0 ? "text-destructive" : ""}>
+                    {growth > 0 ? "+" : ""}{growth.toFixed(0)}%
+                  </span>
+                </TableCell>
+                <TableCell>
+                  {growth > 0 ? <TrendingUp className="h-4 w-4 text-[hsl(var(--success))]" /> :
+                   growth < 0 ? <TrendingDown className="h-4 w-4 text-destructive" /> :
+                   <Minus className="h-4 w-4 text-muted-foreground" />}
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {growthData.map(({ club, years, growth }) => (
-                <TableRow key={club}>
-                  <TableCell className="font-medium">{club}</TableCell>
-                  {SEASONS.map(y => {
-                    const record = years.find(yr => yr.year === Number(y));
-                    return <TableCell key={y}>{record?.players || "—"}</TableCell>;
-                  })}
-                  <TableCell>
-                    <span className={growth > 0 ? "text-[hsl(var(--success))]" : growth < 0 ? "text-destructive" : ""}>
-                      {growth > 0 ? "+" : ""}{growth.toFixed(0)}%
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {growth > 0 ? <TrendingUp className="h-4 w-4 text-[hsl(var(--success))]" /> :
-                     growth < 0 ? <TrendingDown className="h-4 w-4 text-destructive" /> :
-                     <Minus className="h-4 w-4 text-muted-foreground" />}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
+            ))}
+          </TableBody>
+        </Table>
       </Card>
     </div>
   );
