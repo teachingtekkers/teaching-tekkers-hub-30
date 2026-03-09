@@ -1,4 +1,4 @@
-import { Camp, Player, Booking, Coach, CampCoachAssignment, AttendanceRecord, PayrollRecord, ClubInvoice, FixtureSet, FixtureTeam, FixtureMatch, SessionPlanCategory, SessionPlan, SessionPlanAssignment, EquipmentItem, EquipmentAssignment } from '@/types';
+import { Camp, Player, Booking, Coach, CampCoachAssignment, AttendanceRecord, PayrollRecord, ClubInvoice, FixtureSet, FixtureTeam, FixtureMatch, SessionPlanCategory, SessionPlan, SessionPlanAssignment, EquipmentItem, EquipmentAssignment, MessageTemplate, Proposal } from '@/types';
 
 export const mockCamps: Camp[] = [
   { id: '1', name: 'Easter Camp 2026', club_name: 'Kilmacud Crokes', venue: 'Silverpark', county: 'Dublin', start_date: '2026-03-09', end_date: '2026-03-13', daily_start_time: '10:00', daily_end_time: '15:00', age_group: 'U8-U12', capacity: 40, price_per_child: 120, created_at: '2026-01-15' },
