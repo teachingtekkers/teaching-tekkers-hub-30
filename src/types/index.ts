@@ -44,13 +44,19 @@ export interface Coach {
   can_drive: boolean;
   is_head_coach: boolean;
   notes: string | null;
+  daily_rate: number;
+  head_coach_daily_rate: number;
+  fuel_allowance_eligible: boolean;
   created_at: string;
 }
 
-export interface CampCoach {
+export interface CampCoachAssignment {
   id: string;
   camp_id: string;
   coach_id: string;
+  role: 'head_coach' | 'assistant';
+  notes: string | null;
+  created_at: string;
 }
 
 export interface AttendanceRecord {
@@ -59,6 +65,33 @@ export interface AttendanceRecord {
   player_id: string;
   date: string;
   status: 'present' | 'absent';
+}
+
+export interface PayrollRecord {
+  id: string;
+  coach_id: string;
+  camp_id: string;
+  week_start: string;
+  days_worked: number;
+  daily_rate_used: number;
+  fuel_allowance: number;
+  manual_adjustment: number;
+  total_amount: number;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface ClubInvoice {
+  id: string;
+  camp_id: string;
+  club_name: string;
+  attendance_count: number;
+  rate_per_child: number;
+  total_amount: number;
+  manual_amount: number | null;
+  status: 'draft' | 'sent' | 'paid';
+  notes: string | null;
+  created_at: string;
 }
 
 export type UserRole = 'admin' | 'head_coach';
