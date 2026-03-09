@@ -22,6 +22,7 @@ const CoachesPage = () => {
   const [form, setForm] = useState({
     full_name: "", phone: "", email: "",
     can_drive: false, is_head_coach: false, notes: "",
+    daily_rate: 100, head_coach_daily_rate: 0, fuel_allowance_eligible: false,
   });
 
   const handleCreate = (e: React.FormEvent) => {
@@ -34,7 +35,7 @@ const CoachesPage = () => {
     };
     setCoaches([...coaches, newCoach]);
     setOpen(false);
-    setForm({ full_name: "", phone: "", email: "", can_drive: false, is_head_coach: false, notes: "" });
+    setForm({ full_name: "", phone: "", email: "", can_drive: false, is_head_coach: false, notes: "", daily_rate: 100, head_coach_daily_rate: 0, fuel_allowance_eligible: false });
   };
 
   return (
@@ -75,6 +76,20 @@ const CoachesPage = () => {
                 <Label>Head Coach</Label>
                 <Switch checked={form.is_head_coach} onCheckedChange={v => setForm({...form, is_head_coach: v})} />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Daily Rate (€)</Label>
+                  <Input type="number" value={form.daily_rate} onChange={e => setForm({...form, daily_rate: Number(e.target.value)})} required />
+                </div>
+                <div className="space-y-1">
+                  <Label>Head Coach Rate (€)</Label>
+                  <Input type="number" value={form.head_coach_daily_rate} onChange={e => setForm({...form, head_coach_daily_rate: Number(e.target.value)})} />
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <Label>Fuel Allowance Eligible</Label>
+                <Switch checked={form.fuel_allowance_eligible} onCheckedChange={v => setForm({...form, fuel_allowance_eligible: v})} />
+              </div>
               <div className="space-y-1">
                 <Label>Notes</Label>
                 <Textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} />
@@ -100,6 +115,7 @@ const CoachesPage = () => {
               <div className="space-y-1 text-sm text-muted-foreground">
                 <p className="flex items-center gap-1"><Phone className="h-3 w-3" />{coach.phone}</p>
                 <p className="flex items-center gap-1"><Mail className="h-3 w-3" />{coach.email}</p>
+                <p>€{coach.daily_rate}/day {coach.fuel_allowance_eligible ? "• ⛽ Fuel" : ""}</p>
               </div>
               {coach.notes && <p className="text-sm">{coach.notes}</p>}
             </CardContent>
@@ -118,6 +134,8 @@ const CoachesPage = () => {
                 <TableHead>Email</TableHead>
                 <TableHead>Drive</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Rate</TableHead>
+                <TableHead>Fuel</TableHead>
                 <TableHead>Notes</TableHead>
               </TableRow>
             </TableHeader>
@@ -129,6 +147,8 @@ const CoachesPage = () => {
                   <TableCell>{coach.email}</TableCell>
                   <TableCell>{coach.can_drive ? '✓' : '✗'}</TableCell>
                   <TableCell>{coach.is_head_coach ? <Badge>Head Coach</Badge> : <Badge variant="secondary">Coach</Badge>}</TableCell>
+                  <TableCell>€{coach.daily_rate}{coach.is_head_coach ? ` / €${coach.head_coach_daily_rate}` : ""}</TableCell>
+                  <TableCell>{coach.fuel_allowance_eligible ? "✓" : "✗"}</TableCell>
                   <TableCell className="max-w-48 text-sm text-muted-foreground">{coach.notes || '—'}</TableCell>
                 </TableRow>
               ))}
