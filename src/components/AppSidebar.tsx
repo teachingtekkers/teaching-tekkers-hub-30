@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Tent, Users, UserCog, ClipboardCheck, Trophy, LogOut,
-  Gauge, CalendarClock, DollarSign, FileText, Swords, BookOpen, Package,
-  MessageSquare, FileBarChart, BarChart3,
+  CalendarClock, DollarSign, FileText, Swords, BookOpen, BarChart3,
+  Briefcase, CreditCard, Calendar, FileCheck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -9,48 +9,46 @@ import {
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
 
-const overviewItems = [
+/* ── Admin: Seasonal Camps ── */
+const seasonalCampsItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Control Centre", url: "/control-centre", icon: Gauge },
-];
-
-const operationsItems = [
   { title: "Camps", url: "/camps", icon: Tent },
-  { title: "Roster", url: "/roster", icon: CalendarClock },
-  { title: "Attendance", url: "/attendance", icon: ClipboardCheck },
-  { title: "Fixtures", url: "/fixtures", icon: Swords },
-  { title: "Session Plans", url: "/session-plans", icon: BookOpen },
-  { title: "Equipment", url: "/equipment", icon: Package },
-];
-
-const peopleItems = [
-  { title: "Players", url: "/players", icon: Users },
-  { title: "Coaches", url: "/coaches", icon: UserCog },
-];
-
-const financeItems = [
+  { title: "Bookings", url: "/players", icon: Users },
+  { title: "Coach Profiles", url: "/coaches", icon: UserCog },
+  { title: "Roster Generator", url: "/roster", icon: CalendarClock },
   { title: "Payroll", url: "/payroll", icon: DollarSign },
-  { title: "Invoices", url: "/invoices", icon: FileText },
-];
-
-const toolsItems = [
-  { title: "Communications", url: "/communications", icon: MessageSquare },
-  { title: "Proposals", url: "/proposals", icon: FileBarChart },
+  { title: "Club Payments", url: "/invoices", icon: FileText },
   { title: "Reports", url: "/reports", icon: BarChart3 },
 ];
 
-const coachItems = [
-  { title: "My Camps", url: "/my-camps", icon: Trophy },
-  { title: "Session Plans", url: "/coach-session-plans", icon: BookOpen },
+/* ── Admin: Private Coaching ── */
+const privateCoachingItems = [
+  { title: "Dashboard", url: "/private/dashboard", icon: LayoutDashboard },
+  { title: "Sessions", url: "/private/sessions", icon: Briefcase },
+  { title: "Bookings", url: "/private/bookings", icon: Calendar },
+  { title: "Payments", url: "/private/payments", icon: CreditCard },
 ];
 
-export function AppSidebar() {
+/* ── Head Coach ── */
+const headCoachItems = [
+  { title: "My Camps", url: "/coach/my-camps", icon: Trophy },
+  { title: "Attendance", url: "/coach/attendance", icon: ClipboardCheck },
+  { title: "Fixtures", url: "/coach/fixtures", icon: Swords },
+  { title: "Session Plans", url: "/coach/session-plans", icon: BookOpen },
+  { title: "Camp Itinerary", url: "/coach/itinerary", icon: FileCheck },
+];
+
+interface AppSidebarProps {
+  role: "admin" | "head_coach";
+}
+
+export function AppSidebar({ role }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
   const renderItems = (items: { title: string; url: string; icon: React.ElementType }[]) =>
     items.map((item) => (
-      <SidebarMenuItem key={item.title}>
+      <SidebarMenuItem key={item.url}>
         <SidebarMenuButton asChild>
           <NavLink
             to={item.url}
@@ -77,6 +75,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarContent className="bg-sidebar">
+        {/* Brand */}
         <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary shrink-0">
             <Trophy className="h-4.5 w-4.5 text-sidebar-primary-foreground" />
@@ -84,20 +83,22 @@ export function AppSidebar() {
           {!collapsed && (
             <div>
               <p className="text-sm font-bold text-sidebar-primary-foreground leading-tight">Teaching Tekkers</p>
-              <p className="text-[11px] text-sidebar-foreground/50">Operations Platform</p>
+              <p className="text-[11px] text-sidebar-foreground/50">
+                {role === "admin" ? "Admin" : "Head Coach"}
+              </p>
             </div>
           )}
         </div>
 
-        {renderGroup("Overview", overviewItems)}
-        {renderGroup("Operations", operationsItems)}
-        {renderGroup("People", peopleItems)}
-        {renderGroup("Finance", financeItems)}
-        {renderGroup("Tools", toolsItems)}
-
-        <div className="my-2 mx-4 border-t border-sidebar-border" />
-
-        {renderGroup("Coach Portal", coachItems)}
+        {role === "admin" ? (
+          <>
+            {renderGroup("Seasonal Camps", seasonalCampsItems)}
+            <div className="my-1 mx-4 border-t border-sidebar-border" />
+            {renderGroup("Private Coaching", privateCoachingItems)}
+          </>
+        ) : (
+          renderGroup("Head Coach", headCoachItems)
+        )}
       </SidebarContent>
 
       <SidebarFooter className="bg-sidebar border-t border-sidebar-border">
