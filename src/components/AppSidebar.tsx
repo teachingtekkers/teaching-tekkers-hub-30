@@ -1,31 +1,12 @@
 import {
-  LayoutDashboard,
-  Tent,
-  Users,
-  UserCog,
-  ClipboardCheck,
-  Trophy,
-  LogOut,
-  Gauge,
-  CalendarClock,
-  DollarSign,
-  FileText,
-  Swords,
-  BookOpen,
-  Package,
+  LayoutDashboard, Tent, Users, UserCog, ClipboardCheck, Trophy, LogOut,
+  Gauge, CalendarClock, DollarSign, FileText, Swords, BookOpen, Package,
+  MessageSquare, FileBarChart, BarChart3,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarFooter,
-  useSidebar,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
+  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
 
 const adminItems = [
@@ -49,6 +30,12 @@ const campToolsItems = [
   { title: "Equipment", url: "/equipment", icon: Package },
 ];
 
+const businessItems = [
+  { title: "Communications", url: "/communications", icon: MessageSquare },
+  { title: "Proposals", url: "/proposals", icon: FileBarChart },
+  { title: "Reports", url: "/reports", icon: BarChart3 },
+];
+
 const coachItems = [
   { title: "My Camps", url: "/my-camps", icon: Trophy },
   { title: "Session Plans", url: "/coach-session-plans", icon: BookOpen },
@@ -62,18 +49,20 @@ export function AppSidebar() {
     items.map((item) => (
       <SidebarMenuItem key={item.title}>
         <SidebarMenuButton asChild>
-          <NavLink
-            to={item.url}
-            end
-            className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-          >
+          <NavLink to={item.url} end className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" activeClassName="bg-sidebar-accent text-sidebar-primary font-medium">
             <item.icon className="mr-2 h-4 w-4" />
             {!collapsed && <span>{item.title}</span>}
           </NavLink>
         </SidebarMenuButton>
       </SidebarMenuItem>
     ));
+
+  const renderGroup = (label: string, items: { title: string; url: string; icon: React.ElementType }[]) => (
+    <SidebarGroup>
+      <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">{label}</SidebarGroupLabel>
+      <SidebarGroupContent><SidebarMenu>{renderItems(items)}</SidebarMenu></SidebarGroupContent>
+    </SidebarGroup>
+  );
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -90,25 +79,11 @@ export function AppSidebar() {
           )}
         </div>
 
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">Admin</SidebarGroupLabel>
-          <SidebarGroupContent><SidebarMenu>{renderItems(adminItems)}</SidebarMenu></SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">Operations</SidebarGroupLabel>
-          <SidebarGroupContent><SidebarMenu>{renderItems(operationsItems)}</SidebarMenu></SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">Camp Tools</SidebarGroupLabel>
-          <SidebarGroupContent><SidebarMenu>{renderItems(campToolsItems)}</SidebarMenu></SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">Coach Portal</SidebarGroupLabel>
-          <SidebarGroupContent><SidebarMenu>{renderItems(coachItems)}</SidebarMenu></SidebarGroupContent>
-        </SidebarGroup>
+        {renderGroup("Admin", adminItems)}
+        {renderGroup("Operations", operationsItems)}
+        {renderGroup("Camp Tools", campToolsItems)}
+        {renderGroup("Business", businessItems)}
+        {renderGroup("Coach Portal", coachItems)}
       </SidebarContent>
 
       <SidebarFooter className="bg-sidebar border-t border-sidebar-border">
