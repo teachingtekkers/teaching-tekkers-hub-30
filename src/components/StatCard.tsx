@@ -1,27 +1,40 @@
 import { LucideIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 interface StatCardProps {
   title: string;
   value: string | number;
   icon: LucideIcon;
   description?: string;
+  trend?: string;
+  variant?: "default" | "success" | "warning" | "destructive";
 }
 
-export function StatCard({ title, value, icon: Icon, description }: StatCardProps) {
+export function StatCard({ title, value, icon: Icon, description, trend, variant = "default" }: StatCardProps) {
+  const iconBg = {
+    default: "bg-accent text-primary",
+    success: "bg-[hsl(var(--success)/0.1)] text-[hsl(var(--success))]",
+    warning: "bg-[hsl(var(--warning)/0.1)] text-[hsl(var(--warning))]",
+    destructive: "bg-destructive/10 text-destructive",
+  }[variant];
+
   return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">{title}</p>
-            <p className="text-3xl font-bold mt-1">{value}</p>
+    <Card className="relative overflow-hidden">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{title}</p>
+            <p className="text-2xl font-bold tracking-tight">{value}</p>
             {description && (
-              <p className="text-xs text-muted-foreground mt-1">{description}</p>
+              <p className="text-xs text-muted-foreground">{description}</p>
+            )}
+            {trend && (
+              <p className="text-xs font-medium text-[hsl(var(--success))]">{trend}</p>
             )}
           </div>
-          <div className="h-12 w-12 rounded-xl bg-accent flex items-center justify-center">
-            <Icon className="h-6 w-6 text-primary" />
+          <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center shrink-0", iconBg)}>
+            <Icon className="h-5 w-5" />
           </div>
         </div>
       </CardContent>

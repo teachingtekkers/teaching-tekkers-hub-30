@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { mockCamps, mockBookings, mockPlayers, mockAttendance } from "@/data/mock";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -8,6 +8,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Heart, Users, CheckCircle } from "lucide-react";
 import { AttendanceRecord } from "@/types";
 
 const AttendancePage = () => {
@@ -33,17 +34,13 @@ const AttendancePage = () => {
     );
     if (existing) {
       setAttendance(attendance.map(a =>
-        a.id === existing.id
-          ? { ...a, status: a.status === 'present' ? 'absent' : 'present' }
-          : a
+        a.id === existing.id ? { ...a, status: a.status === 'present' ? 'absent' : 'present' } : a
       ));
     } else {
       setAttendance([...attendance, {
         id: String(attendance.length + 1),
-        camp_id: selectedCamp,
-        player_id: playerId,
-        date: selectedDate,
-        status: 'present',
+        camp_id: selectedCamp, player_id: playerId,
+        date: selectedDate, status: 'present',
       }]);
     }
   };
@@ -53,29 +50,27 @@ const AttendancePage = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Attendance</h1>
-        <p className="text-muted-foreground">Mark daily attendance for camp players</p>
+      <div className="page-header">
+        <h1>Attendance</h1>
+        <p>Mark daily attendance for camp players</p>
       </div>
 
       <Card>
         <CardContent className="p-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label>Camp</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Camp</Label>
               <Select value={selectedCamp} onValueChange={setSelectedCamp}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select camp" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select camp" /></SelectTrigger>
                 <SelectContent>
                   {mockCamps.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.name} — {c.club_name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label>Date</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Date</Label>
               <Input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
             </div>
           </div>
@@ -83,40 +78,64 @@ const AttendancePage = () => {
       </Card>
 
       {camp && (
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">{camp.name} — {selectedDate}</CardTitle>
-              <Badge variant="secondary">{presentCount}/{campPlayers.length} present</Badge>
+        <>
+          {/* Status bar */}
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{camp.name}</span>
+              <span className="text-sm text-muted-foreground">• {selectedDate}</span>
             </div>
-          </CardHeader>
-          <CardContent>
-            {campPlayers.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No players booked for this camp.</p>
-            ) : (
-              <div className="divide-y">
-                {campPlayers.map(player => (
+            <Badge variant={presentCount === campPlayers.length ? "default" : "secondary"} className="gap-1 text-xs">
+              <CheckCircle className="h-3 w-3" />
+              {presentCount}/{campPlayers.length}
+            </Badge>
+          </div>
+
+          {campPlayers.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No players booked for this camp.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-1">
+              {campPlayers.map(player => {
+                const isPresent = getStatus(player.id);
+                return (
                   <div
                     key={player.id}
-                    className="flex items-center justify-between py-3 cursor-pointer hover:bg-accent/50 rounded px-2 -mx-2"
+                    className={`flex items-center justify-between p-3.5 rounded-lg border cursor-pointer transition-colors ${
+                      isPresent ? 'bg-[hsl(var(--success)/0.04)] border-[hsl(var(--success)/0.2)]' : 'bg-card hover:bg-accent/30'
+                    }`}
                     onClick={() => toggleAttendance(player.id)}
                   >
-                    <div>
-                      <p className="font-medium">{player.first_name} {player.last_name}</p>
-                      {player.medical_notes && (
-                        <p className="text-xs text-destructive">⚕ {player.medical_notes}</p>
-                      )}
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={isPresent}
+                        onCheckedChange={() => toggleAttendance(player.id)}
+                        className="h-5 w-5"
+                      />
+                      <div>
+                        <p className="font-medium text-sm">{player.first_name} {player.last_name}</p>
+                        {player.medical_notes && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Heart className="h-3 w-3 text-destructive shrink-0" />
+                            <p className="text-xs text-destructive">{player.medical_notes}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <Checkbox
-                      checked={getStatus(player.id)}
-                      onCheckedChange={() => toggleAttendance(player.id)}
-                    />
+                    <Badge variant={isPresent ? "default" : "secondary"} className="text-[10px] shrink-0">
+                      {isPresent ? "Present" : "Absent"}
+                    </Badge>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
