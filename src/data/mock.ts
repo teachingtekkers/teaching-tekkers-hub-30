@@ -1,4 +1,4 @@
-import { Camp, Player, Booking, Coach, CampCoach, AttendanceRecord } from '@/types';
+import { Camp, Player, Booking, Coach, CampCoachAssignment, AttendanceRecord, PayrollRecord, ClubInvoice } from '@/types';
 
 export const mockCamps: Camp[] = [
   {
@@ -65,19 +65,42 @@ export const mockBookings: Booking[] = [
 ];
 
 export const mockCoaches: Coach[] = [
-  { id: '1', full_name: 'Darren Byrne', phone: '087 111 2222', email: 'darren@teachingtekkers.com', can_drive: true, is_head_coach: true, notes: 'UEFA B Licence', created_at: '2025-09-01' },
-  { id: '2', full_name: 'Sarah Fitzgerald', phone: '086 333 4444', email: 'sarah@teachingtekkers.com', can_drive: true, is_head_coach: true, notes: 'FAI Youth Cert', created_at: '2025-09-15' },
-  { id: '3', full_name: 'Mark Nolan', phone: '085 555 6666', email: 'mark@teachingtekkers.com', can_drive: false, is_head_coach: false, notes: null, created_at: '2025-10-01' },
+  { id: '1', full_name: 'Darren Byrne', phone: '087 111 2222', email: 'darren@teachingtekkers.com', can_drive: true, is_head_coach: true, notes: 'UEFA B Licence', daily_rate: 120, head_coach_daily_rate: 150, fuel_allowance_eligible: true, created_at: '2025-09-01' },
+  { id: '2', full_name: 'Sarah Fitzgerald', phone: '086 333 4444', email: 'sarah@teachingtekkers.com', can_drive: true, is_head_coach: true, notes: 'FAI Youth Cert', daily_rate: 120, head_coach_daily_rate: 150, fuel_allowance_eligible: true, created_at: '2025-09-15' },
+  { id: '3', full_name: 'Mark Nolan', phone: '085 555 6666', email: 'mark@teachingtekkers.com', can_drive: false, is_head_coach: false, notes: null, daily_rate: 100, head_coach_daily_rate: 0, fuel_allowance_eligible: false, created_at: '2025-10-01' },
 ];
 
-export const mockCampCoaches: CampCoach[] = [
-  { id: '1', camp_id: '1', coach_id: '1' },
-  { id: '2', camp_id: '1', coach_id: '3' },
-  { id: '3', camp_id: '2', coach_id: '2' },
+export const mockCampCoaches: CampCoachAssignment[] = [
+  { id: '1', camp_id: '1', coach_id: '1', role: 'head_coach', notes: null, created_at: '2026-02-15' },
+  { id: '2', camp_id: '1', coach_id: '3', role: 'assistant', notes: null, created_at: '2026-02-15' },
+  { id: '3', camp_id: '2', coach_id: '2', role: 'head_coach', notes: null, created_at: '2026-02-20' },
 ];
 
 export const mockAttendance: AttendanceRecord[] = [
   { id: '1', camp_id: '1', player_id: '1', date: '2026-03-09', status: 'present' },
   { id: '2', camp_id: '1', player_id: '2', date: '2026-03-09', status: 'present' },
   { id: '3', camp_id: '1', player_id: '3', date: '2026-03-09', status: 'absent' },
+  { id: '4', camp_id: '2', player_id: '4', date: '2026-03-09', status: 'present' },
+  { id: '5', camp_id: '2', player_id: '5', date: '2026-03-09', status: 'present' },
 ];
+
+export const mockPayrollRecords: PayrollRecord[] = [
+  { id: '1', coach_id: '1', camp_id: '1', week_start: '2026-03-09', days_worked: 5, daily_rate_used: 150, fuel_allowance: 30, manual_adjustment: 0, total_amount: 780, notes: null, created_at: '2026-03-13' },
+  { id: '2', coach_id: '3', camp_id: '1', week_start: '2026-03-09', days_worked: 5, daily_rate_used: 100, fuel_allowance: 0, manual_adjustment: 0, total_amount: 500, notes: null, created_at: '2026-03-13' },
+  { id: '3', coach_id: '2', camp_id: '2', week_start: '2026-03-09', days_worked: 3, daily_rate_used: 150, fuel_allowance: 20, manual_adjustment: 0, total_amount: 470, notes: null, created_at: '2026-03-11' },
+];
+
+export const mockClubInvoices: ClubInvoice[] = [
+  { id: '1', camp_id: '1', club_name: 'Kilmacud Crokes', attendance_count: 2, rate_per_child: 15, total_amount: 30, manual_amount: null, status: 'draft', notes: null, created_at: '2026-03-13' },
+  { id: '2', camp_id: '2', club_name: 'Foxrock Cabinteely', attendance_count: 2, rate_per_child: 15, total_amount: 30, manual_amount: null, status: 'sent', notes: null, created_at: '2026-03-11' },
+];
+
+// Utility functions
+export const getCoachesRequired = (playerCount: number): number => Math.ceil(playerCount / 15);
+
+export const getCampDays = (startDate: string, endDate: string): number => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffTime = Math.abs(end.getTime() - start.getTime());
+  return Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+};
