@@ -1,51 +1,9 @@
-import { Camp, Player, Booking, Coach, CampCoachAssignment, AttendanceRecord, PayrollRecord, ClubInvoice } from '@/types';
+import { Camp, Player, Booking, Coach, CampCoachAssignment, AttendanceRecord, PayrollRecord, ClubInvoice, FixtureSet, FixtureTeam, FixtureMatch, SessionPlanCategory, SessionPlan, SessionPlanAssignment, EquipmentItem, EquipmentAssignment } from '@/types';
 
 export const mockCamps: Camp[] = [
-  {
-    id: '1',
-    name: 'Easter Camp 2026',
-    club_name: 'Kilmacud Crokes',
-    venue: 'Silverpark',
-    county: 'Dublin',
-    start_date: '2026-03-09',
-    end_date: '2026-03-13',
-    daily_start_time: '10:00',
-    daily_end_time: '15:00',
-    age_group: 'U8-U12',
-    capacity: 40,
-    price_per_child: 120,
-    created_at: '2026-01-15',
-  },
-  {
-    id: '2',
-    name: 'Spring Camp',
-    club_name: 'Foxrock Cabinteely',
-    venue: 'Kilbogget Park',
-    county: 'Dublin',
-    start_date: '2026-03-09',
-    end_date: '2026-03-11',
-    daily_start_time: '10:00',
-    daily_end_time: '14:00',
-    age_group: 'U6-U10',
-    capacity: 30,
-    price_per_child: 90,
-    created_at: '2026-02-01',
-  },
-  {
-    id: '3',
-    name: 'Summer Camp Week 1',
-    club_name: 'Bray Wanderers',
-    venue: 'Carlisle Grounds',
-    county: 'Wicklow',
-    start_date: '2026-06-29',
-    end_date: '2026-07-03',
-    daily_start_time: '10:00',
-    daily_end_time: '15:00',
-    age_group: 'U7-U14',
-    capacity: 60,
-    price_per_child: 140,
-    created_at: '2026-03-01',
-  },
+  { id: '1', name: 'Easter Camp 2026', club_name: 'Kilmacud Crokes', venue: 'Silverpark', county: 'Dublin', start_date: '2026-03-09', end_date: '2026-03-13', daily_start_time: '10:00', daily_end_time: '15:00', age_group: 'U8-U12', capacity: 40, price_per_child: 120, created_at: '2026-01-15' },
+  { id: '2', name: 'Spring Camp', club_name: 'Foxrock Cabinteely', venue: 'Kilbogget Park', county: 'Dublin', start_date: '2026-03-09', end_date: '2026-03-11', daily_start_time: '10:00', daily_end_time: '14:00', age_group: 'U6-U10', capacity: 30, price_per_child: 90, created_at: '2026-02-01' },
+  { id: '3', name: 'Summer Camp Week 1', club_name: 'Bray Wanderers', venue: 'Carlisle Grounds', county: 'Wicklow', start_date: '2026-06-29', end_date: '2026-07-03', daily_start_time: '10:00', daily_end_time: '15:00', age_group: 'U7-U14', capacity: 60, price_per_child: 140, created_at: '2026-03-01' },
 ];
 
 export const mockPlayers: Player[] = [
@@ -93,6 +51,51 @@ export const mockPayrollRecords: PayrollRecord[] = [
 export const mockClubInvoices: ClubInvoice[] = [
   { id: '1', camp_id: '1', club_name: 'Kilmacud Crokes', attendance_count: 2, rate_per_child: 15, total_amount: 30, manual_amount: null, status: 'draft', notes: null, created_at: '2026-03-13' },
   { id: '2', camp_id: '2', club_name: 'Foxrock Cabinteely', attendance_count: 2, rate_per_child: 15, total_amount: 30, manual_amount: null, status: 'sent', notes: null, created_at: '2026-03-11' },
+];
+
+// V3 Mock Data
+
+export const mockSessionCategories: SessionPlanCategory[] = [
+  { id: '1', name: 'Warm Up', created_at: '2026-01-01' },
+  { id: '2', name: 'Passing & Receiving', created_at: '2026-01-01' },
+  { id: '3', name: 'Shooting', created_at: '2026-01-01' },
+  { id: '4', name: 'Small Sided Games', created_at: '2026-01-01' },
+  { id: '5', name: 'Cool Down', created_at: '2026-01-01' },
+];
+
+export const mockSessionPlans: SessionPlan[] = [
+  { id: '1', title: 'Dynamic Warm Up Drills', category_id: '1', age_group: 'U8-U12', description: 'A set of dynamic stretches and movement drills to get players warmed up.', content: '1. Jog around the pitch (2 mins)\n2. High knees (30 secs)\n3. Butt kicks (30 secs)\n4. Side shuffles (30 secs each way)\n5. Dynamic stretches — leg swings, arm circles\n6. Short sprints with change of direction', created_at: '2026-01-10' },
+  { id: '2', title: 'Passing Triangles', category_id: '2', age_group: 'U8-U12', description: 'Triangle passing drill to improve short passing and movement.', content: '1. Set up triangles with cones (5m apart)\n2. Groups of 3 players per triangle\n3. Pass and move — follow your pass\n4. Progress: one-touch passing\n5. Progress: add a defender\n6. 10 minutes total', created_at: '2026-01-10' },
+  { id: '3', title: 'Shooting Stations', category_id: '3', age_group: 'U10-U14', description: 'Multiple shooting stations to practise finishing from different angles.', content: '1. Station A: Shooting from edge of box\n2. Station B: 1v1 with keeper\n3. Station C: Cross and finish\n4. Rotate every 3 minutes\n5. Emphasise technique over power\n6. 15 minutes total', created_at: '2026-01-12' },
+  { id: '4', title: 'World Cup Tournament', category_id: '4', age_group: 'U6-U10', description: 'Fun small-sided tournament with country team names.', content: '1. Divide into teams of 4-5\n2. Each team picks a country name\n3. Round robin format — 4 minute games\n4. Winner stays on pitch\n5. Semi-finals and final\n6. 25 minutes total', created_at: '2026-01-12' },
+];
+
+export const mockSessionAssignments: SessionPlanAssignment[] = [
+  { id: '1', session_plan_id: '1', camp_id: '1', camp_day: '2026-03-09', created_at: '2026-03-01' },
+  { id: '2', session_plan_id: '2', camp_id: '1', camp_day: '2026-03-09', created_at: '2026-03-01' },
+  { id: '3', session_plan_id: '4', camp_id: '1', camp_day: '2026-03-10', created_at: '2026-03-01' },
+  { id: '4', session_plan_id: '3', camp_id: '2', camp_day: '2026-03-09', created_at: '2026-03-01' },
+];
+
+export const mockFixtureSets: FixtureSet[] = [];
+export const mockFixtureTeams: FixtureTeam[] = [];
+export const mockFixtureMatches: FixtureMatch[] = [];
+
+export const mockEquipmentItems: EquipmentItem[] = [
+  { id: '1', name: 'Size 4 Footballs', category: 'Footballs', total_quantity: 30, notes: null, created_at: '2026-01-01' },
+  { id: '2', name: 'Size 3 Footballs', category: 'Footballs', total_quantity: 20, notes: null, created_at: '2026-01-01' },
+  { id: '3', name: 'Training Bibs (Blue)', category: 'Bibs', total_quantity: 40, notes: null, created_at: '2026-01-01' },
+  { id: '4', name: 'Training Bibs (Red)', category: 'Bibs', total_quantity: 40, notes: null, created_at: '2026-01-01' },
+  { id: '5', name: 'Cones (Flat)', category: 'Cones', total_quantity: 60, notes: null, created_at: '2026-01-01' },
+  { id: '6', name: 'Medals (Gold)', category: 'Medals', total_quantity: 100, notes: 'For camp winners', created_at: '2026-01-01' },
+  { id: '7', name: 'Camp Kit Bags', category: 'Kits', total_quantity: 10, notes: 'Main equipment bags', created_at: '2026-01-01' },
+];
+
+export const mockEquipmentAssignments: EquipmentAssignment[] = [
+  { id: '1', equipment_item_id: '1', camp_id: '1', coach_id: '1', quantity_out: 10, quantity_returned: 0, notes: null, created_at: '2026-03-08' },
+  { id: '2', equipment_item_id: '3', camp_id: '1', coach_id: '1', quantity_out: 20, quantity_returned: 0, notes: null, created_at: '2026-03-08' },
+  { id: '3', equipment_item_id: '5', camp_id: '1', coach_id: '1', quantity_out: 20, quantity_returned: 0, notes: null, created_at: '2026-03-08' },
+  { id: '4', equipment_item_id: '2', camp_id: '2', coach_id: '2', quantity_out: 8, quantity_returned: 8, notes: 'All returned', created_at: '2026-03-08' },
 ];
 
 // Utility functions

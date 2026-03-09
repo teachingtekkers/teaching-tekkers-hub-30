@@ -94,4 +94,80 @@ export interface ClubInvoice {
   created_at: string;
 }
 
+// V3 Types
+
+export interface FixtureSet {
+  id: string;
+  camp_id: string;
+  name: string;
+  format: 'group_stage' | 'knockout' | 'group_knockout';
+  teams: FixtureTeam[];
+  matches: FixtureMatch[];
+  created_at: string;
+}
+
+export interface FixtureTeam {
+  id: string;
+  fixture_set_id: string;
+  name: string;
+  colour: string;
+  created_at: string;
+}
+
+export interface FixtureMatch {
+  id: string;
+  fixture_set_id: string;
+  round_name: string;
+  kickoff_order: number;
+  home_team_id: string | null;
+  away_team_id: string | null;
+  home_score: number | null;
+  away_score: number | null;
+  created_at: string;
+}
+
+export interface SessionPlanCategory {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface SessionPlan {
+  id: string;
+  title: string;
+  category_id: string | null;
+  age_group: string;
+  description: string | null;
+  content: string | null;
+  created_at: string;
+}
+
+export interface SessionPlanAssignment {
+  id: string;
+  session_plan_id: string;
+  camp_id: string;
+  camp_day: string | null;
+  created_at: string;
+}
+
+export interface EquipmentItem {
+  id: string;
+  name: string;
+  category: string;
+  total_quantity: number;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface EquipmentAssignment {
+  id: string;
+  equipment_item_id: string;
+  camp_id: string | null;
+  coach_id: string | null;
+  quantity_out: number;
+  quantity_returned: number;
+  notes: string | null;
+  created_at: string;
+}
+
 export type UserRole = 'admin' | 'head_coach';
