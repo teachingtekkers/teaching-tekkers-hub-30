@@ -207,14 +207,16 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         const text = ev.target?.result as string;
         const { headers, rows } = parseCSV(text);
         if (headers.length > 0 && rows.length > 0) {
-          const detectedCampName = extractCampNameFromFilename(file.name);
+          const meta = extractMetadataFromFilename(file.name);
           const hasCampCol = headers.some((h) => autoMapColumn(h) === "camp_name");
           parsed.push({
             name: file.name,
             headers,
             rows,
-            campNames: hasCampCol ? detectCampNames(rows, headers) : [detectedCampName],
-            detectedCampName,
+            campNames: hasCampCol ? detectCampNames(rows, headers) : [meta.campName],
+            detectedCampName: meta.campName,
+            detectedVenue: meta.venue,
+            detectedCounty: meta.county,
           });
         }
         loaded++;
