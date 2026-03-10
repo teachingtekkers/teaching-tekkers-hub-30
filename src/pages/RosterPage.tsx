@@ -454,7 +454,7 @@ const RosterPage = () => {
                     <Save className="h-4 w-4" /> {saving ? "Saving…" : savedRosterId ? "Update Roster" : "Save Roster"}
                   </Button>
                   {rosterStatus === "draft" ? (
-                    <Button onClick={finaliseRoster} disabled={saving} variant="default" className="gap-2 bg-green-600 hover:bg-green-700">
+                    <Button onClick={finaliseRoster} disabled={saving} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-primary-foreground">
                       <CheckCircle className="h-4 w-4" /> Finalise
                     </Button>
                   ) : (
