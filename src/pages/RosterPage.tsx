@@ -354,7 +354,18 @@ const RosterPage = () => {
     const camp = camps.find(c => c.id === campId);
     if (!camp) return;
     const campDays = getCampDays(camp).map(d => format(d, "yyyy-MM-dd"));
-    setAssignments(prev => [...prev, { id: String(Date.now()), camp_id: campId, coach_id: coachId, role, days: campDays, driving_this_week: false }]);
+    // Only assign days the coach is free
+    const busyDays = getCoachBusyDays(coachId);
+    const freeDays = campDays.filter(d => !busyDays.has(d));
+    if (freeDays.length === 0) {
+      toast({ title: "No free days", description: "This coach is fully booked this week", variant: "destructive" });
+      return;
+    }
+    if (freeDays.length < campDays.length) {
+      const busyCount = campDays.length - freeDays.length;
+      sonnerToast.info(`Coach assigned to ${freeDays.length} of ${campDays.length} days (${busyCount} day${busyCount > 1 ? "s" : ""} busy at other venues)`);
+    }
+    setAssignments(prev => [...prev, { id: String(Date.now()), camp_id: campId, coach_id: coachId, role, days: freeDays, driving_this_week: false }]);
     markDirty();
   };
 
