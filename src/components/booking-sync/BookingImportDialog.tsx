@@ -48,6 +48,13 @@ const BOOKING_FIELDS = [
   { key: "kit_size", label: "Kit Size" },
   { key: "payment_status", label: "Payment Status" },
   { key: "booking_status", label: "Booking Status" },
+  { key: "total_amount", label: "Total Amount" },
+  { key: "amount_paid", label: "Amount Paid" },
+  { key: "sibling_discount", label: "Sibling Discount" },
+  { key: "refund_amount", label: "Refund Amount" },
+  { key: "amount_owed", label: "Amount Owed" },
+  { key: "payment_type", label: "Payment Type" },
+  { key: "photo_permission", label: "Photo Permission" },
 ];
 
 const ALIASES: Record<string, string[]> = {
