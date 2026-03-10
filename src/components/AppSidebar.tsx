@@ -20,6 +20,7 @@ const seasonalCampsItems = [
   { title: "Payroll", url: "/payroll", icon: DollarSign },
   { title: "Club Payments", url: "/invoices", icon: FileText },
   { title: "Reports", url: "/reports", icon: BarChart3 },
+  { title: "Booking Sync", url: "/booking-sync", icon: CloudDownload },
 ];
 
 /* ── Admin: Private Coaching ── */
