@@ -14,6 +14,7 @@ import DashboardPage from "./pages/DashboardPage";
 import CampsPage from "./pages/CampsPage";
 import PlayersPage from "./pages/PlayersPage";
 import CoachesPage from "./pages/CoachesPage";
+import CoachDetailPage from "./pages/CoachDetailPage";
 import RosterPage from "./pages/RosterPage";
 import PayrollPage from "./pages/PayrollPage";
 import InvoicesPage from "./pages/InvoicesPage";
