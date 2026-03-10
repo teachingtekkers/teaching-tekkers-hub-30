@@ -74,6 +74,7 @@ const App = () => (
               <Route path="/payroll" element={<PayrollPage />} />
               <Route path="/invoices" element={<InvoicesPage />} />
               <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/booking-sync" element={<BookingSyncPage />} />
               <Route path="/users" element={<UserManagementPage />} />
               <Route path="/private/dashboard" element={<PrivateDashboardPage />} />
               <Route path="/private/sessions" element={<PrivateSessionsPage />} />
