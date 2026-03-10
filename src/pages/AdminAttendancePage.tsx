@@ -26,11 +26,11 @@ export default function AdminAttendancePage() {
   const [attendance, setAttendance] = useState<Map<string, AttendanceRow>>(new Map());
   const [allAttendance, setAllAttendance] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
   const [sortField, setSortField] = useState<SortField>("last_name");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [pendingUpdates, setPendingUpdates] = useState<Map<string, Record<string, any>>>(new Map());
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const attendanceRef = useRef(attendance);
 
   useEffect(() => {
     (async () => {
