@@ -51,20 +51,16 @@ export interface DailyAssignment {
   camp_id: string;
   coach_id: string;
   role: "head_coach" | "assistant";
-  /** ISO date strings the coach works */
   days: string[];
   is_day1_support?: boolean;
+  /** Whether this coach is driving this week for this camp */
+  driving_this_week?: boolean;
 }
 
-/** Get weekday dates (Tue-Fri for camp weeks, or Mon-Fri) from a camp's date range */
 export function getCampDays(camp: RosterCamp): Date[] {
   const start = new Date(camp.start_date + "T00:00:00");
   const end = new Date(camp.end_date + "T00:00:00");
   return eachDayOfInterval({ start, end }).filter(d => !isWeekend(d));
-}
-
-function experienceScore(level: ExperienceLevel): number {
-  return { lead: 4, senior: 3, standard: 2, junior: 1 }[level] || 2;
 }
 
 function preferredExperience(playerCount: number): ExperienceLevel[] {
@@ -142,14 +138,12 @@ const RosterPage = () => {
     [availableCoaches, assignedCoachIds]
   );
 
-  // Auto-generate with daily grid + experience logic
   const autoGenerate = useCallback(() => {
     if (camps.length === 0 || availableCoaches.length === 0) return;
 
     const newAssignments: DailyAssignment[] = [];
     let nextId = 1;
     const used = new Set<string>();
-
     const sortedCamps = [...camps].sort((a, b) => b.required_coaches - a.required_coaches);
 
     // Pass 1: head coaches with experience matching
@@ -158,31 +152,32 @@ const RosterPage = () => {
       const preferred = preferredExperience(camp.player_count);
 
       const headCoach = availableCoaches.find(c =>
-        !used.has(c.id) &&
-        (c.is_head_coach || c.role_type === "head_coach") &&
+        !used.has(c.id) && (c.is_head_coach || c.role_type === "head_coach") &&
         preferred.includes(c.experience_level) &&
         (c.preferred_counties?.includes(camp.county) || c.local_counties?.includes(camp.county) || c.county === camp.county)
       ) || availableCoaches.find(c =>
-        !used.has(c.id) &&
-        (c.is_head_coach || c.role_type === "head_coach") &&
-        preferred.includes(c.experience_level)
+        !used.has(c.id) && (c.is_head_coach || c.role_type === "head_coach") && preferred.includes(c.experience_level)
       ) || availableCoaches.find(c =>
         !used.has(c.id) && (c.is_head_coach || c.role_type === "head_coach")
       );
 
       if (headCoach) {
-        newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: headCoach.id, role: "head_coach", days: campDays });
+        newAssignments.push({
+          id: String(nextId++), camp_id: camp.id, coach_id: headCoach.id,
+          role: "head_coach", days: campDays, driving_this_week: headCoach.can_drive,
+        });
         used.add(headCoach.id);
       }
     }
 
-    // Pass 2: drivers + fill
+    // Pass 2: minimise drivers — only assign one driver per camp if needed
     for (const camp of sortedCamps) {
       const campDays = getCampDays(camp).map(d => format(d, "yyyy-MM-dd"));
       const campAssigns = newAssignments.filter(a => a.camp_id === camp.id);
+      const hasDriver = campAssigns.some(a => a.driving_this_week);
       const remaining = camp.required_coaches - campAssigns.length;
-      const hasDriver = campAssigns.some(a => availableCoaches.find(co => co.id === a.coach_id)?.can_drive);
 
+      // Need a driver? Assign one who can drive
       if (!hasDriver && remaining > 0) {
         const driver = availableCoaches.find(c =>
           !used.has(c.id) && c.can_drive &&
@@ -190,11 +185,15 @@ const RosterPage = () => {
         ) || availableCoaches.find(c => !used.has(c.id) && c.can_drive);
 
         if (driver) {
-          newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: driver.id, role: "assistant", days: campDays });
+          newAssignments.push({
+            id: String(nextId++), camp_id: camp.id, coach_id: driver.id,
+            role: "assistant", days: campDays, driving_this_week: true,
+          });
           used.add(driver.id);
         }
       }
 
+      // Fill remaining — these are NOT driving
       const nowAssigned = newAssignments.filter(a => a.camp_id === camp.id).length;
       const stillNeeded = camp.required_coaches - nowAssigned;
       for (let i = 0; i < stillNeeded; i++) {
@@ -204,7 +203,10 @@ const RosterPage = () => {
         ) || availableCoaches.find(c => !used.has(c.id));
 
         if (coach) {
-          newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: coach.id, role: "assistant", days: campDays });
+          newAssignments.push({
+            id: String(nextId++), camp_id: camp.id, coach_id: coach.id,
+            role: "assistant", days: campDays, driving_this_week: false,
+          });
           used.add(coach.id);
         }
       }
@@ -215,7 +217,7 @@ const RosterPage = () => {
         if (day1Coach && campDays.length > 0) {
           newAssignments.push({
             id: String(nextId++), camp_id: camp.id, coach_id: day1Coach.id,
-            role: "assistant", days: [campDays[0]], is_day1_support: true,
+            role: "assistant", days: [campDays[0]], is_day1_support: true, driving_this_week: false,
           });
           used.add(day1Coach.id);
         }
@@ -226,7 +228,6 @@ const RosterPage = () => {
     toast({ title: "Roster generated", description: `${newAssignments.length} assignments across ${camps.length} camps` });
   }, [camps, availableCoaches, toast]);
 
-  // CRUD for assignments
   const removeAssignment = (assignmentId: string) => {
     setAssignments(prev => prev.filter(a => a.id !== assignmentId));
   };
@@ -235,7 +236,11 @@ const RosterPage = () => {
     const camp = camps.find(c => c.id === campId);
     if (!camp) return;
     const campDays = getCampDays(camp).map(d => format(d, "yyyy-MM-dd"));
-    setAssignments(prev => [...prev, { id: String(Date.now()), camp_id: campId, coach_id: coachId, role, days: campDays }]);
+    const coach = availableCoaches.find(c => c.id === coachId);
+    setAssignments(prev => [...prev, {
+      id: String(Date.now()), camp_id: campId, coach_id: coachId, role, days: campDays,
+      driving_this_week: false,
+    }]);
   };
 
   const addDay1Support = (campId: string, coachId: string) => {
@@ -245,7 +250,7 @@ const RosterPage = () => {
     if (campDays.length === 0) return;
     setAssignments(prev => [...prev, {
       id: String(Date.now()), camp_id: campId, coach_id: coachId,
-      role: "assistant", days: [campDays[0]], is_day1_support: true,
+      role: "assistant", days: [campDays[0]], is_day1_support: true, driving_this_week: false,
     }]);
   };
 
@@ -261,7 +266,12 @@ const RosterPage = () => {
     }));
   };
 
-  // Drag and drop
+  const toggleDrivingThisWeek = (assignmentId: string) => {
+    setAssignments(prev => prev.map(a =>
+      a.id === assignmentId ? { ...a, driving_this_week: !a.driving_this_week } : a
+    ));
+  };
+
   const handleDragStart = (coachId: string, fromCampId: string | null) => {
     setDragCoach({ coachId, fromCampId });
   };
@@ -278,7 +288,7 @@ const RosterPage = () => {
 
     setAssignments(prev => {
       let updated = fromCampId ? prev.filter(a => !(a.camp_id === fromCampId && a.coach_id === coachId)) : prev;
-      return [...updated, { id: String(Date.now()), camp_id: toCampId, coach_id: coachId, role: "assistant" as const, days: campDays }];
+      return [...updated, { id: String(Date.now()), camp_id: toCampId, coach_id: coachId, role: "assistant" as const, days: campDays, driving_this_week: false }];
     });
     setDragCoach(null);
   };
@@ -352,7 +362,6 @@ const RosterPage = () => {
             />
           )}
 
-          {/* Daily grid per camp */}
           <div className="space-y-4">
             {camps.map(camp => (
               <RosterDailyGrid
@@ -366,6 +375,7 @@ const RosterPage = () => {
                 onAddDay1Support={addDay1Support}
                 onChangeRole={changeRole}
                 onToggleDay={toggleDay}
+                onToggleDriving={toggleDrivingThisWeek}
                 onDragStart={handleDragStart}
                 onDrop={() => handleDrop(camp.id)}
                 availabilitySet={availabilitySet}
