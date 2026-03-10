@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, CheckCircle, Save, Loader2, Zap, ClipboardList } from "lucide-react";
+import { Users, CheckCircle, Save, Loader2, Zap, ClipboardList, Check } from "lucide-react";
 import { toast } from "sonner";
 import AttendanceParticipantRow, { type ParticipantData } from "@/components/attendance/AttendanceParticipantRow";
 import AttendanceSortControl, { type SortField } from "@/components/attendance/AttendanceSortControl";
@@ -38,11 +38,12 @@ export default function AttendancePage() {
   const [participants, setParticipants] = useState<ParticipantData[]>([]);
   const [attendance, setAttendance] = useState<Map<string, AttendanceRow>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
   const [sortField, setSortField] = useState<SortField>("last_name");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"admin" | "coach">("admin");
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const attendanceRef = useRef(attendance);
 
   useEffect(() => {
     (async () => {
@@ -116,36 +117,82 @@ export default function AttendancePage() {
       }
     }
     setAttendance(map);
-    setDirty(false);
   }, [selectedCamp, selectedDate]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const toggleStatus = (participantId: string) => {
+  // Keep ref in sync so persistAttendance always sees latest map
+  useEffect(() => { attendanceRef.current = attendance; }, [attendance]);
+
+  /** Persist a single attendance toggle to the database */
+  const persistAttendance = useCallback(async (participantId: string, newStatus: "present" | "absent") => {
+    if (!selectedCamp) return;
+    setAutoSaveStatus("saving");
+    clearTimeout(autoSaveTimer.current);
+
+    const existing = attendanceRef.current.get(participantId);
+    if (existing?.id) {
+      await supabase.from("attendance").update({ status: newStatus }).eq("id", existing.id);
+    } else {
+      const { data } = await supabase
+        .from("attendance")
+        .insert({ camp_id: selectedCamp, synced_booking_id: participantId, date: selectedDate, status: newStatus, note: null })
+        .select("id")
+        .single();
+      if (data) {
+        setAttendance((prev) => {
+          const next = new Map(prev);
+          const cur = next.get(participantId);
+          if (cur) next.set(participantId, { ...cur, id: data.id });
+          return next;
+        });
+      }
+    }
+    setAutoSaveStatus("saved");
+    autoSaveTimer.current = setTimeout(() => setAutoSaveStatus("idle"), 1500);
+  }, [selectedCamp, selectedDate]);
+
+  const toggleStatus = useCallback((participantId: string) => {
+    let newStatus: "present" | "absent" = "present";
     setAttendance((prev) => {
       const next = new Map(prev);
       const existing = next.get(participantId);
       if (existing) {
-        next.set(participantId, { ...existing, status: existing.status === "present" ? "absent" : "present" });
+        newStatus = existing.status === "present" ? "absent" : "present";
+        next.set(participantId, { ...existing, status: newStatus });
       } else {
+        newStatus = "present";
         next.set(participantId, { synced_booking_id: participantId, status: "present", note: null });
       }
       return next;
     });
-    setDirty(true);
-  };
+    persistAttendance(participantId, newStatus);
+  }, [persistAttendance]);
 
-  const markAllPresent = () => {
-    setAttendance(() => {
-      const next = new Map<string, AttendanceRow>();
-      for (const p of participants) {
-        const existing = attendance.get(p.id);
-        next.set(p.id, { id: existing?.id, synced_booking_id: p.id, status: "present", note: existing?.note || null });
+  const markAllPresent = useCallback(async () => {
+    if (!selectedCamp) return;
+    setAutoSaveStatus("saving");
+    clearTimeout(autoSaveTimer.current);
+
+    const newMap = new Map<string, AttendanceRow>();
+    const upserts: any[] = [];
+    const inserts: any[] = [];
+    for (const p of participants) {
+      const existing = attendanceRef.current.get(p.id);
+      newMap.set(p.id, { id: existing?.id, synced_booking_id: p.id, status: "present", note: existing?.note || null });
+      if (existing?.id) {
+        upserts.push({ id: existing.id, camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status: "present", note: existing.note });
+      } else {
+        inserts.push({ camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status: "present", note: null });
       }
-      return next;
-    });
-    setDirty(true);
-  };
+    }
+    setAttendance(newMap);
+    if (upserts.length > 0) await supabase.from("attendance").upsert(upserts);
+    if (inserts.length > 0) await supabase.from("attendance").insert(inserts);
+    setAutoSaveStatus("saved");
+    autoSaveTimer.current = setTimeout(() => setAutoSaveStatus("idle"), 1500);
+    loadData();
+  }, [selectedCamp, selectedDate, participants, loadData]);
 
   const handlePaymentUpdate = useCallback(async (bookingId: string, updates: Record<string, any>) => {
     setParticipants((prev) =>
@@ -162,75 +209,6 @@ export default function AttendancePage() {
     }
   }, []);
 
-  /** Instant-save a single attendance record (used in Coach Mode) */
-  const instantSaveAttendance = useCallback(async (participantId: string, newStatus: "present" | "absent") => {
-    if (!selectedCamp) return;
-
-    // Check if we already have an attendance row for this participant
-    const existing = attendance.get(participantId);
-
-    if (existing?.id) {
-      // Update existing row
-      await supabase
-        .from("attendance")
-        .update({ status: newStatus })
-        .eq("id", existing.id);
-    } else {
-      // Insert new row
-      const { data } = await supabase
-        .from("attendance")
-        .insert({ camp_id: selectedCamp, synced_booking_id: participantId, date: selectedDate, status: newStatus, note: null })
-        .select("id")
-        .single();
-
-      // Store the new id so future toggles use update
-      if (data) {
-        setAttendance((prev) => {
-          const next = new Map(prev);
-          const cur = next.get(participantId);
-          if (cur) next.set(participantId, { ...cur, id: data.id });
-          return next;
-        });
-      }
-    }
-  }, [selectedCamp, selectedDate, attendance]);
-
-  const saveAttendance = async () => {
-    if (!selectedCamp) return;
-    setSaving(true);
-
-    const upserts: any[] = [];
-    const inserts: any[] = [];
-
-    for (const p of participants) {
-      const row = attendance.get(p.id);
-      const status = row?.status || "absent";
-      if (row?.id) {
-        upserts.push({ id: row.id, camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status, note: row.note });
-      } else {
-        inserts.push({ camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status, note: row?.note || null });
-      }
-    }
-
-    let hasError = false;
-    if (upserts.length > 0) {
-      const { error } = await supabase.from("attendance").upsert(upserts);
-      if (error) hasError = true;
-    }
-    if (inserts.length > 0) {
-      const { error } = await supabase.from("attendance").insert(inserts);
-      if (error) hasError = true;
-    }
-
-    setSaving(false);
-    if (hasError) {
-      toast.error("Failed to save attendance");
-    } else {
-      toast.success("Attendance saved");
-      setDirty(false);
-      loadData();
-    }
-  };
 
   const getStatus = (id: string): "present" | "absent" => attendance.get(id)?.status || "absent";
   const presentCount = participants.filter((p) => getStatus(p.id) === "present").length;
@@ -281,7 +259,7 @@ export default function AttendancePage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Camp</Label>
-              <Select value={selectedCamp} onValueChange={(v) => { setSelectedCamp(v); setDirty(false); }}>
+              <Select value={selectedCamp} onValueChange={(v) => { setSelectedCamp(v); }}>
                 <SelectTrigger><SelectValue placeholder="Select camp" /></SelectTrigger>
                 <SelectContent>
                   {camps.map((c) => (
@@ -292,7 +270,7 @@ export default function AttendancePage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Date</Label>
-              <Input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setDirty(false); }} />
+              <Input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); }} />
             </div>
           </div>
         </CardContent>
@@ -312,21 +290,18 @@ export default function AttendancePage() {
             {viewMode === "admin" && <AttendanceSortControl value={sortField} onChange={setSortField} />}
           </div>
 
-          <div className="flex gap-2 px-1">
+          <div className="flex items-center gap-2 px-1">
             <Button variant="outline" size="sm" onClick={markAllPresent} disabled={participants.length === 0}>
               Mark All Present
             </Button>
-            {viewMode === "admin" && (
-              <Button size="sm" onClick={saveAttendance} disabled={!dirty || saving} className="gap-1.5">
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                Save
-              </Button>
-            )}
-            {viewMode === "coach" && dirty && (
-              <Button size="sm" onClick={saveAttendance} disabled={saving} variant="outline" className="gap-1.5">
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                Save All
-              </Button>
+            {autoSaveStatus !== "idle" && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground animate-in fade-in duration-200">
+                {autoSaveStatus === "saving" ? (
+                  <><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>
+                ) : (
+                  <><Check className="h-3 w-3 text-emerald-600" /> Saved</>
+                )}
+              </span>
             )}
           </div>
 
@@ -342,7 +317,7 @@ export default function AttendancePage() {
               participants={sorted}
               getStatus={getStatus}
               onToggle={toggleStatus}
-              onInstantSave={instantSaveAttendance}
+              onInstantSave={persistAttendance}
             />
           ) : (
             <div className="space-y-1">
