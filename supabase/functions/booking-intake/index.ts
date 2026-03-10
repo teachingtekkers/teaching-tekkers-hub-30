@@ -26,26 +26,25 @@ interface IncomingBooking {
   booking_status?: string;
 }
 
-// Normalize text for fuzzy matching: lowercase, strip punctuation, collapse whitespace
 function normalize(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
+  return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// Strip common suffixes like WK1, WK2, Week 1, etc. for matching
+function normalizeForMatching(s: string): string {
+  return normalize(s)
+    .replace(/\b(wk\s*\d+|week\s*\d+)\b/gi, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-// Extract meaningful tokens from a camp name
 function tokenize(s: string): Set<string> {
   const stopWords = new Set(["camp", "the", "a", "an", "and", "of", "in", "at", "for"]);
   return new Set(
-    normalize(s)
-      .split(" ")
-      .filter((w) => w.length > 1 && !stopWords.has(w))
+    normalize(s).split(" ").filter((w) => w.length > 1 && !stopWords.has(w))
   );
 }
 
-// Calculate token overlap ratio (Jaccard-like)
 function tokenSimilarity(a: string, b: string): number {
   const tokA = tokenize(a);
   const tokB = tokenize(b);
@@ -57,7 +56,6 @@ function tokenSimilarity(a: string, b: string): number {
   return intersection / union;
 }
 
-// Check if camp_date falls within camp date range
 function dateOverlaps(campDate: string | undefined, startDate: string, endDate: string): boolean {
   if (!campDate) return false;
   return campDate >= startDate && campDate <= endDate;
@@ -73,49 +71,46 @@ interface CampRow {
   club_name: string;
 }
 
-function findBestCamp(
-  booking: IncomingBooking,
-  camps: CampRow[]
-): CampRow | null {
+function findBestCamp(booking: IncomingBooking, camps: CampRow[]): CampRow | null {
   if (!camps.length) return null;
 
-  // Fast path: exact normalized name match
   const bookingNameNorm = normalize(booking.camp_name);
+  const bookingNameMatch = normalizeForMatching(booking.camp_name);
+
+  // Fast path: exact normalized name match
   for (const camp of camps) {
     if (normalize(camp.name) === bookingNameNorm) return camp;
+  }
+
+  // Fast path: match after stripping WK1/Week suffixes
+  for (const camp of camps) {
+    if (normalizeForMatching(camp.name) === bookingNameMatch) return camp;
+  }
+
+  // Fast path: one name contains the other
+  for (const camp of camps) {
+    const campNorm = normalize(camp.name);
+    if (campNorm.includes(bookingNameNorm) || bookingNameNorm.includes(campNorm)) return camp;
   }
 
   type Scored = { camp: CampRow; score: number };
   const scored: Scored[] = camps.map((camp) => {
     let score = 0;
-
-    // Name similarity (0-1), weighted heavily
-    const nameSim = tokenSimilarity(booking.camp_name, camp.name);
-    score += nameSim * 60;
-
-    // Date match
+    score += tokenSimilarity(booking.camp_name, camp.name) * 60;
     if (booking.camp_date && dateOverlaps(booking.camp_date, camp.start_date, camp.end_date)) {
       score += 25;
     }
-
-    // Venue similarity
     if (booking.venue && camp.venue) {
-      const venueSim = tokenSimilarity(booking.venue, camp.venue);
-      score += venueSim * 10;
+      score += tokenSimilarity(booking.venue, camp.venue) * 10;
     }
-
-    // County exact match
     if (booking.county && camp.county && normalize(booking.county) === normalize(camp.county)) {
       score += 5;
     }
-
     return { camp, score };
   });
 
   scored.sort((a, b) => b.score - a.score);
   const best = scored[0];
-
-  // Minimum threshold: at least 25 score (lowered to catch more partial matches)
   if (best.score >= 25) return best.camp;
   return null;
 }
@@ -151,110 +146,132 @@ Deno.serve(async (req) => {
       .select("id, name, venue, county, start_date, end_date, club_name");
     const campsList: CampRow[] = allCamps || [];
 
-    let created = 0,
-      updated = 0,
-      failed = 0,
-      campsCreated = 0;
+    // Load existing external_booking_ids in one query for dedup
+    const externalIds = bookings
+      .map((b) => b.external_booking_id)
+      .filter(Boolean) as string[];
+    
+    const existingByExtId: Record<string, string> = {};
+    if (externalIds.length > 0) {
+      const { data: existingRows } = await supabase
+        .from("synced_bookings")
+        .select("id, external_booking_id")
+        .in("external_booking_id", externalIds)
+        .eq("source_system", "bookings.teachingtekkers.com");
+      (existingRows || []).forEach((r: { id: string; external_booking_id: string }) => {
+        existingByExtId[r.external_booking_id] = r.id;
+      });
+    }
+
+    let created = 0, updated = 0, failed = 0, campsCreated = 0;
     const errors: string[] = [];
 
-    for (const b of bookings) {
-      try {
-        // --- Fuzzy camp matching ---
-        let matched_camp_id: string | null = null;
-        const bestCamp = findBestCamp(b, campsList);
+    // Process bookings in batches of 10 for efficiency
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < bookings.length; i += BATCH_SIZE) {
+      const batch = bookings.slice(i, i + BATCH_SIZE);
+      const inserts: Record<string, unknown>[] = [];
+      const updates: { id: string; record: Record<string, unknown> }[] = [];
 
-        if (bestCamp) {
-          matched_camp_id = bestCamp.id;
-        } else if (b.camp_name) {
-          // Auto-create camp from booking data
-          const campDate = b.camp_date || new Date().toISOString().split("T")[0];
-          const newCamp = {
-            name: b.camp_name,
-            club_name: b.camp_name.split(/[-–]/)[0].trim() || b.camp_name,
-            venue: b.venue || "TBC",
-            county: b.county || "TBC",
-            start_date: campDate,
-            end_date: campDate,
-            age_group: "U8-U12",
-          };
-          const { data: createdCamp, error: campErr } = await supabase
-            .from("camps")
-            .insert(newCamp)
-            .select("id, name, venue, county, start_date, end_date, club_name")
-            .single();
-          if (campErr) {
-            errors.push(`Auto-create camp "${b.camp_name}": ${campErr.message}`);
-          } else if (createdCamp) {
-            matched_camp_id = createdCamp.id;
-            campsList.push(createdCamp as CampRow);
-            campsCreated++;
+      for (const b of batch) {
+        try {
+          // Camp matching
+          let matched_camp_id: string | null = null;
+          const bestCamp = findBestCamp(b, campsList);
+
+          if (bestCamp) {
+            matched_camp_id = bestCamp.id;
+          } else if (b.camp_name) {
+            // Auto-create camp
+            const campDate = b.camp_date || new Date().toISOString().split("T")[0];
+            const newCamp = {
+              name: b.camp_name,
+              club_name: b.camp_name.split(/[-–]/)[0].trim() || b.camp_name,
+              venue: b.venue || "TBC",
+              county: b.county || "TBC",
+              start_date: campDate,
+              end_date: campDate,
+              age_group: "U8-U12",
+            };
+            const { data: createdCamp, error: campErr } = await supabase
+              .from("camps")
+              .insert(newCamp)
+              .select("id, name, venue, county, start_date, end_date, club_name")
+              .single();
+            if (campErr) {
+              errors.push(`Auto-create camp "${b.camp_name}": ${campErr.message}`);
+            } else if (createdCamp) {
+              matched_camp_id = createdCamp.id;
+              campsList.push(createdCamp as CampRow);
+              campsCreated++;
+            }
           }
-        }
 
-        // Check for existing by external_booking_id
-        let existing = null;
-        if (b.external_booking_id) {
-          const { data } = await supabase
-            .from("synced_bookings")
-            .select("id")
-            .eq("external_booking_id", b.external_booking_id)
-            .eq("source_system", "bookings.teachingtekkers.com")
-            .maybeSingle();
-          existing = data;
-        }
+          const record = {
+            external_booking_id: b.external_booking_id || null,
+            camp_name: b.camp_name,
+            camp_date: b.camp_date || null,
+            venue: b.venue || null,
+            county: b.county || null,
+            child_first_name: b.child_first_name,
+            child_last_name: b.child_last_name,
+            date_of_birth: b.date_of_birth || null,
+            age: b.age || null,
+            parent_name: b.parent_name || null,
+            parent_phone: b.parent_phone || null,
+            parent_email: b.parent_email || null,
+            emergency_contact: b.emergency_contact || null,
+            medical_notes: b.medical_notes || null,
+            kit_size: b.kit_size || "M",
+            payment_status: b.payment_status || "pending",
+            booking_status: b.booking_status || "confirmed",
+            source_system: "bookings.teachingtekkers.com",
+            last_synced_at: new Date().toISOString(),
+            sync_log_id: syncLog.id,
+            matched_camp_id,
+            match_status: matched_camp_id ? "matched" : "unmatched",
+            duplicate_warning: false,
+          };
 
-        // Check duplicate by child name + camp
-        let duplicate_warning = false;
-        if (!existing) {
-          const { data: dupes } = await supabase
-            .from("synced_bookings")
-            .select("id")
-            .eq("child_first_name", b.child_first_name)
-            .eq("child_last_name", b.child_last_name)
-            .eq("camp_name", b.camp_name)
-            .limit(1);
-          if (dupes?.length) duplicate_warning = true;
-        }
+          // Check if existing by external_booking_id
+          const existingId = b.external_booking_id ? existingByExtId[b.external_booking_id] : null;
 
-        const record = {
-          external_booking_id: b.external_booking_id || null,
-          camp_name: b.camp_name,
-          camp_date: b.camp_date || null,
-          venue: b.venue || null,
-          county: b.county || null,
-          child_first_name: b.child_first_name,
-          child_last_name: b.child_last_name,
-          date_of_birth: b.date_of_birth || null,
-          age: b.age || null,
-          parent_name: b.parent_name || null,
-          parent_phone: b.parent_phone || null,
-          parent_email: b.parent_email || null,
-          emergency_contact: b.emergency_contact || null,
-          medical_notes: b.medical_notes || null,
-          kit_size: b.kit_size || "M",
-          payment_status: b.payment_status || "pending",
-          booking_status: b.booking_status || "confirmed",
-          source_system: "bookings.teachingtekkers.com",
-          last_synced_at: new Date().toISOString(),
-          sync_log_id: syncLog.id,
-          matched_camp_id,
-          match_status: matched_camp_id ? "matched" : "unmatched",
-          duplicate_warning,
-        };
-
-        if (existing) {
-          await supabase
-            .from("synced_bookings")
-            .update(record)
-            .eq("id", existing.id);
-          updated++;
-        } else {
-          await supabase.from("synced_bookings").insert(record);
-          created++;
+          if (existingId) {
+            updates.push({ id: existingId, record });
+            updated++;
+          } else {
+            inserts.push(record);
+            created++;
+          }
+        } catch (e) {
+          failed++;
+          errors.push(`${b.child_first_name} ${b.child_last_name}: ${e.message}`);
         }
-      } catch (e) {
-        failed++;
-        errors.push(`${b.child_first_name} ${b.child_last_name}: ${e.message}`);
+      }
+
+      // Batch insert new records
+      if (inserts.length > 0) {
+        const { error: insertErr } = await supabase
+          .from("synced_bookings")
+          .insert(inserts);
+        if (insertErr) {
+          failed += inserts.length;
+          created -= inserts.length;
+          errors.push(`Batch insert error: ${insertErr.message}`);
+        }
+      }
+
+      // Batch updates (still need individual updates due to different where clauses)
+      for (const u of updates) {
+        const { error: updateErr } = await supabase
+          .from("synced_bookings")
+          .update(u.record)
+          .eq("id", u.id);
+        if (updateErr) {
+          failed++;
+          updated--;
+          errors.push(`Update error: ${updateErr.message}`);
+        }
       }
     }
 
