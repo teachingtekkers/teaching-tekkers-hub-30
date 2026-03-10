@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 
 // Admin: Seasonal Camps
 import DashboardPage from "./pages/DashboardPage";
+import AdminAttendancePage from "./pages/AdminAttendancePage";
 import CampsPage from "./pages/CampsPage";
 import CampDetailPage from "./pages/CampDetailPage";
 import PlayersPage from "./pages/PlayersPage";
@@ -73,6 +74,7 @@ const App = () => (
               <Route path="/coaches" element={<CoachesPage />} />
               <Route path="/coaches/:id" element={<CoachDetailPage />} />
               <Route path="/roster" element={<RosterPage />} />
+              <Route path="/attendance" element={<AdminAttendancePage />} />
               <Route path="/payroll" element={<PayrollPage />} />
               <Route path="/invoices" element={<InvoicesPage />} />
               <Route path="/reports" element={<ReportsPage />} />
