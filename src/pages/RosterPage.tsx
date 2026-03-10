@@ -138,52 +138,77 @@ const RosterPage = () => {
     [availableCoaches, assignedCoachIds]
   );
 
+  /** Score how well a coach fits a camp (higher = better fit) */
+  const campFitScore = useCallback((coach: RosterCoach, camp: RosterCamp): number => {
+    let score = 0;
+    if (coach.county === camp.county) score += 10;
+    if (coach.local_counties?.includes(camp.county)) score += 8;
+    if (coach.preferred_counties?.includes(camp.county)) score += 6;
+    // Pickup location overlap with camp county
+    if (coach.pickup_locations?.some(p => p.toLowerCase().includes(camp.county.toLowerCase()))) score += 4;
+    if (coach.home_town && camp.venue.toLowerCase().includes(coach.home_town.toLowerCase())) score += 5;
+    return score;
+  }, []);
+
+  /** Check if two coaches share a pickup location or town */
+  const sharePickupArea = useCallback((a: RosterCoach, b: RosterCoach): boolean => {
+    if (a.home_town && b.home_town && a.home_town.toLowerCase() === b.home_town.toLowerCase()) return true;
+    if (a.county && b.county && a.county === b.county) return true;
+    const aLocs = (a.pickup_locations || []).map(l => l.toLowerCase());
+    const bLocs = (b.pickup_locations || []).map(l => l.toLowerCase());
+    return aLocs.some(l => bLocs.includes(l));
+  }, []);
+
   const autoGenerate = useCallback(() => {
     if (camps.length === 0 || availableCoaches.length === 0) return;
 
     const newAssignments: DailyAssignment[] = [];
     let nextId = 1;
     const used = new Set<string>();
-    const sortedCamps = [...camps].sort((a, b) => b.required_coaches - a.required_coaches);
+    // Sort camps biggest first for head coach priority
+    const sortedCamps = [...camps].sort((a, b) => b.player_count - a.player_count);
 
-    // Pass 1: head coaches with experience matching
+    // === PASS 1: Head Coaches — experience matched to camp size ===
     for (const camp of sortedCamps) {
       const campDays = getCampDays(camp).map(d => format(d, "yyyy-MM-dd"));
       const preferred = preferredExperience(camp.player_count);
 
-      const headCoach = availableCoaches.find(c =>
-        !used.has(c.id) && (c.is_head_coach || c.role_type === "head_coach") &&
-        preferred.includes(c.experience_level) &&
-        (c.preferred_counties?.includes(camp.county) || c.local_counties?.includes(camp.county) || c.county === camp.county)
-      ) || availableCoaches.find(c =>
-        !used.has(c.id) && (c.is_head_coach || c.role_type === "head_coach") && preferred.includes(c.experience_level)
-      ) || availableCoaches.find(c =>
-        !used.has(c.id) && (c.is_head_coach || c.role_type === "head_coach")
-      );
+      // Score all eligible HCs and pick the best fit
+      const hcCandidates = availableCoaches
+        .filter(c => !used.has(c.id) && (c.is_head_coach || c.role_type === "head_coach"))
+        .map(c => ({
+          coach: c,
+          score: (preferred.includes(c.experience_level) ? 20 : 0) + campFitScore(c, camp),
+        }))
+        .sort((a, b) => b.score - a.score);
 
+      const headCoach = hcCandidates[0]?.coach;
       if (headCoach) {
         newAssignments.push({
           id: String(nextId++), camp_id: camp.id, coach_id: headCoach.id,
-          role: "head_coach", days: campDays, driving_this_week: headCoach.can_drive,
+          role: "head_coach", days: campDays,
+          // Only set driving if HC is a driver — minimise active drivers
+          driving_this_week: headCoach.can_drive,
         });
         used.add(headCoach.id);
       }
     }
 
-    // Pass 2: minimise drivers — only assign one driver per camp if needed
+    // === PASS 2: Ensure each camp has exactly 1 active driver ===
     for (const camp of sortedCamps) {
       const campDays = getCampDays(camp).map(d => format(d, "yyyy-MM-dd"));
       const campAssigns = newAssignments.filter(a => a.camp_id === camp.id);
-      const hasDriver = campAssigns.some(a => a.driving_this_week);
+      const hasActiveDriver = campAssigns.some(a => a.driving_this_week);
       const remaining = camp.required_coaches - campAssigns.length;
 
-      // Need a driver? Assign one who can drive
-      if (!hasDriver && remaining > 0) {
-        const driver = availableCoaches.find(c =>
-          !used.has(c.id) && c.can_drive &&
-          (c.preferred_counties?.includes(camp.county) || c.local_counties?.includes(camp.county) || c.county === camp.county)
-        ) || availableCoaches.find(c => !used.has(c.id) && c.can_drive);
+      if (!hasActiveDriver && remaining > 0) {
+        // Prefer driver with best geographic fit
+        const driverCandidates = availableCoaches
+          .filter(c => !used.has(c.id) && c.can_drive)
+          .map(c => ({ coach: c, score: campFitScore(c, camp) }))
+          .sort((a, b) => b.score - a.score);
 
+        const driver = driverCandidates[0]?.coach;
         if (driver) {
           newAssignments.push({
             id: String(nextId++), camp_id: camp.id, coach_id: driver.id,
@@ -191,17 +216,37 @@ const RosterPage = () => {
           });
           used.add(driver.id);
         }
+      } else if (hasActiveDriver) {
+        // HC is driving — that's fine, only 1 driver needed
       }
+    }
 
-      // Fill remaining — these are NOT driving
+    // === PASS 3: Fill remaining spots — prefer same pickup area as assigned driver ===
+    for (const camp of sortedCamps) {
+      const campDays = getCampDays(camp).map(d => format(d, "yyyy-MM-dd"));
       const nowAssigned = newAssignments.filter(a => a.camp_id === camp.id).length;
       const stillNeeded = camp.required_coaches - nowAssigned;
-      for (let i = 0; i < stillNeeded; i++) {
-        const coach = availableCoaches.find(c =>
-          !used.has(c.id) &&
-          (c.preferred_counties?.includes(camp.county) || c.local_counties?.includes(camp.county) || c.county === camp.county)
-        ) || availableCoaches.find(c => !used.has(c.id));
 
+      // Find the driver for this camp to pair passengers
+      const campDriver = newAssignments.find(a => a.camp_id === camp.id && a.driving_this_week);
+      const driverCoach = campDriver ? availableCoaches.find(c => c.id === campDriver.coach_id) : null;
+
+      for (let i = 0; i < stillNeeded; i++) {
+        // Preferred driver pairing first, then same area, then geographic fit
+        const candidates = availableCoaches
+          .filter(c => !used.has(c.id))
+          .map(c => {
+            let score = campFitScore(c, camp);
+            // Bonus for preferred driver pairing
+            if (driverCoach && c.preferred_driver_id === driverCoach.id) score += 15;
+            if (driverCoach && driverCoach.preferred_driver_id === c.id) score += 15;
+            // Bonus for same pickup area as driver
+            if (driverCoach && sharePickupArea(c, driverCoach)) score += 8;
+            return { coach: c, score };
+          })
+          .sort((a, b) => b.score - a.score);
+
+        const coach = candidates[0]?.coach;
         if (coach) {
           newAssignments.push({
             id: String(nextId++), camp_id: camp.id, coach_id: coach.id,
@@ -210,23 +255,50 @@ const RosterPage = () => {
           used.add(coach.id);
         }
       }
+    }
 
-      // Day 1 overflow for large camps
-      if (camp.player_count >= 60) {
-        const day1Coach = availableCoaches.find(c => !used.has(c.id));
-        if (day1Coach && campDays.length > 0) {
-          newAssignments.push({
-            id: String(nextId++), camp_id: camp.id, coach_id: day1Coach.id,
-            role: "assistant", days: [campDays[0]], is_day1_support: true, driving_this_week: false,
-          });
-          used.add(day1Coach.id);
+    // === PASS 4: Day 1 overflow for large camps (60+ players) ===
+    for (const camp of sortedCamps) {
+      if (camp.player_count < 60) continue;
+      const campDays = getCampDays(camp).map(d => format(d, "yyyy-MM-dd"));
+      if (campDays.length === 0) continue;
+
+      const day1Coach = availableCoaches
+        .filter(c => !used.has(c.id))
+        .map(c => ({ coach: c, score: campFitScore(c, camp) }))
+        .sort((a, b) => b.score - a.score)[0]?.coach;
+
+      if (day1Coach) {
+        newAssignments.push({
+          id: String(nextId++), camp_id: camp.id, coach_id: day1Coach.id,
+          role: "assistant", days: [campDays[0]], is_day1_support: true, driving_this_week: false,
+        });
+        used.add(day1Coach.id);
+      }
+    }
+
+    // === PASS 5: Minimise drivers — turn off driving for HCs where a dedicated driver exists ===
+    for (const camp of sortedCamps) {
+      const campAssigns = newAssignments.filter(a => a.camp_id === camp.id);
+      const activeDrivers = campAssigns.filter(a => a.driving_this_week);
+      if (activeDrivers.length > 1) {
+        // Keep only 1 driver — prefer non-HC driver
+        const nonHcDriver = activeDrivers.find(a => a.role !== "head_coach");
+        for (const d of activeDrivers) {
+          if (nonHcDriver && d.id !== nonHcDriver.id) d.driving_this_week = false;
+          else if (!nonHcDriver && d !== activeDrivers[0]) d.driving_this_week = false;
         }
       }
     }
 
     setAssignments(newAssignments);
-    toast({ title: "Roster generated", description: `${newAssignments.length} assignments across ${camps.length} camps` });
-  }, [camps, availableCoaches, toast]);
+    const totalDays = newAssignments.reduce((s, a) => s + a.days.length, 0);
+    const driversUsed = new Set(newAssignments.filter(a => a.driving_this_week).map(a => a.coach_id)).size;
+    toast({
+      title: "Roster generated",
+      description: `${newAssignments.length} coaches across ${camps.length} camps · ${totalDays} coach-days · ${driversUsed} drivers active`,
+    });
+  }, [camps, availableCoaches, toast, campFitScore, sharePickupArea]);
 
   const removeAssignment = (assignmentId: string) => {
     setAssignments(prev => prev.filter(a => a.id !== assignmentId));
