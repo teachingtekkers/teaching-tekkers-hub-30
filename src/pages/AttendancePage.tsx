@@ -359,7 +359,7 @@ export default function AttendancePage() {
               participants={sorted}
               getStatus={getStatus}
               onToggle={toggleStatus}
-              onInstantSave={instantSaveAttendance}
+              onInstantSave={persistAttendance}
             />
           ) : (
             <div className="space-y-1">
