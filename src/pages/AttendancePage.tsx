@@ -43,6 +43,9 @@ export default function AttendancePage() {
   const [sortField, setSortField] = useState<SortField>("last_name");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"admin" | "coach">("admin");
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const attendanceRef = useRef(attendance);
 
   useEffect(() => {
     (async () => {
