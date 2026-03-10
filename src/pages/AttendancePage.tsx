@@ -38,8 +38,6 @@ export default function AttendancePage() {
   const [participants, setParticipants] = useState<ParticipantData[]>([]);
   const [attendance, setAttendance] = useState<Map<string, AttendanceRow>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
   const [sortField, setSortField] = useState<SortField>("last_name");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"admin" | "coach">("admin");
