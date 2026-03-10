@@ -44,8 +44,9 @@ export default function CampDetailPage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!id) return;
+    if (!id) { console.error("[CampDetail] No camp id in URL"); return; }
     setLoading(true);
+    
     const [cRes, pRes] = await Promise.all([
       supabase.from("camps").select("*").eq("id", id).single(),
       supabase
@@ -54,8 +55,14 @@ export default function CampDetailPage() {
         .eq("matched_camp_id", id)
         .order("child_last_name"),
     ]);
+    
+    if (cRes.error) console.error("[CampDetail] Camp fetch error:", cRes.error);
+    if (pRes.error) console.error("[CampDetail] Participants fetch error:", pRes.error);
+    
+    console.log("[CampDetail] Camp:", cRes.data?.name, "| Participants returned:", pRes.data?.length ?? 0);
+    
     if (cRes.data) setCamp(cRes.data as unknown as CampData);
-    if (pRes.data) setParticipants(pRes.data as unknown as Participant[]);
+    setParticipants((pRes.data as unknown as Participant[]) || []);
     setLoading(false);
   }, [id]);
 
