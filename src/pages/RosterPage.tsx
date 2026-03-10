@@ -179,9 +179,9 @@ const RosterPage = () => {
 
     const payload = {
       week_start: weekStartStr,
-      assignments: assignments as unknown as Record<string, unknown>[],
-      available_coach_ids: availableCoachIds as unknown as Record<string, unknown>[],
-      status: statusToSave,
+      assignments: JSON.parse(JSON.stringify(assignments)),
+      available_coach_ids: JSON.parse(JSON.stringify(availableCoachIds)),
+      status: statusToSave as "draft" | "finalised",
       camps_count: new Set(assignments.map(a => a.camp_id)).size,
       coaches_count: uniqueCoachIds.size,
       updated_at: new Date().toISOString(),
