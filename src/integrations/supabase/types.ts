@@ -282,43 +282,85 @@ export type Database = {
       }
       coaches: {
         Row: {
+          address: string | null
           can_drive: boolean
+          county: string | null
           created_at: string
           daily_rate: number
+          date_of_birth: string | null
           email: string
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          first_aid_cert_expiry: string | null
           fuel_allowance_eligible: boolean
           full_name: string
           head_coach_daily_rate: number
           id: string
           is_head_coach: boolean
+          local_counties: string[] | null
           notes: string | null
+          pay_band_notes: string | null
           phone: string
+          pickup_locations: string[] | null
+          preferred_counties: string[] | null
+          qualification_level: string | null
+          role_type: string | null
+          safeguarding_cert_expiry: string | null
+          status: string | null
         }
         Insert: {
+          address?: string | null
           can_drive?: boolean
+          county?: string | null
           created_at?: string
           daily_rate?: number
+          date_of_birth?: string | null
           email: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          first_aid_cert_expiry?: string | null
           fuel_allowance_eligible?: boolean
           full_name: string
           head_coach_daily_rate?: number
           id?: string
           is_head_coach?: boolean
+          local_counties?: string[] | null
           notes?: string | null
+          pay_band_notes?: string | null
           phone: string
+          pickup_locations?: string[] | null
+          preferred_counties?: string[] | null
+          qualification_level?: string | null
+          role_type?: string | null
+          safeguarding_cert_expiry?: string | null
+          status?: string | null
         }
         Update: {
+          address?: string | null
           can_drive?: boolean
+          county?: string | null
           created_at?: string
           daily_rate?: number
+          date_of_birth?: string | null
           email?: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          first_aid_cert_expiry?: string | null
           fuel_allowance_eligible?: boolean
           full_name?: string
           head_coach_daily_rate?: number
           id?: string
           is_head_coach?: boolean
+          local_counties?: string[] | null
           notes?: string | null
+          pay_band_notes?: string | null
           phone?: string
+          pickup_locations?: string[] | null
+          preferred_counties?: string[] | null
+          qualification_level?: string | null
+          role_type?: string | null
+          safeguarding_cert_expiry?: string | null
+          status?: string | null
         }
         Relationships: []
       }
