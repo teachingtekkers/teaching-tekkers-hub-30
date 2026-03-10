@@ -150,40 +150,63 @@ export default function CampDetailPage() {
                   <TableHead className="hidden lg:table-cell">Medical</TableHead>
                   <TableHead>Kit</TableHead>
                   <TableHead>Payment</TableHead>
+                  <TableHead className="hidden md:table-cell">Owed</TableHead>
+                  <TableHead className="hidden lg:table-cell">Indicators</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {participants.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">
-                      {p.child_first_name} {p.child_last_name}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {p.age && <span>{p.age} yrs</span>}
-                      {p.date_of_birth && <span className="block text-xs text-muted-foreground">{p.date_of_birth}</span>}
-                      {!p.age && !p.date_of_birth && "—"}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {p.parent_name || "—"}
-                      {p.parent_email && <span className="block text-xs text-muted-foreground">{p.parent_email}</span>}
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                      {p.parent_phone || "—"}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                      {p.emergency_contact || "—"}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell text-sm">
-                      {p.medical_notes ? (
-                        <span className="flex items-center gap-1 text-destructive">
-                          <Heart className="h-3 w-3" /> {p.medical_notes}
-                        </span>
-                      ) : "—"}
-                    </TableCell>
-                    <TableCell><Badge variant="outline" className="text-xs">{p.kit_size || "M"}</Badge></TableCell>
-                    <TableCell>{payBadge(p.payment_status)}</TableCell>
-                  </TableRow>
-                ))}
+                {participants.map((p) => {
+                  const hasMedical = !!(p.medical_condition || p.medical_notes);
+                  const medText = [p.medical_condition, p.medical_notes].filter(Boolean).join(" — ");
+                  return (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium">
+                        {p.child_first_name} {p.child_last_name}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {p.age && <span>{p.age} yrs</span>}
+                        {p.date_of_birth && <span className="block text-xs text-muted-foreground">{p.date_of_birth}</span>}
+                        {!p.age && !p.date_of_birth && "—"}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {p.parent_name || "—"}
+                        {p.parent_email && <span className="block text-xs text-muted-foreground">{p.parent_email}</span>}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                        {p.parent_phone || "—"}
+                        {p.alternate_phone && <span className="block text-xs">Alt: {p.alternate_phone}</span>}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                        {p.emergency_contact || "—"}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-sm">
+                        {hasMedical ? (
+                          <span className="flex items-center gap-1 text-destructive">
+                            <Heart className="h-3 w-3" /> {medText}
+                          </span>
+                        ) : "—"}
+                      </TableCell>
+                      <TableCell><Badge variant="outline" className="text-xs">{p.kit_size || "M"}</Badge></TableCell>
+                      <TableCell>
+                        {payBadge(p.payment_status)}
+                        {p.payment_type && <span className="block text-[10px] text-muted-foreground">{p.payment_type}</span>}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-sm">
+                        {(p.amount_owed ?? 0) > 0 ? (
+                          <span className="text-amber-600 font-medium">€{p.amount_owed}</span>
+                        ) : (
+                          <span className="text-muted-foreground">€0</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <div className="flex gap-1">
+                          {hasMedical && <span title={medText}>🏥</span>}
+                          {p.photo_permission === false && <span title="No photo permission">📷🚫</span>}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
