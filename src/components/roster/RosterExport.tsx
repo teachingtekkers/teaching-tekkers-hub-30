@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { FileDown } from "lucide-react";
+import { FileDown, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { RosterCamp, DailyAssignment, RosterCoach } from "@/pages/RosterPage";
 import { getCampDays } from "@/pages/RosterPage";
@@ -13,8 +13,6 @@ interface Props {
   weekEnd: Date;
 }
 
-const EXP_SHORT: Record<string, string> = { lead: "Lead HC", senior: "Senior HC", standard: "Standard", junior: "Junior" };
-
 export function RosterExport({ camps, assignments, coaches, weekStart, weekEnd }: Props) {
   const { toast } = useToast();
 
@@ -24,20 +22,19 @@ export function RosterExport({ camps, assignments, coaches, weekStart, weekEnd }
     const sortedDays = [...allDays].sort();
     const dayHeaders = sortedDays.map(d => format(new Date(d + "T00:00:00"), "EEE d MMM"));
 
-    const rows = [["Camp", "Club", "Players", "Coach", "Role", "Level", "Driver", ...dayHeaders, "Total Days"]];
+    const rows = [["Camp", "Club", "Players", "Coach", "Role", "Driver", ...dayHeaders, "Total Days"]];
 
     for (const camp of camps) {
       const campAssigns = assignments.filter(a => a.camp_id === camp.id);
       if (campAssigns.length === 0) {
-        rows.push([camp.name, camp.club_name, String(camp.player_count), "UNASSIGNED", "", "", "", ...sortedDays.map(() => ""), ""]);
+        rows.push([camp.name, camp.club_name, String(camp.player_count), "UNASSIGNED", "", "", ...sortedDays.map(() => ""), ""]);
       } else {
         for (const a of campAssigns) {
           const c = coaches.find(co => co.id === a.coach_id);
           rows.push([
             camp.name, camp.club_name, String(camp.player_count),
             c?.full_name || "?",
-            a.role === "head_coach" ? "Head Coach" : (a.is_day1_support ? "Day 1 Support" : "Assistant"),
-            EXP_SHORT[c?.experience_level || "standard"] || "",
+            a.role === "head_coach" ? "Head Coach" : "Assistant",
             c?.can_drive ? "Yes" : "No",
             ...sortedDays.map(d => a.days.includes(d) ? "✓" : ""),
             String(a.days.length),
@@ -58,74 +55,134 @@ export function RosterExport({ camps, assignments, coaches, weekStart, weekEnd }
   };
 
   const printRoster = () => {
-    const weekLabel = `${format(weekStart, "d MMM")} — ${format(weekEnd, "d MMM yyyy")}`;
+    const weekCommencing = format(weekStart, "EEEE d MMMM yyyy");
+    const totalCoaches = new Set(assignments.map(a => a.coach_id)).size;
+    const totalCamps = camps.length;
 
-    let html = `<html><head><title>Teaching Tekkers Roster — ${weekLabel}</title>
-      <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, 'Segoe UI', sans-serif; padding: 20px; color: #1a1a1a; font-size: 12px; }
-        h1 { font-size: 18px; margin-bottom: 2px; }
-        .subtitle { color: #666; font-size: 12px; margin-bottom: 20px; }
-        .camp { margin-bottom: 16px; page-break-inside: avoid; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; }
-        .camp-header { background: #f4f4f5; padding: 8px 12px; border-bottom: 1px solid #e0e0e0; }
-        .camp-header h2 { font-size: 13px; font-weight: 700; }
-        .camp-header span { font-size: 11px; color: #666; }
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: center; padding: 4px 6px; border-bottom: 2px solid #d4d4d8; font-size: 10px; text-transform: uppercase; color: #71717a; background: #fafafa; }
-        th:first-child, th:nth-child(2) { text-align: left; }
-        td { padding: 4px 6px; border-bottom: 1px solid #f0f0f0; }
-        .day-cell { width: 54px; text-align: center; }
-        .day-on { background: #22c55e; color: white; border-radius: 3px; padding: 2px 4px; font-weight: 700; font-size: 10px; }
-        .day-off { background: #fecaca; color: #dc2626; border-radius: 3px; padding: 2px 4px; font-size: 10px; }
-        .badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 600; margin-left: 4px; }
-        .hc { background: #dbeafe; color: #1d4ed8; }
-        .driver { background: #dcfce7; color: #16a34a; }
-        .d1 { background: #fef3c7; color: #92400e; }
-        .exp { font-size: 9px; color: #888; }
-        @media print { body { padding: 10px; } .camp { break-inside: avoid; } }
-      </style>
-    </head><body>
-    <h1>Teaching Tekkers — Weekly Roster</h1>
-    <p class="subtitle">${weekLabel}</p>`;
+    let html = `<html><head><title>Teaching Tekkers — Week Commencing ${weekCommencing}</title>
+<style>
+  @page { size: A4 landscape; margin: 10mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', -apple-system, system-ui, sans-serif; color: #1e293b; font-size: 10px; line-height: 1.3; }
+
+  /* Header bar */
+  .header { background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); color: white; padding: 12px 16px; border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; }
+  .header .week { font-size: 11px; opacity: 0.9; font-weight: 500; }
+  .header .meta { font-size: 9px; opacity: 0.7; text-align: right; }
+
+  /* Camp block */
+  .camp { margin-bottom: 8px; border: 1.5px solid #cbd5e1; border-radius: 5px; overflow: hidden; page-break-inside: avoid; }
+  .camp-head { background: linear-gradient(90deg, #1e40af, #2563eb); color: white; padding: 5px 10px; display: flex; justify-content: space-between; align-items: center; }
+  .camp-head h2 { font-size: 11px; font-weight: 700; }
+  .camp-head .info { font-size: 9px; opacity: 0.85; }
+  .camp-head .players { background: rgba(255,255,255,0.2); padding: 1px 6px; border-radius: 3px; font-weight: 700; font-size: 10px; }
+
+  /* Grid */
+  table { width: 100%; border-collapse: collapse; }
+  thead th { background: #f1f5f9; padding: 3px 6px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; border-bottom: 1.5px solid #cbd5e1; }
+  thead th.day-col { text-align: center; width: 56px; }
+  thead th:first-child { text-align: left; }
+  tbody td { padding: 3px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:nth-child(even) { background: #f8fafc; }
+
+  /* Coach name */
+  .coach-name { font-weight: 600; font-size: 10px; }
+  .coach-role { font-size: 8px; font-weight: 600; padding: 1px 4px; border-radius: 2px; display: inline-block; margin-left: 4px; }
+  .role-hc { background: #dbeafe; color: #1d4ed8; }
+  .role-asst { background: #f1f5f9; color: #64748b; }
+  .driver-tag { font-size: 8px; color: #16a34a; margin-left: 3px; }
+
+  /* Day cells */
+  .day-cell { text-align: center; }
+  .day-on { display: inline-block; width: 36px; height: 16px; line-height: 16px; background: #22c55e; color: white; border-radius: 3px; font-weight: 800; font-size: 9px; }
+  .day-off { display: inline-block; width: 36px; height: 16px; line-height: 16px; background: #fee2e2; color: #ef4444; border-radius: 3px; font-size: 9px; }
+
+  /* Travel */
+  .travel-row td { padding: 2px 6px; font-size: 8px; color: #64748b; border-bottom: none; background: #f8fafc; }
+  .travel-row td:first-child { padding-left: 10px; }
+
+  /* Footer */
+  .footer { margin-top: 8px; text-align: center; font-size: 8px; color: #94a3b8; }
+
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .camp { break-inside: avoid; }
+  }
+</style>
+</head><body>
+
+<div class="header">
+  <div>
+    <h1>Teaching Tekkers</h1>
+    <div class="week">Week Commencing: ${weekCommencing}</div>
+  </div>
+  <div class="meta">
+    ${totalCamps} Camp${totalCamps !== 1 ? "s" : ""} · ${totalCoaches} Coach${totalCoaches !== 1 ? "es" : ""}
+  </div>
+</div>`;
 
     for (const camp of camps) {
       const campDays = getCampDays(camp);
       const campAssigns = assignments.filter(a => a.camp_id === camp.id);
+      const dayStrings = campDays.map(d => format(d, "yyyy-MM-dd"));
+
+      // Find drivers and passengers for travel note
+      const drivers = campAssigns.filter(a => coaches.find(c => c.id === a.coach_id)?.can_drive);
+      const passengers = campAssigns.filter(a => !coaches.find(c => c.id === a.coach_id)?.can_drive);
 
       html += `<div class="camp">
-        <div class="camp-header">
-          <h2>${camp.name} <span>· ${camp.club_name} · ${camp.venue} · ${camp.county}</span></h2>
-          <span>${camp.player_count} players · ${campAssigns.filter(a => !a.is_day1_support).length}/${camp.required_coaches} coaches</span>
-        </div>
-        <table>
-          <tr><th style="min-width:140px">Coach</th><th style="width:80px">Role</th>`;
+  <div class="camp-head">
+    <h2>${camp.name}</h2>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="info">${camp.club_name} · ${camp.venue}</span>
+      <span class="players">${camp.player_count} players</span>
+    </div>
+  </div>
+  <table>
+    <thead><tr>
+      <th style="min-width:130px">Coach</th>`;
 
       for (const d of campDays) {
-        html += `<th class="day-cell">${format(d, "EEE")}<br/>${format(d, "d MMM")}</th>`;
+        html += `<th class="day-col">${format(d, "EEE")}<br/><span style="font-weight:500;text-transform:none;font-size:8px">${format(d, "d MMM")}</span></th>`;
       }
-      html += `<th style="width:40px">Days</th></tr>`;
+      html += `</tr></thead><tbody>`;
 
       for (const a of campAssigns) {
         const c = coaches.find(co => co.id === a.coach_id);
-        const dayStrings = campDays.map(d => format(d, "yyyy-MM-dd"));
+        const roleLabel = a.role === "head_coach" ? "HC" : "Asst";
+        const roleClass = a.role === "head_coach" ? "role-hc" : "role-asst";
+
         html += `<tr>
-          <td><strong>${c?.full_name || "?"}</strong>${c?.can_drive ? ' <span class="badge driver">🚗</span>' : ''} <span class="exp">${EXP_SHORT[c?.experience_level || "standard"] || ""}</span></td>
-          <td><span class="badge ${a.role === "head_coach" ? "hc" : ""} ${a.is_day1_support ? "d1" : ""}">${a.role === "head_coach" ? "HC" : (a.is_day1_support ? "D1" : "Asst")}</span></td>`;
+          <td>
+            <span class="coach-name">${c?.full_name || "?"}</span>
+            <span class="coach-role ${roleClass}">${roleLabel}</span>
+            ${c?.can_drive ? '<span class="driver-tag">🚗 Driver</span>' : ""}
+          </td>`;
 
         for (const ds of dayStrings) {
           const on = a.days.includes(ds);
           html += `<td class="day-cell"><span class="${on ? "day-on" : "day-off"}">${on ? "✓" : "✗"}</span></td>`;
         }
-        html += `<td style="text-align:center;font-weight:700">${a.days.length}</td></tr>`;
+        html += `</tr>`;
       }
 
       if (campAssigns.length === 0) {
-        html += `<tr><td colspan="${campDays.length + 3}" style="color:#999;text-align:center;padding:10px">No coaches assigned</td></tr>`;
+        html += `<tr><td colspan="${campDays.length + 1}" style="color:#94a3b8;text-align:center;padding:8px;font-style:italic">No coaches assigned</td></tr>`;
       }
-      html += `</table></div>`;
+
+      // Travel note row
+      if (drivers.length > 0 && passengers.length > 0) {
+        html += `<tr class="travel-row"><td colspan="${campDays.length + 1}">🚗 ${drivers.map(d => coaches.find(c => c.id === d.coach_id)?.full_name).join(", ")} driving — picking up ${passengers.map(p => coaches.find(c => c.id === p.coach_id)?.full_name).join(", ")}</td></tr>`;
+      }
+
+      html += `</tbody></table></div>`;
     }
 
+    html += `<div class="footer">Teaching Tekkers · Generated ${format(new Date(), "d MMM yyyy, HH:mm")}</div>`;
     html += `</body></html>`;
+
     const w = window.open("", "_blank");
     if (w) { w.document.write(html); w.document.close(); w.print(); }
   };
@@ -136,7 +193,7 @@ export function RosterExport({ camps, assignments, coaches, weekStart, weekEnd }
         <FileDown className="h-4 w-4" /> Export CSV
       </Button>
       <Button variant="outline" size="sm" onClick={printRoster} className="gap-2">
-        <FileDown className="h-4 w-4" /> Print Roster
+        <Printer className="h-4 w-4" /> Print Roster
       </Button>
     </div>
   );
