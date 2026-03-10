@@ -20,6 +20,7 @@ import PayrollPage from "./pages/PayrollPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import ReportsPage from "./pages/ReportsPage";
 import UserManagementPage from "./pages/UserManagementPage";
+import BookingSyncPage from "./pages/BookingSyncPage";
 
 // Admin: Private Coaching
 import PrivateDashboardPage from "./pages/private/PrivateDashboardPage";
