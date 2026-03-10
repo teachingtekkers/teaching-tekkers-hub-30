@@ -164,9 +164,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
 
   const totalRows = useMemo(() => files.reduce((s, f) => s + f.rows.length, 0), [files]);
   const allCampNames = useMemo(() => {
-    const set = new Set<string>();
-    files.forEach((f) => f.campNames.forEach((n) => set.add(n)));
-    return Array.from(set);
+    return files.map((f) => f.detectedCampName).filter(Boolean);
   }, [files]);
 
   const reset = useCallback(() => {
