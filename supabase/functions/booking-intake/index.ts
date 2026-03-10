@@ -20,11 +20,13 @@ interface IncomingBooking {
   parent_phone?: string;
   parent_email?: string;
   emergency_contact?: string;
+  alternate_phone?: string;
+  medical_condition?: string;
   medical_notes?: string;
   kit_size?: string;
   payment_status?: string;
   booking_status?: string;
-  // Finance fields
+  booking_date?: string;
   total_amount?: string | number;
   amount_paid?: string | number;
   sibling_discount?: string | number;
@@ -225,7 +227,7 @@ Deno.serve(async (req) => {
           if (bestCamp) {
             matched_camp_id = bestCamp.id;
           } else if (b.camp_name) {
-            const campDate = b.camp_date || new Date().toISOString().split("T")[0];
+            const campDate = b.camp_date || b.booking_date || new Date().toISOString().split("T")[0];
             const newCamp = {
               name: b.camp_name,
               club_name: b.camp_name.split(/[-–]/)[0].trim() || b.camp_name,
@@ -259,6 +261,11 @@ Deno.serve(async (req) => {
           const amountOwed = amountOwedRaw > 0 ? amountOwedRaw : Math.max(0, totalAmount - amountPaidRaw - refundAmount);
           const paymentStatus = normalizePaymentStatus(b.payment_status);
 
+          // Combine medical_condition + medical_notes into medical_notes
+          const medCondition = b.medical_condition?.trim() || "";
+          const medNotes = b.medical_notes?.trim() || "";
+          const combinedMedical = [medCondition, medNotes].filter(Boolean).join(" — ") || null;
+
           const record = {
             external_booking_id: b.external_booking_id || null,
             camp_name: b.camp_name,
@@ -273,10 +280,13 @@ Deno.serve(async (req) => {
             parent_phone: b.parent_phone || null,
             parent_email: b.parent_email || null,
             emergency_contact: b.emergency_contact || null,
-            medical_notes: b.medical_notes || null,
+            alternate_phone: b.alternate_phone || null,
+            medical_condition: b.medical_condition || null,
+            medical_notes: combinedMedical,
             kit_size: b.kit_size || "M",
             payment_status: paymentStatus,
             booking_status: b.booking_status || "confirmed",
+            booking_date: parseDateOfBirth(b.booking_date),
             source_system: "bookings.teachingtekkers.com",
             last_synced_at: new Date().toISOString(),
             sync_log_id: syncLog.id,

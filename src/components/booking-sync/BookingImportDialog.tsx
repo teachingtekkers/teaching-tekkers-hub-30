@@ -31,57 +31,64 @@ interface ImportResult {
 }
 
 const BOOKING_FIELDS = [
+  { key: "child_first_name", label: "Child First Name", required: true },
+  { key: "child_last_name", label: "Child Last Name", required: true },
+  { key: "parent_name", label: "Parent Name" },
+  { key: "date_of_birth", label: "Date of Birth" },
+  { key: "age", label: "Age" },
+  { key: "parent_email", label: "Parent Email" },
+  { key: "parent_phone", label: "Contact No" },
+  { key: "emergency_contact", label: "Emergency Contact" },
+  { key: "alternate_phone", label: "Alternate No" },
+  { key: "medical_condition", label: "Medical Condition" },
+  { key: "medical_notes", label: "Medical Additional Info" },
+  { key: "photo_permission", label: "Photo Permission" },
+  { key: "booking_date", label: "Booking Date" },
+  { key: "total_amount", label: "Total Amount" },
+  { key: "sibling_discount", label: "Siblings Discount" },
+  { key: "amount_paid", label: "Amount Paid" },
+  { key: "payment_status", label: "Payment Status" },
+  { key: "payment_type", label: "Payment Type" },
+  { key: "refund_amount", label: "Refund Amount" },
   { key: "external_booking_id", label: "Booking ID" },
-  { key: "camp_name", label: "Camp Name", required: true },
+  { key: "camp_name", label: "Camp Name" },
   { key: "camp_date", label: "Camp Date" },
   { key: "venue", label: "Venue" },
   { key: "county", label: "County" },
-  { key: "child_first_name", label: "Child First Name", required: true },
-  { key: "child_last_name", label: "Child Last Name", required: true },
-  { key: "date_of_birth", label: "Date of Birth" },
-  { key: "age", label: "Age" },
-  { key: "parent_name", label: "Parent Name" },
-  { key: "parent_phone", label: "Parent Phone" },
-  { key: "parent_email", label: "Parent Email" },
-  { key: "emergency_contact", label: "Emergency Contact" },
-  { key: "medical_notes", label: "Medical Notes" },
   { key: "kit_size", label: "Kit Size" },
-  { key: "payment_status", label: "Payment Status" },
   { key: "booking_status", label: "Booking Status" },
-  { key: "total_amount", label: "Total Amount" },
-  { key: "amount_paid", label: "Amount Paid" },
-  { key: "sibling_discount", label: "Sibling Discount" },
-  { key: "refund_amount", label: "Refund Amount" },
   { key: "amount_owed", label: "Amount Owed" },
-  { key: "payment_type", label: "Payment Type" },
-  { key: "photo_permission", label: "Photo Permission" },
 ];
 
+// Exact Teaching Tekkers CSV column aliases — prioritised
 const ALIASES: Record<string, string[]> = {
-  external_booking_id: ["booking id", "booking_id", "order id", "order_id", "id", "ref", "reference"],
+  external_booking_id: ["sr. no", "sr no", "booking id", "booking_id", "order id", "id", "ref", "reference"],
+  child_first_name: ["first name", "first_name", "child first name", "child_first_name", "forename"],
+  child_last_name: ["last name", "last_name", "surname", "child last name", "child_last_name", "family name"],
+  parent_name: ["parent name", "parent_name", "parent", "guardian", "guardian name"],
+  date_of_birth: ["dob", "date of birth", "date_of_birth", "birthday", "birth date"],
+  age: ["age", "child age"],
+  parent_email: ["email", "parent email", "parent_email", "contact email"],
+  parent_phone: ["contact no", "contact_no", "phone", "parent phone", "parent_phone", "mobile", "contact number", "tel"],
+  emergency_contact: ["emergency contact", "emergency_contact", "emergency", "emergency phone"],
+  alternate_phone: ["alternate no", "alternate_no", "alternate phone", "alt phone", "alt no"],
+  medical_condition: ["medical condition", "medical_condition", "condition", "health condition"],
+  medical_notes: ["medical additional information", "medical_additional_information", "medical notes", "medical_notes", "medical info", "additional medical", "allergies"],
+  photo_permission: ["photo permission", "photo_permission", "photo", "photos", "photo consent"],
+  booking_date: ["booking date", "booking_date", "booked date", "date booked"],
+  total_amount: ["total amount", "total_amount", "total", "price", "cost", "booking total"],
+  sibling_discount: ["siblings discount", "sibling discount", "sibling_discount", "discount", "sibling"],
+  amount_paid: ["amount paid", "amount_paid", "paid amount", "paid"],
+  payment_status: ["status", "payment status", "payment_status", "payment state", "paid"],
+  payment_type: ["payment type", "payment_type", "payment method", "method", "pay type"],
+  refund_amount: ["refund amount", "refund_amount", "refund", "refunded"],
+  amount_owed: ["amount owed", "amount_owed", "owed", "balance", "outstanding"],
   camp_name: ["camp", "camp name", "camp_name", "event", "event name"],
   camp_date: ["date", "camp date", "camp_date", "event date", "start date"],
   venue: ["venue", "location", "venue name", "ground", "pitch"],
   county: ["county", "area", "region"],
-  child_first_name: ["first name", "first_name", "child first name", "child_first_name", "forename", "child first"],
-  child_last_name: ["last name", "last_name", "surname", "child last name", "child_last_name", "child last", "family name"],
-  date_of_birth: ["dob", "date of birth", "date_of_birth", "birthday", "birth date"],
-  age: ["age", "child age"],
-  parent_name: ["parent", "parent name", "parent_name", "guardian", "guardian name"],
-  parent_phone: ["phone", "parent phone", "parent_phone", "mobile", "contact number", "tel"],
-  parent_email: ["email", "parent email", "parent_email", "contact email"],
-  emergency_contact: ["emergency", "emergency contact", "emergency_contact", "emergency phone"],
-  medical_notes: ["medical", "medical notes", "medical_notes", "health", "allergies", "conditions"],
   kit_size: ["kit", "kit size", "kit_size", "jersey size", "size", "t-shirt size"],
-  payment_status: ["payment", "payment status", "payment_status", "paid", "payment state"],
-  booking_status: ["status", "booking status", "booking_status", "state"],
-  total_amount: ["total", "total amount", "total_amount", "price", "cost", "booking total", "total price"],
-  amount_paid: ["amount paid", "amount_paid", "paid amount", "paid"],
-  sibling_discount: ["sibling discount", "sibling_discount", "discount", "sibling"],
-  refund_amount: ["refund", "refund amount", "refund_amount", "refunded"],
-  amount_owed: ["amount owed", "amount_owed", "owed", "balance", "outstanding"],
-  payment_type: ["payment type", "payment_type", "payment method", "method", "pay type"],
-  photo_permission: ["photo", "photo permission", "photo_permission", "photos", "photo consent"],
+  booking_status: ["booking status", "booking_status", "state"],
 };
 
 function autoMapColumn(header: string): string {
@@ -124,39 +131,33 @@ function parseCSV(text: string): { headers: string[]; rows: ParsedRow[] } {
   return { headers, rows };
 }
 
-function detectCampNames(rows: ParsedRow[], headers: string[]): string[] {
-  const campCol = headers.find((h) => autoMapColumn(h) === "camp_name");
-  if (!campCol) return [];
-  const names = new Set<string>();
-  rows.forEach((r) => { if (r[campCol]) names.add(r[campCol]); });
-  return Array.from(names);
-}
-
 interface FilenameMetadata {
   campName: string;
   venue: string | null;
   county: string | null;
 }
 
-// Extract camp name, venue, and county from filename like:
-// "TeachingTekkers -Easter Camps (...)-Dublin-Portmarnock AFC-Portmarnock AFC Easter Camp 2026 WK1.csv"
-// Segments: [brand, programme, county, club/venue, camp name]
+// Extract camp name from Teaching Tekkers filename format:
+// "TeachingTekkers -Easter Camps (additional online charge with booking fees)-Meath-Athboy Celtic-Athboy Celtic Easter Camp 2026.csv"
+// Segments after splitting on hyphens: [brand, programme(parenthetical stripped), county, club/venue, camp name]
+// Camp name = last segment. Venue = second-to-last. County = third-to-last.
 function extractMetadataFromFilename(filename: string): FilenameMetadata {
   const noExt = filename.replace(/\.(csv|tsv|txt)$/i, "").trim();
   const segments = noExt.split(/\s*[-–]\s*/).map((s) => s.replace(/\([^)]*\)/g, "").trim()).filter(Boolean);
 
+  // The last segment is the camp name
   let campName = segments[segments.length - 1] || noExt;
   if (campName.length < 5 && segments.length > 1) {
     campName = segments[segments.length - 2] || campName;
   }
 
-  // Try to extract venue (second-to-last segment, if 3+ segments)
+  // Venue = second-to-last (club name in TT format)
   let venue: string | null = null;
   if (segments.length >= 4) {
     venue = segments[segments.length - 2] || null;
   }
 
-  // Try to extract county (third-to-last segment, if 4+ segments)
+  // County = third-to-last
   let county: string | null = null;
   if (segments.length >= 4) {
     county = segments[segments.length - 3] || null;
@@ -180,7 +181,6 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Merged unique headers across all files
   const allHeaders = useMemo(() => {
     const set = new Set<string>();
     files.forEach((f) => f.headers.forEach((h) => set.add(h)));
@@ -188,9 +188,6 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
   }, [files]);
 
   const totalRows = useMemo(() => files.reduce((s, f) => s + f.rows.length, 0), [files]);
-  const allCampNames = useMemo(() => {
-    return files.map((f) => f.detectedCampName).filter(Boolean);
-  }, [files]);
 
   const reset = useCallback(() => {
     setStep("upload");
@@ -213,7 +210,6 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
     const parsed: ParsedFile[] = [...files];
 
     validFiles.forEach((file) => {
-      // Skip if already added
       if (parsed.some((p) => p.name === file.name)) { loaded++; return; }
 
       const reader = new FileReader();
@@ -227,7 +223,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
             name: file.name,
             headers,
             rows,
-            campNames: hasCampCol ? detectCampNames(rows, headers) : [meta.campName],
+            campNames: hasCampCol ? [] : [meta.campName],
             detectedCampName: meta.campName,
             detectedVenue: meta.venue,
             detectedCounty: meta.county,
@@ -236,7 +232,6 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         loaded++;
         if (loaded === validFiles.length) {
           setFiles([...parsed]);
-          // Auto-map from merged headers
           const mergedHeaders = new Set<string>();
           parsed.forEach((p) => p.headers.forEach((h) => mergedHeaders.add(h)));
           const autoMap: Record<string, string> = {};
@@ -270,7 +265,6 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
   }, []);
 
   const mappedFields = Object.values(mapping).filter((v) => v !== "skip");
-  // Camp name is auto-detected from filename, so only child names are truly required from columns
   const hasRequired = ["child_first_name", "child_last_name"].every((f) => mappedFields.includes(f));
 
   const getMappedRows = useCallback(() => {
@@ -323,7 +317,6 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
     onOpenChange(isOpen);
   }, [step, onImportComplete, onOpenChange, reset]);
 
-  // First row sample for mapping display
   const sampleRow = useMemo(() => {
     for (const f of files) { if (f.rows[0]) return f.rows[0]; }
     return {} as ParsedRow;
@@ -343,7 +336,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         {step === "upload" && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Upload one or more CSV files exported from your booking system. You can import multiple camp files in one batch.
+              Upload one or more CSV files exported from the Teaching Tekkers booking system. The camp name is detected from the filename.
             </p>
             <div
               className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
@@ -374,7 +367,6 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         {/* Step 2: Column Mapping */}
         {step === "map" && (
           <div className="space-y-4">
-            {/* File list */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-foreground flex items-center gap-2">
@@ -392,6 +384,13 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-muted-foreground truncate">{f.name}</p>
                       <p className="text-sm font-medium text-foreground">{f.detectedCampName}</p>
+                      {(f.detectedVenue || f.detectedCounty) && (
+                        <p className="text-xs text-muted-foreground">
+                          {f.detectedVenue && <span>Venue: {f.detectedVenue}</span>}
+                          {f.detectedVenue && f.detectedCounty && " • "}
+                          {f.detectedCounty && <span>County: {f.detectedCounty}</span>}
+                        </p>
+                      )}
                     </div>
                     <Badge variant="secondary" className="shrink-0">{f.rows.length} rows</Badge>
                     <button onClick={() => removeFile(f.name)} className="text-muted-foreground hover:text-destructive">
@@ -421,141 +420,105 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
                       ))}
                     </SelectContent>
                   </Select>
-                  <span className="text-xs text-muted-foreground truncate">{sampleRow[h] || ""}</span>
+                  <span className="text-xs text-muted-foreground truncate max-w-40" title={sampleRow[h]}>
+                    {sampleRow[h] || "—"}
+                  </span>
                 </div>
               ))}
             </div>
 
-            {!hasRequired && (
-              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-3">
-                <p className="text-sm text-amber-800 dark:text-amber-200 flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 shrink-0" />
-                  Required fields: Child First Name, Child Last Name (Camp Name is auto-detected from filename)
-                </p>
-              </div>
-            )}
-
-            <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md p-3">
-              <p className="text-sm text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 shrink-0" />
-                Camp Name auto-detected from filename — no mapping needed
-              </p>
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={reset}>Back</Button>
-              <Button disabled={!hasRequired} onClick={() => setStep("preview")}>
-                Preview {getMappedRows().length} Rows
-              </Button>
-            </div>
             <input ref={fileRef} type="file" accept=".csv,.tsv,.txt" multiple className="hidden" onChange={handleFileSelect} />
+
+            <div className="flex justify-between pt-2">
+              <Button variant="outline" onClick={reset}>Back</Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setStep("preview")} disabled={!hasRequired}>
+                  Preview
+                </Button>
+                <Button onClick={handleImport} disabled={!hasRequired}>
+                  Import {totalRows} rows
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
         {/* Step 3: Preview */}
         {step === "preview" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{getMappedRows().length}</span> valid rows from{" "}
-                <span className="font-medium text-foreground">{files.length}</span> file{files.length > 1 ? "s" : ""} ready to import.
-              </p>
-              {allCampNames.length > 0 && (
-                <Badge variant="outline">{allCampNames.length} camp{allCampNames.length > 1 ? "s" : ""}</Badge>
-              )}
-            </div>
-            <div className="rounded-lg border overflow-auto max-h-[400px]">
+            <p className="text-sm text-muted-foreground">Preview of mapped data (first 10 rows)</p>
+            <div className="overflow-x-auto border rounded-md">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>Child</TableHead>
-                    <TableHead>Camp</TableHead>
-                    <TableHead>Parent</TableHead>
-                    <TableHead>Payment</TableHead>
+                    {BOOKING_FIELDS.filter((f) => mappedFields.includes(f.key)).map((f) => (
+                      <TableHead key={f.key} className="text-xs whitespace-nowrap">{f.label}</TableHead>
+                    ))}
+                    <TableHead className="text-xs">Camp (filename)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {getMappedRows().slice(0, 100).map((r, i) => (
+                  {getMappedRows().slice(0, 10).map((row, i) => (
                     <TableRow key={i}>
-                      <TableCell className="text-muted-foreground text-xs">{i + 1}</TableCell>
-                      <TableCell className="font-medium text-sm">{r.child_first_name} {r.child_last_name}</TableCell>
-                      <TableCell className="text-sm">{r.camp_name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{r.parent_name || "—"}</TableCell>
-                      <TableCell className="text-sm">{r.payment_status || "—"}</TableCell>
+                      {BOOKING_FIELDS.filter((f) => mappedFields.includes(f.key)).map((f) => (
+                        <TableCell key={f.key} className="text-xs py-1.5">{row[f.key] || "—"}</TableCell>
+                      ))}
+                      <TableCell className="text-xs py-1.5">{row.camp_name}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
-            {getMappedRows().length > 100 && (
-              <p className="text-xs text-muted-foreground">Showing first 100 of {getMappedRows().length} rows</p>
-            )}
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-between pt-2">
               <Button variant="outline" onClick={() => setStep("map")}>Back</Button>
-              <Button onClick={handleImport}>
-                <Upload className="h-4 w-4 mr-1.5" /> Import {getMappedRows().length} Bookings
-              </Button>
+              <Button onClick={handleImport}>Import {totalRows} rows</Button>
             </div>
           </div>
         )}
 
         {/* Step 4: Importing */}
         {step === "importing" && (
-          <div className="py-12 text-center space-y-3">
-            <Loader2 className="h-10 w-10 mx-auto animate-spin text-primary" />
-            <p className="font-medium">Importing {files.length} file{files.length > 1 ? "s" : ""}…</p>
-            <p className="text-sm text-muted-foreground">Matching camps, checking duplicates, creating records</p>
+          <div className="py-12 text-center space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+            <p className="text-sm text-muted-foreground">Importing {totalRows} bookings from {files.length} file(s)…</p>
           </div>
         )}
 
         {/* Step 5: Done */}
         {step === "done" && result && (
-          <div className="space-y-4">
-            <div className="py-6 text-center">
-              <CheckCircle className="h-12 w-12 mx-auto mb-3 text-emerald-600" />
-              <p className="text-lg font-semibold">Batch Import Complete</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {files.length} file{files.length > 1 ? "s" : ""} processed
-              </p>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-muted rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-foreground">{result.processed}</p>
-                <p className="text-xs text-muted-foreground">Processed</p>
-              </div>
-              <div className="bg-muted rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-emerald-600">{result.created}</p>
-                <p className="text-xs text-muted-foreground">Created</p>
-              </div>
-              <div className="bg-muted rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-blue-600">{result.updated}</p>
-                <p className="text-xs text-muted-foreground">Updated</p>
-              </div>
-              <div className="bg-muted rounded-lg p-3 text-center">
-                <p className={`text-2xl font-bold ${result.failed > 0 ? "text-destructive" : "text-foreground"}`}>{result.failed}</p>
-                <p className="text-xs text-muted-foreground">Failed</p>
-              </div>
-            </div>
-            {(result.camps_created || 0) > 0 && (
-              <p className="text-sm text-muted-foreground text-center">
-                {result.camps_created} new camp(s) auto-created from booking data
-              </p>
+          <div className="py-8 space-y-4 text-center">
+            {result.failed > 0 ? (
+              <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto" />
+            ) : (
+              <CheckCircle className="h-10 w-10 text-emerald-500 mx-auto" />
             )}
-            {/* Per-file breakdown */}
-            <div className="space-y-1">
-              {files.map((f) => (
-                <div key={f.name} className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <FileSpreadsheet className="h-3 w-3" />
-                  <span>{f.name}</span>
-                  <span>— {f.rows.length} rows</span>
-                  {f.campNames.length > 0 && <span>({f.campNames.join(", ")})</span>}
+            <div>
+              <p className="text-lg font-semibold text-foreground">Import Complete</p>
+              <p className="text-sm text-muted-foreground">{files.length} file(s) processed</p>
+            </div>
+            <div className="flex justify-center gap-6 text-sm">
+              <div>
+                <p className="text-2xl font-bold text-emerald-600">{result.created}</p>
+                <p className="text-muted-foreground">Created</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-blue-600">{result.updated}</p>
+                <p className="text-muted-foreground">Updated</p>
+              </div>
+              {result.failed > 0 && (
+                <div>
+                  <p className="text-2xl font-bold text-destructive">{result.failed}</p>
+                  <p className="text-muted-foreground">Failed</p>
                 </div>
-              ))}
+              )}
+              {(result.camps_created ?? 0) > 0 && (
+                <div>
+                  <p className="text-2xl font-bold text-primary">{result.camps_created}</p>
+                  <p className="text-muted-foreground">Camps Created</p>
+                </div>
+              )}
             </div>
-            <div className="flex justify-end">
-              <Button onClick={() => handleClose(false)}>Done</Button>
-            </div>
+            <Button onClick={() => handleClose(false)}>Close</Button>
           </div>
         )}
       </DialogContent>
