@@ -92,7 +92,7 @@ const ALIASES: Record<string, string[]> = {
 };
 
 function autoMapColumn(header: string): string {
-  const h = header.toLowerCase().trim();
+  const h = header.replace(/^\uFEFF/, "").toLowerCase().trim();
   for (const [field, aliases] of Object.entries(ALIASES)) {
     if (aliases.includes(h) || h === field) return field;
   }
