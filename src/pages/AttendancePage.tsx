@@ -88,7 +88,7 @@ export default function AttendancePage() {
     const [pRes, aRes] = await Promise.all([
       supabase
         .from("synced_bookings")
-        .select("id, child_first_name, child_last_name, age, kit_size, medical_notes, photo_permission, payment_status, amount_paid, amount_owed, total_amount, sibling_discount, refund_amount, payment_type, staff_notes")
+        .select("id, child_first_name, child_last_name, age, date_of_birth, kit_size, medical_condition, medical_notes, photo_permission, payment_status, amount_paid, amount_owed, total_amount, sibling_discount, refund_amount, payment_type, staff_notes, parent_name, parent_email, parent_phone, emergency_contact, alternate_phone, booking_date")
         .eq("matched_camp_id", selectedCamp)
         .order("child_last_name"),
       supabase
