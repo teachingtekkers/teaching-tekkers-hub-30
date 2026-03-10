@@ -1,13 +1,13 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import type { UserRole } from "@/types";
 
 interface ProtectedRouteProps {
-  children: React.ReactNode;
   allowedRoles?: UserRole[];
+  children?: React.ReactNode;
 }
 
-export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
+export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) {
   const { user, role, loading } = useAuth();
 
   if (loading) {
@@ -22,10 +22,18 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to="/" replace />;
   }
 
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
-    // Redirect head coaches to their area, admins to dashboard
+  // Wait for role to load
+  if (!role) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (allowedRoles && !allowedRoles.includes(role)) {
     return <Navigate to={role === "head_coach" ? "/coach/my-camps" : "/dashboard"} replace />;
   }
 
-  return <>{children}</>;
+  return children ? <>{children}</> : <Outlet />;
 }
