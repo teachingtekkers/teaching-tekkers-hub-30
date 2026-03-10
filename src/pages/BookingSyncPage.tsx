@@ -125,10 +125,16 @@ export default function BookingSyncPage() {
             Import and manage booking data from <span className="font-medium">bookings.teachingtekkers.com</span>
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button size="sm" onClick={() => setImportOpen(true)}>
             <Upload className="h-4 w-4 mr-1.5" /> Import Booking File
           </Button>
+          {unmatched > 0 && (
+            <Button size="sm" variant="secondary" onClick={handleRematch} disabled={rematching}>
+              <Zap className={`h-4 w-4 mr-1.5 ${rematching ? "animate-pulse" : ""}`} />
+              {rematching ? "Re-matching…" : `Re-match ${unmatched} Unmatched`}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
