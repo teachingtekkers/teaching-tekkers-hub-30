@@ -27,13 +27,23 @@ interface Participant {
   parent_phone: string | null;
   parent_email: string | null;
   emergency_contact: string | null;
+  alternate_phone: string | null;
+  medical_condition: string | null;
   medical_notes: string | null;
   kit_size: string | null;
   payment_status: string | null;
   age: number | null;
   date_of_birth: string | null;
   camp_date: string | null;
+  booking_date: string | null;
   imported_at: string | null;
+  total_amount: number | null;
+  amount_paid: number | null;
+  amount_owed: number | null;
+  sibling_discount: number | null;
+  refund_amount: number | null;
+  payment_type: string | null;
+  photo_permission: boolean | null;
 }
 
 export default function CampDetailPage() {
@@ -51,7 +61,7 @@ export default function CampDetailPage() {
       supabase.from("camps").select("*").eq("id", id).single(),
       supabase
         .from("synced_bookings")
-        .select("id, child_first_name, child_last_name, parent_name, parent_phone, parent_email, emergency_contact, medical_notes, kit_size, payment_status, age, date_of_birth, camp_date, imported_at")
+        .select("id, child_first_name, child_last_name, parent_name, parent_phone, parent_email, emergency_contact, alternate_phone, medical_condition, medical_notes, kit_size, payment_status, age, date_of_birth, camp_date, booking_date, imported_at, total_amount, amount_paid, amount_owed, sibling_discount, refund_amount, payment_type, photo_permission")
         .eq("matched_camp_id", id)
         .order("child_last_name"),
     ]);
