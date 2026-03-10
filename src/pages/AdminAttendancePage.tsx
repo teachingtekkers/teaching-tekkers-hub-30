@@ -93,11 +93,9 @@ export default function AdminAttendancePage() {
   };
 
   const handleFieldUpdate = (id: string, field: string, value: any) => {
-    // Update local participant state for immediate UI feedback
     setParticipants((prev) =>
       prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
     );
-    // Track pending synced_bookings updates
     setPendingUpdates((prev) => {
       const next = new Map(prev);
       const existing = next.get(id) || {};
@@ -106,6 +104,25 @@ export default function AdminAttendancePage() {
     });
     setDirty(true);
   };
+
+  const handlePaymentUpdate = useCallback(async (bookingId: string, updates: Record<string, any>) => {
+    // Update local state immediately
+    setParticipants((prev) =>
+      prev.map((p) => (p.id === bookingId ? { ...p, ...updates } : p))
+    );
+
+    // Persist to synced_bookings immediately
+    const { error } = await supabase
+      .from("synced_bookings")
+      .update(updates)
+      .eq("id", bookingId);
+
+    if (error) {
+      toast.error("Failed to save payment update");
+    } else {
+      toast.success("Payment updated");
+    }
+  }, []);
 
   const saveAttendance = async () => {
     if (!selectedCamp) return;
