@@ -117,7 +117,6 @@ export default function AttendancePage() {
       }
     }
     setAttendance(map);
-    setDirty(false);
   }, [selectedCamp, selectedDate]);
 
   useEffect(() => { loadData(); }, [loadData]);
