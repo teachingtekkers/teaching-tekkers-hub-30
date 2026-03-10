@@ -280,6 +280,7 @@ export default function AttendancePage() {
                   isPresent={getStatus(p.id) === "present"}
                   onToggle={() => toggleStatus(p.id)}
                   isAdmin={false}
+                  onPaymentUpdate={handlePaymentUpdate}
                   expandedId={expandedId}
                   onExpand={setExpandedId}
                 />
