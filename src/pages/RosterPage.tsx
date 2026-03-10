@@ -92,6 +92,7 @@ const RosterPage = () => {
   const [rosterStatus, setRosterStatus] = useState<RosterStatus>("draft");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [rosterView, setRosterView] = useState<"camp" | "coach">("camp");
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
