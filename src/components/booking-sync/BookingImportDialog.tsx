@@ -295,10 +295,22 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
       const hasCampCol = f.headers.some((h) => mapping[h] === "camp_name");
       const hasVenueCol = f.headers.some((h) => mapping[h] === "venue");
       const hasCountyCol = f.headers.some((h) => mapping[h] === "county");
-      f.rows.forEach((row) => {
+      f.rows.forEach((row, rowIdx) => {
         const mapped: Record<string, string> = {};
         for (const [csvCol, field] of Object.entries(mapping)) {
           if (field !== "skip" && row[csvCol] !== undefined && row[csvCol] !== "") mapped[field] = row[csvCol];
+        }
+        // Log first row finance fields for debugging
+        if (rowIdx === 0) {
+          console.log("[BookingImport] Row 0 mapped finance:", {
+            total_amount: mapped.total_amount,
+            amount_paid: mapped.amount_paid,
+            sibling_discount: mapped.sibling_discount,
+            refund_amount: mapped.refund_amount,
+            payment_status: mapped.payment_status,
+            payment_type: mapped.payment_type,
+          });
+          console.log("[BookingImport] Row 0 raw keys:", Object.keys(row));
         }
         // Inject metadata from filename if not mapped from columns
         if (!hasCampCol || !mapped.camp_name) mapped.camp_name = f.detectedCampName;
