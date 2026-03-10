@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, CheckCircle, Save, Loader2 } from "lucide-react";
+import { Users, CheckCircle, Save, Loader2, Zap, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import AttendanceParticipantRow, { type ParticipantData } from "@/components/attendance/AttendanceParticipantRow";
 import AttendanceSortControl, { type SortField } from "@/components/attendance/AttendanceSortControl";
+import CoachModeList from "@/components/attendance/CoachModeList";
 
 interface CampOption {
   id: string;
@@ -41,6 +42,7 @@ export default function AttendancePage() {
   const [dirty, setDirty] = useState(false);
   const [sortField, setSortField] = useState<SortField>("last_name");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"admin" | "coach">("admin");
 
   useEffect(() => {
     (async () => {
@@ -67,6 +69,8 @@ export default function AttendancePage() {
             setCamps((data as CampOption[]) || []);
           }
         }
+        // Default to coach mode for head_coach role
+        setViewMode("coach");
       } else {
         const { data } = await supabase
           .from("camps")
@@ -144,23 +148,52 @@ export default function AttendancePage() {
   };
 
   const handlePaymentUpdate = useCallback(async (bookingId: string, updates: Record<string, any>) => {
-    // Update local state immediately
     setParticipants((prev) =>
       prev.map((p) => (p.id === bookingId ? { ...p, ...updates } : p))
     );
-
-    // Persist to synced_bookings
     const { error } = await supabase
       .from("synced_bookings")
       .update(updates)
       .eq("id", bookingId);
-
     if (error) {
       toast.error("Failed to save payment update");
     } else {
       toast.success("Payment updated");
     }
   }, []);
+
+  /** Instant-save a single attendance record (used in Coach Mode) */
+  const instantSaveAttendance = useCallback(async (participantId: string, newStatus: "present" | "absent") => {
+    if (!selectedCamp) return;
+
+    // Check if we already have an attendance row for this participant
+    const existing = attendance.get(participantId);
+
+    if (existing?.id) {
+      // Update existing row
+      await supabase
+        .from("attendance")
+        .update({ status: newStatus })
+        .eq("id", existing.id);
+    } else {
+      // Insert new row
+      const { data } = await supabase
+        .from("attendance")
+        .insert({ camp_id: selectedCamp, synced_booking_id: participantId, date: selectedDate, status: newStatus, note: null })
+        .select("id")
+        .single();
+
+      // Store the new id so future toggles use update
+      if (data) {
+        setAttendance((prev) => {
+          const next = new Map(prev);
+          const cur = next.get(participantId);
+          if (cur) next.set(participantId, { ...cur, id: data.id });
+          return next;
+        });
+      }
+    }
+  }, [selectedCamp, selectedDate, attendance]);
 
   const saveAttendance = async () => {
     if (!selectedCamp) return;
@@ -213,9 +246,34 @@ export default function AttendancePage() {
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
-      <div className="page-header">
-        <h1 className="text-xl font-bold text-foreground">Attendance</h1>
-        <p className="text-sm text-muted-foreground">Mark daily attendance for camp participants</p>
+      <div className="page-header flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Attendance</h1>
+          <p className="text-sm text-muted-foreground">
+            {viewMode === "coach" ? "Fast check-in mode" : "Mark daily attendance for camp participants"}
+          </p>
+        </div>
+        {/* View mode toggle */}
+        <div className="flex rounded-lg border overflow-hidden">
+          <button
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+              viewMode === "admin" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-accent"
+            }`}
+            onClick={() => setViewMode("admin")}
+          >
+            <ClipboardList className="h-3.5 w-3.5" />
+            Admin
+          </button>
+          <button
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+              viewMode === "coach" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-accent"
+            }`}
+            onClick={() => setViewMode("coach")}
+          >
+            <Zap className="h-3.5 w-3.5" />
+            Coach Mode
+          </button>
+        </div>
       </div>
 
       <Card>
@@ -251,17 +309,25 @@ export default function AttendancePage() {
                 {presentCount}/{participants.length}
               </Badge>
             </div>
-            <AttendanceSortControl value={sortField} onChange={setSortField} />
+            {viewMode === "admin" && <AttendanceSortControl value={sortField} onChange={setSortField} />}
           </div>
 
           <div className="flex gap-2 px-1">
             <Button variant="outline" size="sm" onClick={markAllPresent} disabled={participants.length === 0}>
               Mark All Present
             </Button>
-            <Button size="sm" onClick={saveAttendance} disabled={!dirty || saving} className="gap-1.5">
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              Save
-            </Button>
+            {viewMode === "admin" && (
+              <Button size="sm" onClick={saveAttendance} disabled={!dirty || saving} className="gap-1.5">
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Save
+              </Button>
+            )}
+            {viewMode === "coach" && dirty && (
+              <Button size="sm" onClick={saveAttendance} disabled={saving} variant="outline" className="gap-1.5">
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Save All
+              </Button>
+            )}
           </div>
 
           {participants.length === 0 ? (
@@ -271,6 +337,13 @@ export default function AttendancePage() {
                 <p className="text-sm text-muted-foreground">No participants for this camp.</p>
               </CardContent>
             </Card>
+          ) : viewMode === "coach" ? (
+            <CoachModeList
+              participants={sorted}
+              getStatus={getStatus}
+              onToggle={toggleStatus}
+              onInstantSave={instantSaveAttendance}
+            />
           ) : (
             <div className="space-y-1">
               {sorted.map((p) => (
