@@ -104,8 +104,14 @@ export default function AttendanceParticipantRow({
             )}
           </div>
           <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
-            {p.age != null && <span>Age {p.age}</span>}
-            {p.kit_size && <span>• {p.kit_size}</span>}
+            {p.parent_name && <span>{p.parent_name}</span>}
+            {p.parent_phone && (
+              <>
+                <span>•</span>
+                <a href={`tel:${p.parent_phone}`} className="text-primary" onClick={(e) => e.stopPropagation()}>{p.parent_phone}</a>
+              </>
+            )}
+            {p.age != null && <><span>•</span><span>Age {p.age}</span></>}
             <span className={isPaid ? "text-emerald-600" : "text-amber-600"}>
               • {isPaid ? "✅ Paid" : (p.amount_owed && p.amount_owed > 0) ? `⏳ €${p.amount_owed} owed` : "⏳ Unpaid"}
             </span>
