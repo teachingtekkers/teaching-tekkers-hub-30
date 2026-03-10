@@ -298,7 +298,7 @@ export default function AttendancePage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Camp</Label>
-              <Select value={selectedCamp} onValueChange={(v) => { setSelectedCamp(v); setDirty(false); }}>
+              <Select value={selectedCamp} onValueChange={(v) => { setSelectedCamp(v); }}>
                 <SelectTrigger><SelectValue placeholder="Select camp" /></SelectTrigger>
                 <SelectContent>
                   {camps.map((c) => (
