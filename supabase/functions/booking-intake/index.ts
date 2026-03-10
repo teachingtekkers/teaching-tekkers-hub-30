@@ -26,6 +26,94 @@ interface IncomingBooking {
   booking_status?: string;
 }
 
+// Normalize text for fuzzy matching: lowercase, strip punctuation, collapse whitespace
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Extract meaningful tokens from a camp name
+function tokenize(s: string): Set<string> {
+  const stopWords = new Set(["camp", "the", "a", "an", "and", "of", "in", "at", "for"]);
+  return new Set(
+    normalize(s)
+      .split(" ")
+      .filter((w) => w.length > 1 && !stopWords.has(w))
+  );
+}
+
+// Calculate token overlap ratio (Jaccard-like)
+function tokenSimilarity(a: string, b: string): number {
+  const tokA = tokenize(a);
+  const tokB = tokenize(b);
+  if (tokA.size === 0 && tokB.size === 0) return 1;
+  if (tokA.size === 0 || tokB.size === 0) return 0;
+  let intersection = 0;
+  for (const t of tokA) if (tokB.has(t)) intersection++;
+  const union = new Set([...tokA, ...tokB]).size;
+  return intersection / union;
+}
+
+// Check if camp_date falls within camp date range
+function dateOverlaps(campDate: string | undefined, startDate: string, endDate: string): boolean {
+  if (!campDate) return false;
+  return campDate >= startDate && campDate <= endDate;
+}
+
+interface CampRow {
+  id: string;
+  name: string;
+  venue: string;
+  county: string;
+  start_date: string;
+  end_date: string;
+  club_name: string;
+}
+
+function findBestCamp(
+  booking: IncomingBooking,
+  camps: CampRow[]
+): CampRow | null {
+  if (!camps.length) return null;
+
+  type Scored = { camp: CampRow; score: number };
+  const scored: Scored[] = camps.map((camp) => {
+    let score = 0;
+
+    // Name similarity (0-1), weighted heavily
+    const nameSim = tokenSimilarity(booking.camp_name, camp.name);
+    score += nameSim * 60;
+
+    // Date match
+    if (booking.camp_date && dateOverlaps(booking.camp_date, camp.start_date, camp.end_date)) {
+      score += 25;
+    }
+
+    // Venue similarity
+    if (booking.venue && camp.venue) {
+      const venueSim = tokenSimilarity(booking.venue, camp.venue);
+      score += venueSim * 10;
+    }
+
+    // County exact match
+    if (booking.county && camp.county && normalize(booking.county) === normalize(camp.county)) {
+      score += 5;
+    }
+
+    return { camp, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const best = scored[0];
+
+  // Minimum threshold: at least 30% name similarity OR date match with some name overlap
+  if (best.score >= 30) return best.camp;
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -51,20 +139,50 @@ Deno.serve(async (req) => {
 
     if (logErr) throw logErr;
 
-    let created = 0, updated = 0, failed = 0;
+    // Load all camps once for matching
+    const { data: allCamps } = await supabase
+      .from("camps")
+      .select("id, name, venue, county, start_date, end_date, club_name");
+    const campsList: CampRow[] = allCamps || [];
+
+    let created = 0,
+      updated = 0,
+      failed = 0,
+      campsCreated = 0;
     const errors: string[] = [];
 
     for (const b of bookings) {
       try {
-        // Try to match camp
+        // --- Fuzzy camp matching ---
         let matched_camp_id: string | null = null;
-        if (b.camp_name) {
-          const { data: camps } = await supabase
+        const bestCamp = findBestCamp(b, campsList);
+
+        if (bestCamp) {
+          matched_camp_id = bestCamp.id;
+        } else if (b.camp_name) {
+          // Auto-create camp from booking data
+          const campDate = b.camp_date || new Date().toISOString().split("T")[0];
+          const newCamp = {
+            name: b.camp_name,
+            club_name: b.camp_name.split(/[-–]/)[0].trim() || b.camp_name,
+            venue: b.venue || "TBC",
+            county: b.county || "TBC",
+            start_date: campDate,
+            end_date: campDate,
+            age_group: "U8-U12",
+          };
+          const { data: createdCamp, error: campErr } = await supabase
             .from("camps")
-            .select("id")
-            .ilike("name", `%${b.camp_name}%`)
-            .limit(1);
-          if (camps?.length) matched_camp_id = camps[0].id;
+            .insert(newCamp)
+            .select("id, name, venue, county, start_date, end_date, club_name")
+            .single();
+          if (campErr) {
+            errors.push(`Auto-create camp "${b.camp_name}": ${campErr.message}`);
+          } else if (createdCamp) {
+            matched_camp_id = createdCamp.id;
+            campsList.push(createdCamp as CampRow);
+            campsCreated++;
+          }
         }
 
         // Check for existing by external_booking_id
@@ -151,14 +269,23 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         sync_log_id: syncLog.id,
-        summary: { processed: bookings.length, created, updated, failed },
+        summary: {
+          processed: bookings.length,
+          created,
+          updated,
+          failed,
+          camps_created: campsCreated,
+        },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     return new Response(
       JSON.stringify({ success: false, error: err.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
     );
   }
 });

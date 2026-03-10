@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 // Admin: Seasonal Camps
 import DashboardPage from "./pages/DashboardPage";
 import CampsPage from "./pages/CampsPage";
+import CampDetailPage from "./pages/CampDetailPage";
 import PlayersPage from "./pages/PlayersPage";
 import CoachesPage from "./pages/CoachesPage";
 import CoachDetailPage from "./pages/CoachDetailPage";
@@ -67,6 +68,7 @@ const App = () => (
             <Route element={<ProtectedAdminLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/camps" element={<CampsPage />} />
+              <Route path="/camps/:id" element={<CampDetailPage />} />
               <Route path="/players" element={<PlayersPage />} />
               <Route path="/coaches" element={<CoachesPage />} />
               <Route path="/coaches/:id" element={<CoachDetailPage />} />
