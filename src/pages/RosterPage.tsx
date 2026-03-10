@@ -8,13 +8,15 @@ import { RosterWeekSelector } from "@/components/roster/RosterWeekSelector";
 import { RosterStats } from "@/components/roster/RosterStats";
 import { RosterAvailabilityInput } from "@/components/roster/RosterAvailabilityInput";
 import { RosterDailyGrid } from "@/components/roster/RosterDailyGrid";
+import { RosterCoachView } from "@/components/roster/RosterCoachView";
 import { RosterExport } from "@/components/roster/RosterExport";
 import { RosterUnassignedPool } from "@/components/roster/RosterUnassignedPool";
 import { RosterHistory } from "@/components/roster/RosterHistory";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Wand2, Save, CheckCircle, FileEdit, History } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Users, Wand2, Save, CheckCircle, FileEdit, History, AlertTriangle } from "lucide-react";
 
 export type ExperienceLevel = "lead" | "senior" | "standard" | "junior";
 
@@ -90,6 +92,7 @@ const RosterPage = () => {
   const [rosterStatus, setRosterStatus] = useState<RosterStatus>("draft");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [rosterView, setRosterView] = useState<"camp" | "coach">("camp");
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
@@ -163,10 +166,30 @@ const RosterPage = () => {
     [assignments]
   );
 
-  const unassignedCoaches = useMemo(
-    () => availableCoaches.filter(c => !assignedCoachIds.has(c.id)),
-    [availableCoaches, assignedCoachIds]
-  );
+  // Get all weekdays for this week (for coach view)
+  const weekDays = useMemo(() => {
+    return eachDayOfInterval({ start: weekStart, end: weekEnd }).filter(d => !isWeekend(d));
+  }, [weekStart, weekEnd]);
+
+  // Conflict detection: which days is a coach busy?
+  const getCoachBusyDays = useCallback((coachId: string, excludeAssignmentId?: string): Set<string> => {
+    const busy = new Set<string>();
+    assignments.forEach(a => {
+      if (a.coach_id === coachId && a.id !== excludeAssignmentId) {
+        a.days.forEach(d => busy.add(d));
+      }
+    });
+    return busy;
+  }, [assignments]);
+
+  // Coaches with at least one free day (partially or fully unassigned)
+  const unassignedCoaches = useMemo(() => {
+    const allWeekDays = weekDays.map(d => format(d, "yyyy-MM-dd"));
+    return availableCoaches.filter(c => {
+      const busyDays = getCoachBusyDays(c.id);
+      return busyDays.size < allWeekDays.length; // has at least one free day
+    });
+  }, [availableCoaches, getCoachBusyDays, weekDays]);
 
   // Mark changes as unsaved whenever assignments change after initial load
   const markDirty = useCallback(() => setHasUnsavedChanges(true), []);
@@ -331,7 +354,18 @@ const RosterPage = () => {
     const camp = camps.find(c => c.id === campId);
     if (!camp) return;
     const campDays = getCampDays(camp).map(d => format(d, "yyyy-MM-dd"));
-    setAssignments(prev => [...prev, { id: String(Date.now()), camp_id: campId, coach_id: coachId, role, days: campDays, driving_this_week: false }]);
+    // Only assign days the coach is free
+    const busyDays = getCoachBusyDays(coachId);
+    const freeDays = campDays.filter(d => !busyDays.has(d));
+    if (freeDays.length === 0) {
+      toast({ title: "No free days", description: "This coach is fully booked this week", variant: "destructive" });
+      return;
+    }
+    if (freeDays.length < campDays.length) {
+      const busyCount = campDays.length - freeDays.length;
+      sonnerToast.info(`Coach assigned to ${freeDays.length} of ${campDays.length} days (${busyCount} day${busyCount > 1 ? "s" : ""} busy at other venues)`);
+    }
+    setAssignments(prev => [...prev, { id: String(Date.now()), camp_id: campId, coach_id: coachId, role, days: freeDays, driving_this_week: false }]);
     markDirty();
   };
 
@@ -349,8 +383,19 @@ const RosterPage = () => {
   const toggleDay = (id: string, day: string) => {
     setAssignments(prev => prev.map(a => {
       if (a.id !== id) return a;
-      const days = a.days.includes(day) ? a.days.filter(d => d !== day) : [...a.days, day].sort();
-      return { ...a, days };
+      if (a.days.includes(day)) {
+        // Removing a day is always allowed
+        return { ...a, days: a.days.filter(d => d !== day) };
+      }
+      // Adding a day — check for conflicts
+      const busyDays = getCoachBusyDays(a.coach_id, a.id);
+      if (busyDays.has(day)) {
+        const conflictAssignment = prev.find(o => o.id !== a.id && o.coach_id === a.coach_id && o.days.includes(day));
+        const conflictCamp = conflictAssignment ? camps.find(c => c.id === conflictAssignment.camp_id) : null;
+        toast({ title: "Day conflict", description: `Coach is already assigned to ${conflictCamp?.name || "another camp"} on this day`, variant: "destructive" });
+        return a;
+      }
+      return { ...a, days: [...a.days, day].sort() };
     }));
     markDirty();
   };
@@ -472,26 +517,58 @@ const RosterPage = () => {
             <RosterUnassignedPool coaches={unassignedCoaches} onDragStart={handleDragStart} />
           )}
 
-          <div className="space-y-4">
-            {camps.map(camp => (
-              <RosterDailyGrid
-                key={camp.id}
-                camp={camp}
-                assignments={assignments.filter(a => a.camp_id === camp.id)}
+          {/* Multi-venue conflict summary */}
+          {assignments.length > 0 && (() => {
+            const multiVenueCoaches = [...new Set(assignments.map(a => a.coach_id))].filter(cid => {
+              const campIds = new Set(assignments.filter(a => a.coach_id === cid).map(a => a.camp_id));
+              return campIds.size > 1;
+            });
+            if (multiVenueCoaches.length === 0) return null;
+            return (
+              <div className="flex items-center gap-2 text-xs p-2 rounded-md bg-accent/50 border">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                <span>
+                  <strong>{multiVenueCoaches.length}</strong> coach{multiVenueCoaches.length > 1 ? "es" : ""} assigned across multiple venues this week.
+                  Switch to <button className="underline font-semibold" onClick={() => setRosterView("coach")}>Coach View</button> for details.
+                </span>
+              </div>
+            );
+          })()}
+
+          <Tabs value={rosterView} onValueChange={(v) => setRosterView(v as "camp" | "coach")}>
+            <TabsList>
+              <TabsTrigger value="camp">Camp View</TabsTrigger>
+              <TabsTrigger value="coach">Coach View</TabsTrigger>
+            </TabsList>
+            <TabsContent value="camp" className="space-y-4 mt-4">
+              {camps.map(camp => (
+                <RosterDailyGrid
+                  key={camp.id}
+                  camp={camp}
+                  assignments={assignments.filter(a => a.camp_id === camp.id)}
+                  coaches={availableCoaches}
+                  unassignedCoaches={unassignedCoaches}
+                  onRemove={removeAssignment}
+                  onAdd={addAssignment}
+                  onAddDay1Support={addDay1Support}
+                  onChangeRole={changeRole}
+                  onToggleDay={toggleDay}
+                  onToggleDriving={toggleDrivingThisWeek}
+                  onDragStart={handleDragStart}
+                  onDrop={() => handleDrop(camp.id)}
+                  availabilitySet={availabilitySet}
+                />
+              ))}
+            </TabsContent>
+            <TabsContent value="coach" className="mt-4">
+              <RosterCoachView
+                camps={camps}
+                assignments={assignments}
                 coaches={availableCoaches}
-                unassignedCoaches={unassignedCoaches}
-                onRemove={removeAssignment}
-                onAdd={addAssignment}
-                onAddDay1Support={addDay1Support}
-                onChangeRole={changeRole}
-                onToggleDay={toggleDay}
-                onToggleDriving={toggleDrivingThisWeek}
-                onDragStart={handleDragStart}
-                onDrop={() => handleDrop(camp.id)}
-                availabilitySet={availabilitySet}
+                weekDays={weekDays}
               />
-            ))}
-          </div>
+            </TabsContent>
+          </Tabs>
         </>
       )}
     </div>
