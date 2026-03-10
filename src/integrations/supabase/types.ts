@@ -20,24 +20,30 @@ export type Database = {
           created_at: string
           date: string
           id: string
-          player_id: string
+          note: string | null
+          player_id: string | null
           status: Database["public"]["Enums"]["attendance_status"]
+          synced_booking_id: string | null
         }
         Insert: {
           camp_id: string
           created_at?: string
           date: string
           id?: string
-          player_id: string
+          note?: string | null
+          player_id?: string | null
           status?: Database["public"]["Enums"]["attendance_status"]
+          synced_booking_id?: string | null
         }
         Update: {
           camp_id?: string
           created_at?: string
           date?: string
           id?: string
-          player_id?: string
+          note?: string | null
+          player_id?: string | null
           status?: Database["public"]["Enums"]["attendance_status"]
+          synced_booking_id?: string | null
         }
         Relationships: [
           {
@@ -52,6 +58,13 @@ export type Database = {
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_synced_booking_id_fkey"
+            columns: ["synced_booking_id"]
+            isOneToOne: false
+            referencedRelation: "synced_bookings"
             referencedColumns: ["id"]
           },
         ]
