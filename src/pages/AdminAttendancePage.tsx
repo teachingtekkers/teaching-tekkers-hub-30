@@ -245,6 +245,7 @@ export default function AdminAttendancePage() {
                     onToggle={() => toggleStatus(p.id)}
                     isAdmin={true}
                     onFieldUpdate={handleFieldUpdate}
+                    onPaymentUpdate={handlePaymentUpdate}
                     expandedId={expandedId}
                     onExpand={setExpandedId}
                   />
