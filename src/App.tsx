@@ -3,6 +3,8 @@ import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/hooks/useAuth";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminLayout, CoachLayout } from "@/components/AppLayout";
 import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
@@ -16,6 +18,7 @@ import RosterPage from "./pages/RosterPage";
 import PayrollPage from "./pages/PayrollPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import ReportsPage from "./pages/ReportsPage";
+import UserManagementPage from "./pages/UserManagementPage";
 
 // Admin: Private Coaching
 import PrivateDashboardPage from "./pages/private/PrivateDashboardPage";
@@ -38,39 +41,42 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<LoginPage />} />
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<LoginPage />} />
 
-          {/* Admin routes */}
-          <Route element={<AdminLayout />}>
-            {/* Seasonal Camps */}
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/camps" element={<CampsPage />} />
-            <Route path="/players" element={<PlayersPage />} />
-            <Route path="/coaches" element={<CoachesPage />} />
-            <Route path="/roster" element={<RosterPage />} />
-            <Route path="/payroll" element={<PayrollPage />} />
-            <Route path="/invoices" element={<InvoicesPage />} />
-            <Route path="/reports" element={<ReportsPage />} />
+            {/* Admin routes */}
+            <Route element={<ProtectedRoute allowedRoles={["admin"]}><AdminLayout /></ProtectedRoute>}>
+              {/* Seasonal Camps */}
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/camps" element={<CampsPage />} />
+              <Route path="/players" element={<PlayersPage />} />
+              <Route path="/coaches" element={<CoachesPage />} />
+              <Route path="/roster" element={<RosterPage />} />
+              <Route path="/payroll" element={<PayrollPage />} />
+              <Route path="/invoices" element={<InvoicesPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/users" element={<UserManagementPage />} />
 
-            {/* Private Coaching */}
-            <Route path="/private/dashboard" element={<PrivateDashboardPage />} />
-            <Route path="/private/sessions" element={<PrivateSessionsPage />} />
-            <Route path="/private/bookings" element={<PrivateBookingsPage />} />
-            <Route path="/private/payments" element={<PrivatePaymentsPage />} />
-          </Route>
+              {/* Private Coaching */}
+              <Route path="/private/dashboard" element={<PrivateDashboardPage />} />
+              <Route path="/private/sessions" element={<PrivateSessionsPage />} />
+              <Route path="/private/bookings" element={<PrivateBookingsPage />} />
+              <Route path="/private/payments" element={<PrivatePaymentsPage />} />
+            </Route>
 
-          {/* Head Coach routes */}
-          <Route element={<CoachLayout />}>
-            <Route path="/coach/my-camps" element={<MyCampsPage />} />
-            <Route path="/coach/attendance" element={<AttendancePage />} />
-            <Route path="/coach/fixtures" element={<FixturesPage />} />
-            <Route path="/coach/session-plans" element={<CoachSessionPlansPage />} />
-            <Route path="/coach/itinerary" element={<CoachItineraryPage />} />
-          </Route>
+            {/* Head Coach routes */}
+            <Route element={<ProtectedRoute allowedRoles={["head_coach"]}><CoachLayout /></ProtectedRoute>}>
+              <Route path="/coach/my-camps" element={<MyCampsPage />} />
+              <Route path="/coach/attendance" element={<AttendancePage />} />
+              <Route path="/coach/fixtures" element={<FixturesPage />} />
+              <Route path="/coach/session-plans" element={<CoachSessionPlansPage />} />
+              <Route path="/coach/itinerary" element={<CoachItineraryPage />} />
+            </Route>
 
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
