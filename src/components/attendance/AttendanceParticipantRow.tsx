@@ -1,9 +1,10 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Heart, CameraOff, StickyNote } from "lucide-react";
-import { useState } from "react";
+import { Heart, CameraOff, Banknote } from "lucide-react";
+import { useState, useCallback } from "react";
 
 export interface ParticipantData {
   id: string;
@@ -31,12 +32,23 @@ export interface ParticipantData {
   booking_date: string | null;
 }
 
+function calcTotalCost(p: ParticipantData): number {
+  return Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+}
+
+function deriveStatus(paid: number, owed: number): string {
+  if (owed <= 0) return "paid";
+  if (paid > 0 && owed > 0) return "partial";
+  return "unpaid";
+}
+
 interface Props {
   participant: ParticipantData;
   isPresent: boolean;
   onToggle: () => void;
   isAdmin?: boolean;
   onFieldUpdate?: (id: string, field: string, value: any) => void;
+  onPaymentUpdate?: (id: string, updates: Record<string, any>) => void;
   expandedId?: string | null;
   onExpand?: (id: string | null) => void;
 }
@@ -47,15 +59,47 @@ export default function AttendanceParticipantRow({
   onToggle,
   isAdmin = false,
   onFieldUpdate,
+  onPaymentUpdate,
   expandedId,
   onExpand,
 }: Props) {
   const isExpanded = expandedId === p.id;
   const hasMedical = !!(p.medical_condition || p.medical_notes);
   const noPhoto = p.photo_permission === false;
-  const isPaid = p.payment_status === "paid";
+
+  const totalCost = calcTotalCost(p);
+  const currentPaid = p.amount_paid ?? 0;
+  const currentOwed = p.amount_owed ?? Math.max(0, totalCost - currentPaid - (p.refund_amount ?? 0));
+  const status = p.payment_status ?? deriveStatus(currentPaid, currentOwed);
 
   const medicalText = [p.medical_condition, p.medical_notes].filter(Boolean).join(" — ");
+
+  const statusColor = status === "paid"
+    ? "text-emerald-600"
+    : status === "partial"
+      ? "text-amber-600"
+      : "text-destructive";
+
+  const statusBadgeVariant = status === "paid" ? "default" as const : "secondary" as const;
+  const statusLabel = status === "paid" ? "Paid" : status === "partial" ? "Partial" : "Unpaid";
+
+  const handleAmountPaidChange = useCallback((val: string) => {
+    const paid = val === "" ? 0 : Number(val);
+    const owed = Math.max(0, totalCost - paid - (p.refund_amount ?? 0));
+    const newStatus = deriveStatus(paid, owed);
+    onPaymentUpdate?.(p.id, { amount_paid: paid, amount_owed: owed, payment_status: newStatus });
+  }, [p.id, totalCost, p.refund_amount, onPaymentUpdate]);
+
+  const handleAmountOwedChange = useCallback((val: string) => {
+    const owed = val === "" ? 0 : Number(val);
+    const newStatus = deriveStatus(currentPaid, owed);
+    onPaymentUpdate?.(p.id, { amount_owed: owed, payment_status: newStatus });
+  }, [p.id, currentPaid, onPaymentUpdate]);
+
+  const handleMarkPaid = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onPaymentUpdate?.(p.id, { amount_paid: totalCost, amount_owed: 0, payment_status: "paid" });
+  }, [p.id, totalCost, onPaymentUpdate]);
 
   return (
     <div className="rounded-lg border overflow-hidden transition-colors">
@@ -112,13 +156,27 @@ export default function AttendanceParticipantRow({
               </>
             )}
             {p.age != null && <><span>•</span><span>Age {p.age}</span></>}
-            <span className={isPaid ? "text-emerald-600" : "text-amber-600"}>
-              • {isPaid ? `✅ Paid` : (p.amount_owed && p.amount_owed > 0) ? `⏳ €${p.amount_owed} owed` : `⏳ ${p.payment_status || "Unpaid"}`}
+            <span className={statusColor}>
+              • {status === "paid" ? "✅ Paid" : currentOwed > 0 ? `⏳ €${currentOwed} owed` : `⏳ ${statusLabel}`}
             </span>
             {p.payment_type && <span>• {p.payment_type}</span>}
             {p.staff_notes && <span title={p.staff_notes}>• 📝</span>}
           </div>
         </div>
+
+        {/* Quick Mark Paid */}
+        {status !== "paid" && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 shrink-0"
+            onClick={handleMarkPaid}
+            title="Mark Paid"
+          >
+            <Banknote className="h-3.5 w-3.5" />
+            Paid
+          </Button>
+        )}
 
         <button
           className="text-xs text-muted-foreground hover:text-foreground px-1"
@@ -131,14 +189,17 @@ export default function AttendanceParticipantRow({
           {isExpanded ? "▲" : "▼"}
         </button>
 
-        <Badge variant={isPresent ? "default" : "secondary"} className="text-[10px] shrink-0">
+        <Badge
+          variant={statusBadgeVariant}
+          className={`text-[10px] shrink-0 ${status === "paid" ? "bg-emerald-600" : status === "partial" ? "bg-amber-500 text-white" : "bg-destructive text-destructive-foreground"}`}
+        >
           {isPresent ? "Present" : "Absent"}
         </Badge>
       </div>
 
       {/* Expanded detail panel */}
       {isExpanded && (
-        <div className="border-t bg-muted/30 p-3 space-y-2 text-sm" onClick={(e) => e.stopPropagation()}>
+        <div className="border-t bg-muted/30 p-3 space-y-3 text-sm" onClick={(e) => e.stopPropagation()}>
           {hasMedical && (
             <div className="flex items-start gap-2">
               <Heart className="h-3.5 w-3.5 text-destructive mt-0.5 shrink-0" />
@@ -198,15 +259,6 @@ export default function AttendanceParticipantRow({
                 <span className="font-medium">{p.alternate_phone}</span>
               </div>
             )}
-            <div>
-              <span className="text-muted-foreground">Payment:</span>{" "}
-              <Badge variant={isPaid ? "default" : "secondary"} className="text-[10px] ml-1">
-                {isPaid ? "Paid" : p.payment_status || "Unpaid"}
-              </Badge>
-              {p.payment_type && (
-                <span className="text-muted-foreground ml-1">({p.payment_type})</span>
-              )}
-            </div>
             {noPhoto && (
               <div className="flex items-center gap-1">
                 <CameraOff className="h-3 w-3 text-muted-foreground" />
@@ -215,81 +267,67 @@ export default function AttendanceParticipantRow({
             )}
           </div>
 
-          {/* Finance summary */}
-          {(() => {
-            const totalAmt = p.total_amount ?? 0;
-            const discount = p.sibling_discount ?? 0;
-            const totalCost = Math.max(0, totalAmt - discount);
-            const paid = p.amount_paid ?? 0;
-            const refund = p.refund_amount ?? 0;
-            const owed = p.amount_owed ?? Math.max(0, totalCost - paid - refund);
-            return (
-              <>
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div>
-                    <span className="text-muted-foreground">Total Cost:</span>{" "}
-                    <span className="font-medium">€{totalCost}</span>
-                    {discount > 0 && <span className="text-[10px] text-muted-foreground block">({`€${totalAmt} − €${discount} disc.`})</span>}
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Paid:</span>{" "}
-                    <span className="font-medium text-emerald-600">€{paid}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Owed:</span>{" "}
-                    <span className={`font-medium ${owed > 0 ? "text-amber-600" : ""}`}>€{owed}</span>
-                  </div>
-                </div>
+          {/* Payment section */}
+          <div className="border rounded-lg p-3 space-y-2 bg-background">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">💰 Payment</span>
+              <Badge
+                className={`text-[10px] ${status === "paid" ? "bg-emerald-600 text-white" : status === "partial" ? "bg-amber-500 text-white" : "bg-destructive text-destructive-foreground"}`}
+              >
+                {statusLabel}
+              </Badge>
+            </div>
 
-                {/* Debug: confirm data flow from synced booking */}
-                <div className="border border-dashed border-muted-foreground/30 rounded p-2 space-y-0.5">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">🔍 Debug — Finance Data Flow</p>
-                  <div className="grid grid-cols-2 gap-1 text-[11px]">
-                    <span className="text-muted-foreground">imported Total Amount:</span>
-                    <span className="font-mono">€{totalAmt}</span>
-                    <span className="text-muted-foreground">imported Siblings Discount:</span>
-                    <span className="font-mono">€{discount}</span>
-                    <span className="text-muted-foreground">imported Amount Paid:</span>
-                    <span className="font-mono">€{paid}</span>
-                    <span className="text-muted-foreground">imported Refund Amount:</span>
-                    <span className="font-mono">€{refund}</span>
-                    <span className="text-muted-foreground">imported Status:</span>
-                    <span className="font-mono">{p.payment_status ?? "null"}</span>
-                    <span className="text-muted-foreground">imported Payment Type:</span>
-                    <span className="font-mono">{p.payment_type ?? "null"}</span>
-                    <span className="text-muted-foreground font-semibold">calculated Total Cost:</span>
-                    <span className="font-mono font-semibold">€{totalCost}</span>
-                    <span className="text-muted-foreground font-semibold">calculated Amount Owed:</span>
-                    <span className="font-mono font-semibold">€{owed}</span>
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-
-          {/* Payment editing — admin only */}
-          {isAdmin && (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2 text-xs">
               <div>
-                <label className="text-[10px] text-muted-foreground uppercase">Amount Owed</label>
+                <span className="text-muted-foreground">Total Cost:</span>
+                <span className="font-medium block">€{totalCost}</span>
+                {(p.sibling_discount ?? 0) > 0 && (
+                  <span className="text-[10px] text-muted-foreground">€{p.total_amount ?? 0} − €{p.sibling_discount} disc.</span>
+                )}
+              </div>
+              <div>
+                <label className="text-muted-foreground block mb-0.5">Amount Paid:</label>
                 <Input
                   type="number"
-                  className="h-7 text-xs"
-                  value={p.amount_owed ?? ""}
-                  onChange={(e) => onFieldUpdate?.(p.id, "amount_owed", e.target.value ? Number(e.target.value) : 0)}
+                  className="h-7 text-xs w-full"
+                  value={currentPaid}
+                  onChange={(e) => handleAmountPaidChange(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
               <div>
-                <label className="text-[10px] text-muted-foreground uppercase">Amount Paid</label>
+                <label className="text-muted-foreground block mb-0.5">Amount Owed:</label>
                 <Input
                   type="number"
-                  className="h-7 text-xs"
-                  value={p.amount_paid ?? ""}
-                  onChange={(e) => onFieldUpdate?.(p.id, "amount_paid", e.target.value ? Number(e.target.value) : 0)}
+                  className="h-7 text-xs w-full"
+                  value={currentOwed}
+                  onChange={(e) => handleAmountOwedChange(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
             </div>
-          )}
+
+            <div className="flex items-center gap-2">
+              {status !== "paid" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1 text-emerald-600 border-emerald-300 hover:bg-emerald-50"
+                  onClick={handleMarkPaid}
+                >
+                  <Banknote className="h-3.5 w-3.5" />
+                  Mark Paid (€{totalCost})
+                </Button>
+              )}
+              {p.payment_type && (
+                <span className="text-[11px] text-muted-foreground">Type: {p.payment_type}</span>
+              )}
+              {(p.refund_amount ?? 0) > 0 && (
+                <span className="text-[11px] text-muted-foreground">Refund: €{p.refund_amount}</span>
+              )}
+            </div>
+          </div>
 
           {/* Staff notes */}
           <div>

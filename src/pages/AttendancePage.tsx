@@ -143,6 +143,25 @@ export default function AttendancePage() {
     setDirty(true);
   };
 
+  const handlePaymentUpdate = useCallback(async (bookingId: string, updates: Record<string, any>) => {
+    // Update local state immediately
+    setParticipants((prev) =>
+      prev.map((p) => (p.id === bookingId ? { ...p, ...updates } : p))
+    );
+
+    // Persist to synced_bookings
+    const { error } = await supabase
+      .from("synced_bookings")
+      .update(updates)
+      .eq("id", bookingId);
+
+    if (error) {
+      toast.error("Failed to save payment update");
+    } else {
+      toast.success("Payment updated");
+    }
+  }, []);
+
   const saveAttendance = async () => {
     if (!selectedCamp) return;
     setSaving(true);
@@ -261,6 +280,7 @@ export default function AttendancePage() {
                   isPresent={getStatus(p.id) === "present"}
                   onToggle={() => toggleStatus(p.id)}
                   isAdmin={false}
+                  onPaymentUpdate={handlePaymentUpdate}
                   expandedId={expandedId}
                   onExpand={setExpandedId}
                 />
