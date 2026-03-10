@@ -84,6 +84,8 @@ export default function CampDetailPage() {
   const payBadge = (s: string | null) => {
     if (s === "paid") return <Badge className="bg-emerald-100 text-emerald-800 border-0">Paid</Badge>;
     if (s === "pending") return <Badge className="bg-amber-100 text-amber-800 border-0">Pending</Badge>;
+    if (s === "partial") return <Badge className="bg-amber-100 text-amber-800 border-0">Partial</Badge>;
+    if (s === "refunded") return <Badge className="bg-red-100 text-red-800 border-0">Refunded</Badge>;
     return <Badge variant="secondary">{s || "—"}</Badge>;
   };
 
