@@ -124,31 +124,78 @@ export default function AttendancePage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const toggleStatus = (participantId: string) => {
+  // Keep ref in sync so persistAttendance always sees latest map
+  useEffect(() => { attendanceRef.current = attendance; }, [attendance]);
+
+  /** Persist a single attendance toggle to the database */
+  const persistAttendance = useCallback(async (participantId: string, newStatus: "present" | "absent") => {
+    if (!selectedCamp) return;
+    setAutoSaveStatus("saving");
+    clearTimeout(autoSaveTimer.current);
+
+    const existing = attendanceRef.current.get(participantId);
+    if (existing?.id) {
+      await supabase.from("attendance").update({ status: newStatus }).eq("id", existing.id);
+    } else {
+      const { data } = await supabase
+        .from("attendance")
+        .insert({ camp_id: selectedCamp, synced_booking_id: participantId, date: selectedDate, status: newStatus, note: null })
+        .select("id")
+        .single();
+      if (data) {
+        setAttendance((prev) => {
+          const next = new Map(prev);
+          const cur = next.get(participantId);
+          if (cur) next.set(participantId, { ...cur, id: data.id });
+          return next;
+        });
+      }
+    }
+    setAutoSaveStatus("saved");
+    autoSaveTimer.current = setTimeout(() => setAutoSaveStatus("idle"), 1500);
+  }, [selectedCamp, selectedDate]);
+
+  const toggleStatus = useCallback((participantId: string) => {
+    let newStatus: "present" | "absent" = "present";
     setAttendance((prev) => {
       const next = new Map(prev);
       const existing = next.get(participantId);
       if (existing) {
-        next.set(participantId, { ...existing, status: existing.status === "present" ? "absent" : "present" });
+        newStatus = existing.status === "present" ? "absent" : "present";
+        next.set(participantId, { ...existing, status: newStatus });
       } else {
+        newStatus = "present";
         next.set(participantId, { synced_booking_id: participantId, status: "present", note: null });
       }
       return next;
     });
-    setDirty(true);
-  };
+    persistAttendance(participantId, newStatus);
+  }, [persistAttendance]);
 
-  const markAllPresent = () => {
-    setAttendance(() => {
-      const next = new Map<string, AttendanceRow>();
-      for (const p of participants) {
-        const existing = attendance.get(p.id);
-        next.set(p.id, { id: existing?.id, synced_booking_id: p.id, status: "present", note: existing?.note || null });
+  const markAllPresent = useCallback(async () => {
+    if (!selectedCamp) return;
+    setAutoSaveStatus("saving");
+    clearTimeout(autoSaveTimer.current);
+
+    const newMap = new Map<string, AttendanceRow>();
+    const upserts: any[] = [];
+    const inserts: any[] = [];
+    for (const p of participants) {
+      const existing = attendanceRef.current.get(p.id);
+      newMap.set(p.id, { id: existing?.id, synced_booking_id: p.id, status: "present", note: existing?.note || null });
+      if (existing?.id) {
+        upserts.push({ id: existing.id, camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status: "present", note: existing.note });
+      } else {
+        inserts.push({ camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status: "present", note: null });
       }
-      return next;
-    });
-    setDirty(true);
-  };
+    }
+    setAttendance(newMap);
+    if (upserts.length > 0) await supabase.from("attendance").upsert(upserts);
+    if (inserts.length > 0) await supabase.from("attendance").insert(inserts);
+    setAutoSaveStatus("saved");
+    autoSaveTimer.current = setTimeout(() => setAutoSaveStatus("idle"), 1500);
+    loadData();
+  }, [selectedCamp, selectedDate, participants, loadData]);
 
   const handlePaymentUpdate = useCallback(async (bookingId: string, updates: Record<string, any>) => {
     setParticipants((prev) =>
@@ -164,39 +211,6 @@ export default function AttendancePage() {
       toast.success("Payment updated");
     }
   }, []);
-
-  /** Instant-save a single attendance record (used in Coach Mode) */
-  const instantSaveAttendance = useCallback(async (participantId: string, newStatus: "present" | "absent") => {
-    if (!selectedCamp) return;
-
-    // Check if we already have an attendance row for this participant
-    const existing = attendance.get(participantId);
-
-    if (existing?.id) {
-      // Update existing row
-      await supabase
-        .from("attendance")
-        .update({ status: newStatus })
-        .eq("id", existing.id);
-    } else {
-      // Insert new row
-      const { data } = await supabase
-        .from("attendance")
-        .insert({ camp_id: selectedCamp, synced_booking_id: participantId, date: selectedDate, status: newStatus, note: null })
-        .select("id")
-        .single();
-
-      // Store the new id so future toggles use update
-      if (data) {
-        setAttendance((prev) => {
-          const next = new Map(prev);
-          const cur = next.get(participantId);
-          if (cur) next.set(participantId, { ...cur, id: data.id });
-          return next;
-        });
-      }
-    }
-  }, [selectedCamp, selectedDate, attendance]);
 
   const saveAttendance = async () => {
     if (!selectedCamp) return;
