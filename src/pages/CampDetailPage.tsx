@@ -26,10 +26,14 @@ interface Participant {
   parent_name: string | null;
   parent_phone: string | null;
   parent_email: string | null;
+  emergency_contact: string | null;
   medical_notes: string | null;
   kit_size: string | null;
   payment_status: string | null;
   age: number | null;
+  date_of_birth: string | null;
+  camp_date: string | null;
+  imported_at: string | null;
 }
 
 export default function CampDetailPage() {
