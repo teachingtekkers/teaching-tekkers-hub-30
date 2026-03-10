@@ -278,7 +278,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
       f.rows.forEach((row) => {
         const mapped: Record<string, string> = {};
         for (const [csvCol, field] of Object.entries(mapping)) {
-          if (field !== "skip" && row[csvCol]) mapped[field] = row[csvCol];
+          if (field !== "skip" && row[csvCol] !== undefined && row[csvCol] !== "") mapped[field] = row[csvCol];
         }
         // Inject metadata from filename if not mapped from columns
         if (!hasCampCol || !mapped.camp_name) mapped.camp_name = f.detectedCampName;
