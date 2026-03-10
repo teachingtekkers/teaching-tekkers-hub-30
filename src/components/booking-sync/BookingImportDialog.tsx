@@ -18,6 +18,8 @@ interface ParsedFile {
   rows: ParsedRow[];
   campNames: string[];
   detectedCampName: string;
+  detectedVenue: string | null;
+  detectedCounty: string | null;
 }
 
 interface ImportResult {
@@ -116,28 +118,37 @@ function detectCampNames(rows: ParsedRow[], headers: string[]): string[] {
   return Array.from(names);
 }
 
-// Extract camp name from filename like:
+interface FilenameMetadata {
+  campName: string;
+  venue: string | null;
+  county: string | null;
+}
+
+// Extract camp name, venue, and county from filename like:
 // "TeachingTekkers -Easter Camps (...)-Dublin-Portmarnock AFC-Portmarnock AFC Easter Camp 2026 WK1.csv"
-// Strategy: take the last segment after the final hyphen, strip extension
-function extractCampNameFromFilename(filename: string): string {
-  // Remove extension
+// Segments: [brand, programme, county, club/venue, camp name]
+function extractMetadataFromFilename(filename: string): FilenameMetadata {
   const noExt = filename.replace(/\.(csv|tsv|txt)$/i, "").trim();
+  const segments = noExt.split(/\s*[-–]\s*/).map((s) => s.replace(/\([^)]*\)/g, "").trim()).filter(Boolean);
 
-  // Split by " - " or "-" (with surrounding spaces preferred)
-  const segments = noExt.split(/\s*[-–]\s*/);
-
-  // Take the last segment — this is typically the camp name
-  let campName = segments[segments.length - 1]?.trim() || noExt;
-
-  // If last segment is very short (< 5 chars), try second-to-last
+  let campName = segments[segments.length - 1] || noExt;
   if (campName.length < 5 && segments.length > 1) {
-    campName = segments[segments.length - 2]?.trim() || campName;
+    campName = segments[segments.length - 2] || campName;
   }
 
-  // Clean up: remove parenthetical content like "(additional online charge...)"
-  campName = campName.replace(/\([^)]*\)/g, "").trim();
+  // Try to extract venue (second-to-last segment, if 3+ segments)
+  let venue: string | null = null;
+  if (segments.length >= 4) {
+    venue = segments[segments.length - 2] || null;
+  }
 
-  return campName || noExt;
+  // Try to extract county (third-to-last segment, if 4+ segments)
+  let county: string | null = null;
+  if (segments.length >= 4) {
+    county = segments[segments.length - 3] || null;
+  }
+
+  return { campName: campName || noExt, venue, county };
 }
 
 interface BookingImportDialogProps {
@@ -196,14 +207,16 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         const text = ev.target?.result as string;
         const { headers, rows } = parseCSV(text);
         if (headers.length > 0 && rows.length > 0) {
-          const detectedCampName = extractCampNameFromFilename(file.name);
+          const meta = extractMetadataFromFilename(file.name);
           const hasCampCol = headers.some((h) => autoMapColumn(h) === "camp_name");
           parsed.push({
             name: file.name,
             headers,
             rows,
-            campNames: hasCampCol ? detectCampNames(rows, headers) : [detectedCampName],
-            detectedCampName,
+            campNames: hasCampCol ? detectCampNames(rows, headers) : [meta.campName],
+            detectedCampName: meta.campName,
+            detectedVenue: meta.venue,
+            detectedCounty: meta.county,
           });
         }
         loaded++;
@@ -250,15 +263,17 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
     const allMapped: Record<string, string>[] = [];
     files.forEach((f) => {
       const hasCampCol = f.headers.some((h) => mapping[h] === "camp_name");
+      const hasVenueCol = f.headers.some((h) => mapping[h] === "venue");
+      const hasCountyCol = f.headers.some((h) => mapping[h] === "county");
       f.rows.forEach((row) => {
         const mapped: Record<string, string> = {};
         for (const [csvCol, field] of Object.entries(mapping)) {
           if (field !== "skip" && row[csvCol]) mapped[field] = row[csvCol];
         }
-        // If no camp_name column mapped, inject from filename
-        if (!hasCampCol || !mapped.camp_name) {
-          mapped.camp_name = f.detectedCampName;
-        }
+        // Inject metadata from filename if not mapped from columns
+        if (!hasCampCol || !mapped.camp_name) mapped.camp_name = f.detectedCampName;
+        if ((!hasVenueCol || !mapped.venue) && f.detectedVenue) mapped.venue = f.detectedVenue;
+        if ((!hasCountyCol || !mapped.county) && f.detectedCounty) mapped.county = f.detectedCounty;
         allMapped.push(mapped);
       });
     });
