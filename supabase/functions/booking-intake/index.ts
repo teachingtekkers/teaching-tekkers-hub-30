@@ -256,9 +256,10 @@ Deno.serve(async (req) => {
           const amountPaidRaw = parseMoney(b.amount_paid);
           const siblingDiscount = parseMoney(b.sibling_discount);
           const refundAmount = parseMoney(b.refund_amount);
-          const amountOwedRaw = parseMoney(b.amount_owed);
-          // Calculate amount_owed: use explicit value if provided, otherwise derive
-          const amountOwed = amountOwedRaw > 0 ? amountOwedRaw : Math.max(0, totalAmount - amountPaidRaw - refundAmount);
+          // Total Cost = Total Amount - Siblings Discount
+          const totalCost = Math.max(0, totalAmount - siblingDiscount);
+          // Amount Owed = Total Cost - Amount Paid - Refund Amount
+          const amountOwed = Math.max(0, totalCost - amountPaidRaw - refundAmount);
           const paymentStatus = normalizePaymentStatus(b.payment_status);
 
           // Combine medical_condition + medical_notes into medical_notes
