@@ -196,11 +196,14 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         const text = ev.target?.result as string;
         const { headers, rows } = parseCSV(text);
         if (headers.length > 0 && rows.length > 0) {
+          const detectedCampName = extractCampNameFromFilename(file.name);
+          const hasCampCol = headers.some((h) => autoMapColumn(h) === "camp_name");
           parsed.push({
             name: file.name,
             headers,
             rows,
-            campNames: detectCampNames(rows, headers),
+            campNames: hasCampCol ? detectCampNames(rows, headers) : [detectedCampName],
+            detectedCampName,
           });
         }
         loaded++;
