@@ -113,8 +113,9 @@ export default function AttendanceParticipantRow({
             )}
             {p.age != null && <><span>•</span><span>Age {p.age}</span></>}
             <span className={isPaid ? "text-emerald-600" : "text-amber-600"}>
-              • {isPaid ? "✅ Paid" : (p.amount_owed && p.amount_owed > 0) ? `⏳ €${p.amount_owed} owed` : "⏳ Unpaid"}
+              • {isPaid ? `✅ Paid` : (p.amount_owed && p.amount_owed > 0) ? `⏳ €${p.amount_owed} owed` : `⏳ ${p.payment_status || "Unpaid"}`}
             </span>
+            {p.payment_type && <span>• {p.payment_type}</span>}
             {p.staff_notes && <span title={p.staff_notes}>• 📝</span>}
           </div>
         </div>
