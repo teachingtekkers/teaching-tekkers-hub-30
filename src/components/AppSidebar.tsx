@@ -17,6 +17,7 @@ const seasonalCampsItems = [
   { title: "Bookings", url: "/players", icon: Users },
   { title: "Coach Profiles", url: "/coaches", icon: UserCog },
   { title: "Roster Generator", url: "/roster", icon: CalendarClock },
+  { title: "Attendance", url: "/attendance", icon: ClipboardCheck },
   { title: "Payroll", url: "/payroll", icon: DollarSign },
   { title: "Club Payments", url: "/invoices", icon: FileText },
   { title: "Reports", url: "/reports", icon: BarChart3 },
