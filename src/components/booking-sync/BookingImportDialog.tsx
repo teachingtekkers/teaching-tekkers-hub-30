@@ -17,6 +17,7 @@ interface ParsedFile {
   headers: string[];
   rows: ParsedRow[];
   campNames: string[];
+  detectedCampName: string;
 }
 
 interface ImportResult {
@@ -115,6 +116,30 @@ function detectCampNames(rows: ParsedRow[], headers: string[]): string[] {
   return Array.from(names);
 }
 
+// Extract camp name from filename like:
+// "TeachingTekkers -Easter Camps (...)-Dublin-Portmarnock AFC-Portmarnock AFC Easter Camp 2026 WK1.csv"
+// Strategy: take the last segment after the final hyphen, strip extension
+function extractCampNameFromFilename(filename: string): string {
+  // Remove extension
+  const noExt = filename.replace(/\.(csv|tsv|txt)$/i, "").trim();
+
+  // Split by " - " or "-" (with surrounding spaces preferred)
+  const segments = noExt.split(/\s*[-–]\s*/);
+
+  // Take the last segment — this is typically the camp name
+  let campName = segments[segments.length - 1]?.trim() || noExt;
+
+  // If last segment is very short (< 5 chars), try second-to-last
+  if (campName.length < 5 && segments.length > 1) {
+    campName = segments[segments.length - 2]?.trim() || campName;
+  }
+
+  // Clean up: remove parenthetical content like "(additional online charge...)"
+  campName = campName.replace(/\([^)]*\)/g, "").trim();
+
+  return campName || noExt;
+}
+
 interface BookingImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -139,9 +164,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
 
   const totalRows = useMemo(() => files.reduce((s, f) => s + f.rows.length, 0), [files]);
   const allCampNames = useMemo(() => {
-    const set = new Set<string>();
-    files.forEach((f) => f.campNames.forEach((n) => set.add(n)));
-    return Array.from(set);
+    return files.map((f) => f.detectedCampName).filter(Boolean);
   }, [files]);
 
   const reset = useCallback(() => {
@@ -173,11 +196,14 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         const text = ev.target?.result as string;
         const { headers, rows } = parseCSV(text);
         if (headers.length > 0 && rows.length > 0) {
+          const detectedCampName = extractCampNameFromFilename(file.name);
+          const hasCampCol = headers.some((h) => autoMapColumn(h) === "camp_name");
           parsed.push({
             name: file.name,
             headers,
             rows,
-            campNames: detectCampNames(rows, headers),
+            campNames: hasCampCol ? detectCampNames(rows, headers) : [detectedCampName],
+            detectedCampName,
           });
         }
         loaded++;
@@ -217,18 +243,26 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
   }, []);
 
   const mappedFields = Object.values(mapping).filter((v) => v !== "skip");
-  const hasRequired = BOOKING_FIELDS.filter((f) => f.required).every((f) => mappedFields.includes(f.key));
+  // Camp name is auto-detected from filename, so only child names are truly required from columns
+  const hasRequired = ["child_first_name", "child_last_name"].every((f) => mappedFields.includes(f));
 
   const getMappedRows = useCallback(() => {
-    const allRows: ParsedRow[] = [];
-    files.forEach((f) => allRows.push(...f.rows));
-    return allRows.map((row) => {
-      const mapped: Record<string, string> = {};
-      for (const [csvCol, field] of Object.entries(mapping)) {
-        if (field !== "skip" && row[csvCol]) mapped[field] = row[csvCol];
-      }
-      return mapped;
-    }).filter((r) => r.child_first_name && r.child_last_name && r.camp_name);
+    const allMapped: Record<string, string>[] = [];
+    files.forEach((f) => {
+      const hasCampCol = f.headers.some((h) => mapping[h] === "camp_name");
+      f.rows.forEach((row) => {
+        const mapped: Record<string, string> = {};
+        for (const [csvCol, field] of Object.entries(mapping)) {
+          if (field !== "skip" && row[csvCol]) mapped[field] = row[csvCol];
+        }
+        // If no camp_name column mapped, inject from filename
+        if (!hasCampCol || !mapped.camp_name) {
+          mapped.camp_name = f.detectedCampName;
+        }
+        allMapped.push(mapped);
+      });
+    });
+    return allMapped.filter((r) => r.child_first_name && r.child_last_name && r.camp_name);
   }, [files, mapping]);
 
   const handleImport = useCallback(async () => {
@@ -322,24 +356,21 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
                   <Upload className="h-3 w-3 mr-1.5" /> Add More
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="space-y-2">
                 {files.map((f) => (
-                  <Badge key={f.name} variant="secondary" className="gap-1.5 py-1">
-                    <FileSpreadsheet className="h-3 w-3" />
-                    {f.name}
-                    <span className="text-muted-foreground">({f.rows.length})</span>
-                    <button onClick={() => removeFile(f.name)} className="ml-0.5 hover:text-destructive">
-                      <X className="h-3 w-3" />
+                  <div key={f.name} className="flex items-center gap-3 rounded-md border bg-accent/30 px-3 py-2">
+                    <FileSpreadsheet className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground truncate">{f.name}</p>
+                      <p className="text-sm font-medium text-foreground">{f.detectedCampName}</p>
+                    </div>
+                    <Badge variant="secondary" className="shrink-0">{f.rows.length} rows</Badge>
+                    <button onClick={() => removeFile(f.name)} className="text-muted-foreground hover:text-destructive">
+                      <X className="h-4 w-4" />
                     </button>
-                  </Badge>
+                  </div>
                 ))}
               </div>
-              {allCampNames.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Camps detected: {allCampNames.slice(0, 5).join(", ")}
-                  {allCampNames.length > 5 && ` +${allCampNames.length - 5} more`}
-                </p>
-              )}
             </div>
 
             {/* Column mapping */}
@@ -370,10 +401,17 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
               <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-3">
                 <p className="text-sm text-amber-800 dark:text-amber-200 flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
-                  Required fields: Camp Name, Child First Name, Child Last Name
+                  Required fields: Child First Name, Child Last Name (Camp Name is auto-detected from filename)
                 </p>
               </div>
             )}
+
+            <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md p-3">
+              <p className="text-sm text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 shrink-0" />
+                Camp Name auto-detected from filename — no mapping needed
+              </p>
+            </div>
 
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={reset}>Back</Button>
