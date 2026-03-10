@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload } from "lucide-react";
+import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload, Zap } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import BookingImportDialog from "@/components/booking-sync/BookingImportDialog";
@@ -58,6 +58,7 @@ export default function BookingSyncPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+  const [rematching, setRematching] = useState(false);
   const { toast } = useToast();
 
   const loadData = useCallback(async () => {
@@ -72,6 +73,50 @@ export default function BookingSyncPage() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  const handleRematch = useCallback(async () => {
+    setRematching(true);
+    try {
+      const unmatchedBookings = bookings
+        .filter((b) => b.match_status === "unmatched")
+        .map((b) => ({
+          external_booking_id: b.external_booking_id,
+          camp_name: b.camp_name,
+          camp_date: b.camp_date,
+          venue: b.venue,
+          county: b.county,
+          child_first_name: b.child_first_name,
+          child_last_name: b.child_last_name,
+          date_of_birth: b.date_of_birth,
+          age: b.age,
+          parent_name: b.parent_name,
+          parent_phone: b.parent_phone,
+          parent_email: b.parent_email,
+          emergency_contact: b.emergency_contact,
+          medical_notes: b.medical_notes,
+          kit_size: b.kit_size,
+          payment_status: b.payment_status,
+          booking_status: b.booking_status,
+        }));
+
+      const { data, error } = await supabase.functions.invoke("booking-intake", {
+        body: { bookings: unmatchedBookings },
+      });
+      if (error) throw error;
+
+      const summary = data?.summary;
+      toast({
+        title: "Re-match complete",
+        description: `${summary?.processed || 0} processed, ${summary?.created || 0} created, ${summary?.updated || 0} updated, ${summary?.camps_created || 0} camps created`,
+      });
+      await loadData();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Re-match failed";
+      toast({ title: "Re-match failed", description: message, variant: "destructive" });
+    } finally {
+      setRematching(false);
+    }
+  }, [bookings, toast, loadData]);
 
   const lastSync = syncLogs[0];
   const totalSynced = bookings.length;
@@ -124,10 +169,16 @@ export default function BookingSyncPage() {
             Import and manage booking data from <span className="font-medium">bookings.teachingtekkers.com</span>
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button size="sm" onClick={() => setImportOpen(true)}>
             <Upload className="h-4 w-4 mr-1.5" /> Import Booking File
           </Button>
+          {unmatched > 0 && (
+            <Button size="sm" variant="secondary" onClick={handleRematch} disabled={rematching}>
+              <Zap className={`h-4 w-4 mr-1.5 ${rematching ? "animate-pulse" : ""}`} />
+              {rematching ? "Re-matching…" : `Re-match ${unmatched} Unmatched`}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
