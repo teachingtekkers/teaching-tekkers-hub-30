@@ -113,8 +113,9 @@ export default function AttendanceParticipantRow({
             )}
             {p.age != null && <><span>•</span><span>Age {p.age}</span></>}
             <span className={isPaid ? "text-emerald-600" : "text-amber-600"}>
-              • {isPaid ? "✅ Paid" : (p.amount_owed && p.amount_owed > 0) ? `⏳ €${p.amount_owed} owed` : "⏳ Unpaid"}
+              • {isPaid ? `✅ Paid` : (p.amount_owed && p.amount_owed > 0) ? `⏳ €${p.amount_owed} owed` : `⏳ ${p.payment_status || "Unpaid"}`}
             </span>
+            {p.payment_type && <span>• {p.payment_type}</span>}
             {p.staff_notes && <span title={p.staff_notes}>• 📝</span>}
           </div>
         </div>
@@ -215,46 +216,56 @@ export default function AttendanceParticipantRow({
           </div>
 
           {/* Finance summary */}
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <div>
-              <span className="text-muted-foreground">Total:</span>{" "}
-              <span className="font-medium">€{p.total_amount ?? 0}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Paid:</span>{" "}
-              <span className="font-medium text-emerald-600">€{p.amount_paid ?? 0}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Owed:</span>{" "}
-              <span className={`font-medium ${(p.amount_owed ?? 0) > 0 ? "text-amber-600" : ""}`}>€{p.amount_owed ?? 0}</span>
-            </div>
-          </div>
-          {(p.sibling_discount ?? 0) > 0 && (
-            <div className="text-xs text-muted-foreground">
-              Sibling discount: €{p.sibling_discount}
-            </div>
-          )}
+          {(() => {
+            const totalAmt = p.total_amount ?? 0;
+            const discount = p.sibling_discount ?? 0;
+            const totalCost = Math.max(0, totalAmt - discount);
+            const paid = p.amount_paid ?? 0;
+            const refund = p.refund_amount ?? 0;
+            const owed = p.amount_owed ?? Math.max(0, totalCost - paid - refund);
+            return (
+              <>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Total Cost:</span>{" "}
+                    <span className="font-medium">€{totalCost}</span>
+                    {discount > 0 && <span className="text-[10px] text-muted-foreground block">({`€${totalAmt} − €${discount} disc.`})</span>}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Paid:</span>{" "}
+                    <span className="font-medium text-emerald-600">€{paid}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Owed:</span>{" "}
+                    <span className={`font-medium ${owed > 0 ? "text-amber-600" : ""}`}>€{owed}</span>
+                  </div>
+                </div>
 
-          {/* Debug: confirm data flow from synced booking */}
-          <div className="border border-dashed border-muted-foreground/30 rounded p-2 space-y-0.5">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">🔍 Debug — Synced Booking Data</p>
-            <div className="grid grid-cols-2 gap-1 text-[11px]">
-              <span className="text-muted-foreground">synced total_amount:</span>
-              <span className="font-mono">{p.total_amount ?? "null"}</span>
-              <span className="text-muted-foreground">synced amount_paid:</span>
-              <span className="font-mono">{p.amount_paid ?? "null"}</span>
-              <span className="text-muted-foreground">synced refund_amount:</span>
-              <span className="font-mono">{p.refund_amount ?? "null"}</span>
-              <span className="text-muted-foreground">synced sibling_discount:</span>
-              <span className="font-mono">{p.sibling_discount ?? "null"}</span>
-              <span className="text-muted-foreground">synced payment_status:</span>
-              <span className="font-mono">{p.payment_status ?? "null"}</span>
-              <span className="text-muted-foreground">synced payment_type:</span>
-              <span className="font-mono">{p.payment_type ?? "null"}</span>
-              <span className="text-muted-foreground">calculated amount_owed:</span>
-              <span className="font-mono">{p.amount_owed ?? "null"}</span>
-            </div>
-          </div>
+                {/* Debug: confirm data flow from synced booking */}
+                <div className="border border-dashed border-muted-foreground/30 rounded p-2 space-y-0.5">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">🔍 Debug — Finance Data Flow</p>
+                  <div className="grid grid-cols-2 gap-1 text-[11px]">
+                    <span className="text-muted-foreground">imported Total Amount:</span>
+                    <span className="font-mono">€{totalAmt}</span>
+                    <span className="text-muted-foreground">imported Siblings Discount:</span>
+                    <span className="font-mono">€{discount}</span>
+                    <span className="text-muted-foreground">imported Amount Paid:</span>
+                    <span className="font-mono">€{paid}</span>
+                    <span className="text-muted-foreground">imported Refund Amount:</span>
+                    <span className="font-mono">€{refund}</span>
+                    <span className="text-muted-foreground">imported Status:</span>
+                    <span className="font-mono">{p.payment_status ?? "null"}</span>
+                    <span className="text-muted-foreground">imported Payment Type:</span>
+                    <span className="font-mono">{p.payment_type ?? "null"}</span>
+                    <span className="text-muted-foreground font-semibold">calculated Total Cost:</span>
+                    <span className="font-mono font-semibold">€{totalCost}</span>
+                    <span className="text-muted-foreground font-semibold">calculated Amount Owed:</span>
+                    <span className="font-mono font-semibold">€{owed}</span>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
 
           {/* Payment editing — admin only */}
           {isAdmin && (
