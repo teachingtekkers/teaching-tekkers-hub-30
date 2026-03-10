@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,12 @@ interface SyncedBooking {
   match_status: string;
   duplicate_warning: boolean;
   notes: string | null;
+  total_amount: number | null;
+  amount_paid: number | null;
+  amount_owed: number | null;
+  sibling_discount: number | null;
+  refund_amount: number | null;
+  payment_type: string | null;
 }
 
 interface SyncLog {
@@ -59,6 +65,7 @@ export default function BookingSyncPage() {
   const [search, setSearch] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [rematching, setRematching] = useState(false);
+  const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const loadData = useCallback(async () => {
@@ -249,29 +256,60 @@ export default function BookingSyncPage() {
                   <TableHead>Camp</TableHead>
                   <TableHead className="hidden md:table-cell">Venue</TableHead>
                   <TableHead className="hidden lg:table-cell">Parent</TableHead>
-                  <TableHead>Payment</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden md:table-cell">Total</TableHead>
+                  <TableHead className="hidden md:table-cell">Paid</TableHead>
+                  <TableHead className="hidden lg:table-cell">Owed</TableHead>
                   <TableHead>Match</TableHead>
                   <TableHead className="hidden md:table-cell">Synced</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                  <TableRow><TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                     <CloudDownload className="h-8 w-8 mx-auto mb-2 opacity-40" />
                     No synced bookings yet
                   </TableCell></TableRow>
                 ) : filtered.map(b => (
-                  <TableRow key={b.id}>
-                    <TableCell className="font-medium">{b.child_first_name} {b.child_last_name}
-                      {b.medical_notes && <span className="ml-1 text-destructive text-xs">♥</span>}
-                    </TableCell>
-                    <TableCell>{b.camp_name}<br /><span className="text-xs text-muted-foreground">{b.camp_date ? format(new Date(b.camp_date), "dd MMM yyyy") : ""}</span></TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{b.venue || "—"}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-sm">{b.parent_name || "—"}<br /><span className="text-xs text-muted-foreground">{b.parent_email || ""}</span></TableCell>
-                    <TableCell>{payBadge(b.payment_status)}</TableCell>
-                    <TableCell>{matchBadge(b.match_status, b.duplicate_warning)}</TableCell>
-                    <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{format(new Date(b.imported_at), "dd MMM HH:mm")}</TableCell>
-                  </TableRow>
+                  <React.Fragment key={b.id}>
+                    <TableRow
+                      className="cursor-pointer hover:bg-accent/50"
+                      onClick={() => setExpandedBookingId(expandedBookingId === b.id ? null : b.id)}
+                    >
+                      <TableCell className="font-medium">{b.child_first_name} {b.child_last_name}
+                        {b.medical_notes && <span className="ml-1 text-destructive text-xs">♥</span>}
+                      </TableCell>
+                      <TableCell>{b.camp_name}<br /><span className="text-xs text-muted-foreground">{b.camp_date ? format(new Date(b.camp_date), "dd MMM yyyy") : ""}</span></TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{b.venue || "—"}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-sm">{b.parent_name || "—"}<br /><span className="text-xs text-muted-foreground">{b.parent_email || ""}</span></TableCell>
+                      <TableCell>{payBadge(b.payment_status)}{b.payment_type && <span className="block text-[10px] text-muted-foreground">{b.payment_type}</span>}</TableCell>
+                      <TableCell className="hidden md:table-cell text-sm font-medium">€{b.total_amount ?? 0}</TableCell>
+                      <TableCell className="hidden md:table-cell text-sm text-emerald-600">€{b.amount_paid ?? 0}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-sm">
+                        <span className={(b.amount_owed ?? 0) > 0 ? "text-amber-600 font-medium" : "text-muted-foreground"}>€{b.amount_owed ?? 0}</span>
+                      </TableCell>
+                      <TableCell>{matchBadge(b.match_status, b.duplicate_warning)}</TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{format(new Date(b.imported_at), "dd MMM HH:mm")}</TableCell>
+                    </TableRow>
+                    {expandedBookingId === b.id && (
+                      <TableRow>
+                        <TableCell colSpan={10} className="bg-muted/30 p-0">
+                          <div className="p-3 space-y-2">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">🔍 Raw Stored Finance Values</p>
+                            <div className="grid grid-cols-3 md:grid-cols-6 gap-2 text-xs">
+                              <div><span className="text-muted-foreground">total_amount:</span><br/><span className="font-mono font-medium">€{b.total_amount ?? "null"}</span></div>
+                              <div><span className="text-muted-foreground">sibling_discount:</span><br/><span className="font-mono font-medium">€{b.sibling_discount ?? "null"}</span></div>
+                              <div><span className="text-muted-foreground">amount_paid:</span><br/><span className="font-mono font-medium">€{b.amount_paid ?? "null"}</span></div>
+                              <div><span className="text-muted-foreground">refund_amount:</span><br/><span className="font-mono font-medium">€{b.refund_amount ?? "null"}</span></div>
+                              <div><span className="text-muted-foreground">amount_owed:</span><br/><span className="font-mono font-medium">€{b.amount_owed ?? "null"}</span></div>
+                              <div><span className="text-muted-foreground">payment_status:</span><br/><span className="font-mono font-medium">{b.payment_status ?? "null"}</span></div>
+                              <div><span className="text-muted-foreground">payment_type:</span><br/><span className="font-mono font-medium">{b.payment_type ?? "null"}</span></div>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
                 ))}
               </TableBody>
             </Table>
