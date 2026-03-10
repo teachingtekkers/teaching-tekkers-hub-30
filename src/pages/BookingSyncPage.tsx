@@ -65,6 +65,7 @@ export default function BookingSyncPage() {
   const [search, setSearch] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [rematching, setRematching] = useState(false);
+  const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const loadData = useCallback(async () => {
