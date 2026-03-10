@@ -1,14 +1,17 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Tent, Users, Banknote, AlertTriangle, ArrowRight, CheckCircle, ClipboardCheck, DollarSign, UserCog, Calendar } from "lucide-react";
+import { Tent, Users, Banknote, AlertTriangle, ArrowRight, CheckCircle, ClipboardCheck, DollarSign, UserCog, Calendar, Building2, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StatCard } from "@/components/StatCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { format, startOfWeek, endOfWeek } from "date-fns";
 
 interface CampRow { id: string; name: string; club_name: string; venue: string; start_date: string; end_date: string; }
 interface BookingRow { id: string; matched_camp_id: string | null; amount_paid: number | null; amount_owed: number | null; total_amount: number | null; sibling_discount: number | null; refund_amount: number | null; }
+
+const CLUB_RATE = 15;
 
 const DashboardPage = () => {
   const [camps, setCamps] = useState<CampRow[]>([]);
@@ -17,16 +20,26 @@ const DashboardPage = () => {
   const [attendanceCounts, setAttendanceCounts] = useState<Map<string, number>>(new Map());
   const [coachCounts, setCoachCounts] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [clubInvoiceTotal, setClubInvoiceTotal] = useState(0);
+  const [clubInvoicePaid, setClubInvoicePaid] = useState(0);
+  const [weekPayroll, setWeekPayroll] = useState(0);
 
   const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+  const wsISO = format(weekStart, "yyyy-MM-dd");
+  const weISO = format(weekEnd, "yyyy-MM-dd");
 
   useEffect(() => {
     (async () => {
-      const [campsRes, bookingsRes, attendanceRes, coachRes] = await Promise.all([
+      const [campsRes, bookingsRes, attendanceRes, coachRes, invoicesRes, rosterRes] = await Promise.all([
         supabase.from("camps").select("id, name, club_name, venue, start_date, end_date").order("start_date", { ascending: false }),
         supabase.from("synced_bookings").select("id, matched_camp_id, amount_paid, amount_owed, total_amount, sibling_discount, refund_amount"),
         supabase.from("attendance").select("camp_id, status").eq("date", today).eq("status", "present"),
         supabase.from("camp_coach_assignments").select("camp_id, coach_id"),
+        supabase.from("club_invoices").select("total_amount, manual_amount, status"),
+        supabase.from("weekly_rosters").select("assignments, status").eq("week_start", wsISO).eq("status", "finalised").maybeSingle(),
       ]);
 
       const allCamps = (campsRes.data || []) as CampRow[];
@@ -45,6 +58,33 @@ const DashboardPage = () => {
         cMap.set(r.camp_id, (cMap.get(r.camp_id) || 0) + 1);
       }
       setCoachCounts(cMap);
+
+      // Club invoices totals
+      const invoices = (invoicesRes.data || []) as any[];
+      setClubInvoiceTotal(invoices.reduce((s: number, i: any) => s + (i.manual_amount ?? i.total_amount ?? 0), 0));
+      setClubInvoicePaid(invoices.filter((i: any) => i.status === "paid").reduce((s: number, i: any) => s + (i.manual_amount ?? i.total_amount ?? 0), 0));
+
+      // Estimated payroll from finalised roster
+      if (rosterRes.data?.assignments) {
+        // Simple estimate: count total coach-days × average rate (we don't have rates here, so just count)
+        // Better: fetch coaches for rates
+        const assignments = rosterRes.data.assignments as any[];
+        const coachDays = assignments.reduce((s: number, a: any) => s + (a.days?.length || 0), 0);
+        // Fetch coach rates
+        const coachIds = [...new Set(assignments.map((a: any) => a.coach_id))];
+        if (coachIds.length > 0) {
+          const { data: coaches } = await supabase.from("coaches").select("id, daily_rate, head_coach_daily_rate").in("id", coachIds);
+          const rateMap = new Map((coaches || []).map((c: any) => [c.id, c]));
+          let total = 0;
+          for (const a of assignments) {
+            const coach = rateMap.get(a.coach_id);
+            if (!coach) continue;
+            const rate = a.role === "head_coach" ? coach.head_coach_daily_rate : coach.daily_rate;
+            total += rate * (a.days?.length || 0);
+          }
+          setWeekPayroll(total);
+        }
+      }
 
       setLoading(false);
     })();
@@ -70,24 +110,20 @@ const DashboardPage = () => {
     return { totalChildren, presentToday, totalRevenue, totalOutstanding };
   }, [todayCamps, bookings, attendanceCounts]);
 
-  // Weekly summary: camps active this week (Mon-Sun)
+  // Weekly summary
   const weekMetrics = useMemo(() => {
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() + mondayOffset);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    const ws = weekStart.toISOString().slice(0, 10);
-    const we = weekEnd.toISOString().slice(0, 10);
-
-    const weekCamps = camps.filter((c) => c.start_date <= we && c.end_date >= ws);
+    const weekCamps = camps.filter((c) => c.start_date <= weISO && c.end_date >= wsISO);
     const weekCampIds = new Set(weekCamps.map((c) => c.id));
     const weekBookings = bookings.filter((b) => b.matched_camp_id && weekCampIds.has(b.matched_camp_id));
 
     const totalRevenue = weekBookings.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0)), 0);
     const totalPaid = weekBookings.reduce((s, b) => s + (b.amount_paid ?? 0), 0);
+
+    // Club payments due for this week's camps based on attendance
+    const weekPresent = Array.from(attendanceCounts.entries())
+      .filter(([id]) => weekCampIds.has(id))
+      .reduce((s, [, c]) => s + c, 0);
+    const clubPaymentsDue = weekPresent * CLUB_RATE;
 
     return {
       weekLabel: `${weekStart.toLocaleDateString("en-IE", { day: "numeric", month: "short" })} – ${weekEnd.toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })}`,
@@ -95,8 +131,9 @@ const DashboardPage = () => {
       childrenCount: weekBookings.length,
       totalRevenue,
       totalPaid,
+      clubPaymentsDue,
     };
-  }, [camps, bookings]);
+  }, [camps, bookings, attendanceCounts]);
 
   if (loading) return <div className="p-8 text-muted-foreground">Loading…</div>;
 
@@ -118,6 +155,8 @@ const DashboardPage = () => {
           variant={metrics.totalOutstanding > 0 ? "warning" : "success"}
           description="Across today's camps"
         />
+        <StatCard title="Club Payments Due" value={`€${clubInvoiceTotal.toLocaleString()}`} icon={Building2} description={`€${clubInvoicePaid.toLocaleString()} paid`} />
+        <StatCard title="Est. Staff Payroll" value={`€${weekPayroll.toLocaleString()}`} icon={Wallet} description="This week (finalised roster)" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -183,6 +222,7 @@ const DashboardPage = () => {
                 { label: "Attendance", to: "/admin-attendance", icon: Calendar, desc: "Mark attendance" },
                 { label: "Manage Roster", to: "/roster", icon: UserCog, desc: "Coach assignments" },
                 { label: "View Payroll", to: "/payroll", icon: DollarSign, desc: "This week's payroll" },
+                { label: "Club Payments", to: "/invoices", icon: Building2, desc: "Manage club payments" },
                 { label: "Manage Camps", to: "/camps", icon: Tent, desc: "All camps" },
               ].map((link) => (
                 <Link
@@ -211,6 +251,8 @@ const DashboardPage = () => {
                 <div className="flex justify-between"><span className="text-muted-foreground">Children</span><span className="font-medium">{weekMetrics.childrenCount}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Revenue</span><span className="font-medium">€{weekMetrics.totalRevenue.toLocaleString()}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Collected</span><span className="font-medium text-emerald-600">€{weekMetrics.totalPaid.toLocaleString()}</span></div>
+                <div className="border-t pt-2 mt-1 flex justify-between"><span className="text-muted-foreground">Club Payments Due</span><span className="font-medium">€{weekMetrics.clubPaymentsDue.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Est. Payroll</span><span className="font-medium">€{weekPayroll.toLocaleString()}</span></div>
               </CardContent>
             </Card>
           </div>
