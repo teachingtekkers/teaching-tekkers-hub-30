@@ -26,6 +26,32 @@ interface IncomingBooking {
   booking_status?: string;
 }
 
+function parseAge(val: unknown): number | null {
+  if (val == null || val === "") return null;
+  if (typeof val === "number") return val;
+  const s = String(val).trim();
+  // Handle "9 Years, 8 Months" format
+  const yearsMatch = s.match(/(\d+)\s*year/i);
+  if (yearsMatch) return parseInt(yearsMatch[1], 10);
+  // Handle plain number string
+  const n = parseInt(s, 10);
+  return isNaN(n) ? null : n;
+}
+
+function parseDateOfBirth(val: unknown): string | null {
+  if (val == null || val === "") return null;
+  const s = String(val).trim();
+  // Already ISO format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // DD/MM/YYYY
+  const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
+  // Try native parse
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d.toISOString().split("T")[0];
+  return null;
+}
+
 function normalize(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
