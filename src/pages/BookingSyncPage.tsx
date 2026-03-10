@@ -316,6 +316,8 @@ export default function BookingSyncPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <BookingImportDialog open={importOpen} onOpenChange={setImportOpen} onImportComplete={loadData} />
     </div>
   );
 }
