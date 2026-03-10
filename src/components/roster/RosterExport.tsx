@@ -59,52 +59,43 @@ export function RosterExport({ camps, assignments, coaches, weekStart, weekEnd }
     const totalCoaches = new Set(assignments.map(a => a.coach_id)).size;
     const totalCamps = camps.length;
 
-    let html = `<html><head><title>Teaching Tekkers — Week Commencing ${weekCommencing}</title>
+    let html = `<html><head><title>Teaching Tekkers — ${weekCommencing}</title>
 <style>
-  @page { size: A4 landscape; margin: 10mm; }
+  @page { size: A4 landscape; margin: 6mm 8mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', -apple-system, system-ui, sans-serif; color: #1e293b; font-size: 10px; line-height: 1.3; }
+  body { font-family: 'Segoe UI', -apple-system, system-ui, sans-serif; color: #1e293b; font-size: 8.5px; line-height: 1.2; }
 
-  /* Header bar */
-  .header { background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); color: white; padding: 12px 16px; border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-  .header h1 { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; }
-  .header .week { font-size: 11px; opacity: 0.9; font-weight: 500; }
-  .header .meta { font-size: 9px; opacity: 0.7; text-align: right; }
+  .header { background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); color: white; padding: 6px 12px; border-radius: 4px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 13px; font-weight: 800; letter-spacing: -0.3px; }
+  .header .week { font-size: 9.5px; opacity: 0.92; font-weight: 500; }
+  .header .meta { font-size: 8px; opacity: 0.7; }
 
-  /* Camp block */
-  .camp { margin-bottom: 8px; border: 1.5px solid #cbd5e1; border-radius: 5px; overflow: hidden; page-break-inside: avoid; }
-  .camp-head { background: linear-gradient(90deg, #1e40af, #2563eb); color: white; padding: 5px 10px; display: flex; justify-content: space-between; align-items: center; }
-  .camp-head h2 { font-size: 11px; font-weight: 700; }
-  .camp-head .info { font-size: 9px; opacity: 0.85; }
-  .camp-head .players { background: rgba(255,255,255,0.2); padding: 1px 6px; border-radius: 3px; font-weight: 700; font-size: 10px; }
+  .camp { margin-bottom: 4px; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden; page-break-inside: avoid; }
+  .camp-head { background: linear-gradient(90deg, #1e40af, #3b82f6); color: white; padding: 3px 8px; display: flex; justify-content: space-between; align-items: center; }
+  .camp-head h2 { font-size: 9px; font-weight: 700; }
+  .camp-head .info { font-size: 7.5px; opacity: 0.85; }
+  .camp-head .players { background: rgba(255,255,255,0.22); padding: 0 5px; border-radius: 2px; font-weight: 700; font-size: 8.5px; margin-left: 6px; }
+  .camp-head .travel { font-size: 7px; opacity: 0.75; margin-left: 8px; }
 
-  /* Grid */
   table { width: 100%; border-collapse: collapse; }
-  thead th { background: #f1f5f9; padding: 3px 6px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; border-bottom: 1.5px solid #cbd5e1; }
-  thead th.day-col { text-align: center; width: 56px; }
+  thead th { background: #eef2f7; padding: 2px 4px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #475569; border-bottom: 1px solid #cbd5e1; }
+  thead th.day-col { text-align: center; width: 48px; }
   thead th:first-child { text-align: left; }
-  tbody td { padding: 3px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+  tbody td { padding: 1.5px 4px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; height: 16px; }
   tbody tr:last-child td { border-bottom: none; }
   tbody tr:nth-child(even) { background: #f8fafc; }
 
-  /* Coach name */
-  .coach-name { font-weight: 600; font-size: 10px; }
-  .coach-role { font-size: 8px; font-weight: 600; padding: 1px 4px; border-radius: 2px; display: inline-block; margin-left: 4px; }
-  .role-hc { background: #dbeafe; color: #1d4ed8; }
-  .role-asst { background: #f1f5f9; color: #64748b; }
-  .driver-tag { font-size: 8px; color: #16a34a; margin-left: 3px; }
+  .cn { font-weight: 600; font-size: 8.5px; white-space: nowrap; }
+  .cr { font-size: 7px; font-weight: 600; padding: 0px 3px; border-radius: 2px; display: inline-block; margin-left: 3px; vertical-align: middle; }
+  .rhc { background: #dbeafe; color: #1d4ed8; }
+  .ra { background: #f1f5f9; color: #64748b; }
+  .dr { font-size: 7px; color: #16a34a; margin-left: 2px; }
 
-  /* Day cells */
-  .day-cell { text-align: center; }
-  .day-on { display: inline-block; width: 36px; height: 16px; line-height: 16px; background: #22c55e; color: white; border-radius: 3px; font-weight: 800; font-size: 9px; }
-  .day-off { display: inline-block; width: 36px; height: 16px; line-height: 16px; background: #fee2e2; color: #ef4444; border-radius: 3px; font-size: 9px; }
+  .dc { text-align: center; }
+  .don { display: inline-block; width: 32px; height: 13px; line-height: 13px; background: #22c55e; color: white; border-radius: 2px; font-weight: 800; font-size: 8px; }
+  .dof { display: inline-block; width: 32px; height: 13px; line-height: 13px; background: #fecaca; color: #ef4444; border-radius: 2px; font-size: 8px; }
 
-  /* Travel */
-  .travel-row td { padding: 2px 6px; font-size: 8px; color: #64748b; border-bottom: none; background: #f8fafc; }
-  .travel-row td:first-child { padding-left: 10px; }
-
-  /* Footer */
-  .footer { margin-top: 8px; text-align: center; font-size: 8px; color: #94a3b8; }
+  .footer { margin-top: 4px; text-align: center; font-size: 7px; color: #94a3b8; }
 
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -118,69 +109,59 @@ export function RosterExport({ camps, assignments, coaches, weekStart, weekEnd }
     <h1>Teaching Tekkers</h1>
     <div class="week">Week Commencing: ${weekCommencing}</div>
   </div>
-  <div class="meta">
-    ${totalCamps} Camp${totalCamps !== 1 ? "s" : ""} · ${totalCoaches} Coach${totalCoaches !== 1 ? "es" : ""}
-  </div>
+  <div class="meta">${totalCamps} Camp${totalCamps !== 1 ? "s" : ""} · ${totalCoaches} Coaches</div>
 </div>`;
 
     for (const camp of camps) {
       const campDays = getCampDays(camp);
       const campAssigns = assignments.filter(a => a.camp_id === camp.id);
-      const dayStrings = campDays.map(d => format(d, "yyyy-MM-dd"));
+      const dayStrs = campDays.map(d => format(d, "yyyy-MM-dd"));
 
-      // Find drivers and passengers for travel note
-      const drivers = campAssigns.filter(a => coaches.find(c => c.id === a.coach_id)?.can_drive);
-      const passengers = campAssigns.filter(a => !coaches.find(c => c.id === a.coach_id)?.can_drive);
+      const driverNames = campAssigns
+        .filter(a => coaches.find(c => c.id === a.coach_id)?.can_drive)
+        .map(a => coaches.find(c => c.id === a.coach_id)?.full_name?.split(" ")[0]);
+      const passengerNames = campAssigns
+        .filter(a => !coaches.find(c => c.id === a.coach_id)?.can_drive)
+        .map(a => coaches.find(c => c.id === a.coach_id)?.full_name?.split(" ")[0]);
+
+      const travelNote = driverNames.length > 0 && passengerNames.length > 0
+        ? `🚗 ${driverNames.join(", ")} → ${passengerNames.join(", ")}`
+        : "";
 
       html += `<div class="camp">
   <div class="camp-head">
-    <h2>${camp.name}</h2>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span class="info">${camp.club_name} · ${camp.venue}</span>
-      <span class="players">${camp.player_count} players</span>
+    <div style="display:flex;align-items:center;">
+      <h2>${camp.name}</h2>
+      <span class="players">${camp.player_count}</span>
+      ${travelNote ? `<span class="travel">${travelNote}</span>` : ""}
     </div>
+    <span class="info">${camp.venue}</span>
   </div>
-  <table>
-    <thead><tr>
-      <th style="min-width:130px">Coach</th>`;
+  <table><thead><tr><th>Coach</th>`;
 
       for (const d of campDays) {
-        html += `<th class="day-col">${format(d, "EEE")}<br/><span style="font-weight:500;text-transform:none;font-size:8px">${format(d, "d MMM")}</span></th>`;
+        html += `<th class="day-col">${format(d, "EEE d/M")}</th>`;
       }
       html += `</tr></thead><tbody>`;
 
       for (const a of campAssigns) {
         const c = coaches.find(co => co.id === a.coach_id);
-        const roleLabel = a.role === "head_coach" ? "HC" : "Asst";
-        const roleClass = a.role === "head_coach" ? "role-hc" : "role-asst";
-
-        html += `<tr>
-          <td>
-            <span class="coach-name">${c?.full_name || "?"}</span>
-            <span class="coach-role ${roleClass}">${roleLabel}</span>
-            ${c?.can_drive ? '<span class="driver-tag">🚗 Driver</span>' : ""}
-          </td>`;
-
-        for (const ds of dayStrings) {
+        html += `<tr><td><span class="cn">${c?.full_name || "?"}</span><span class="cr ${a.role === "head_coach" ? "rhc" : "ra"}">${a.role === "head_coach" ? "HC" : ""}</span>${c?.can_drive ? '<span class="dr">🚗</span>' : ""}</td>`;
+        for (const ds of dayStrs) {
           const on = a.days.includes(ds);
-          html += `<td class="day-cell"><span class="${on ? "day-on" : "day-off"}">${on ? "✓" : "✗"}</span></td>`;
+          html += `<td class="dc"><span class="${on ? "don" : "dof"}">${on ? "✓" : "✗"}</span></td>`;
         }
         html += `</tr>`;
       }
 
       if (campAssigns.length === 0) {
-        html += `<tr><td colspan="${campDays.length + 1}" style="color:#94a3b8;text-align:center;padding:8px;font-style:italic">No coaches assigned</td></tr>`;
-      }
-
-      // Travel note row
-      if (drivers.length > 0 && passengers.length > 0) {
-        html += `<tr class="travel-row"><td colspan="${campDays.length + 1}">🚗 ${drivers.map(d => coaches.find(c => c.id === d.coach_id)?.full_name).join(", ")} driving — picking up ${passengers.map(p => coaches.find(c => c.id === p.coach_id)?.full_name).join(", ")}</td></tr>`;
+        html += `<tr><td colspan="${campDays.length + 1}" style="color:#94a3b8;text-align:center;padding:6px;font-style:italic">No coaches assigned</td></tr>`;
       }
 
       html += `</tbody></table></div>`;
     }
 
-    html += `<div class="footer">Teaching Tekkers · Generated ${format(new Date(), "d MMM yyyy, HH:mm")}</div>`;
+    html += `<div class="footer">Teaching Tekkers · ${format(new Date(), "d MMM yyyy")}</div>`;
     html += `</body></html>`;
 
     const w = window.open("", "_blank");
