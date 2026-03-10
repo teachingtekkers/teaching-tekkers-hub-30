@@ -14,6 +14,7 @@ import DashboardPage from "./pages/DashboardPage";
 import CampsPage from "./pages/CampsPage";
 import PlayersPage from "./pages/PlayersPage";
 import CoachesPage from "./pages/CoachesPage";
+import CoachDetailPage from "./pages/CoachDetailPage";
 import RosterPage from "./pages/RosterPage";
 import PayrollPage from "./pages/PayrollPage";
 import InvoicesPage from "./pages/InvoicesPage";
@@ -67,6 +68,7 @@ const App = () => (
               <Route path="/camps" element={<CampsPage />} />
               <Route path="/players" element={<PlayersPage />} />
               <Route path="/coaches" element={<CoachesPage />} />
+              <Route path="/coaches/:id" element={<CoachDetailPage />} />
               <Route path="/roster" element={<RosterPage />} />
               <Route path="/payroll" element={<PayrollPage />} />
               <Route path="/invoices" element={<InvoicesPage />} />
