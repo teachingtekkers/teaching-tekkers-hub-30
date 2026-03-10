@@ -356,24 +356,21 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
                   <Upload className="h-3 w-3 mr-1.5" /> Add More
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="space-y-2">
                 {files.map((f) => (
-                  <Badge key={f.name} variant="secondary" className="gap-1.5 py-1">
-                    <FileSpreadsheet className="h-3 w-3" />
-                    {f.name}
-                    <span className="text-muted-foreground">({f.rows.length})</span>
-                    <button onClick={() => removeFile(f.name)} className="ml-0.5 hover:text-destructive">
-                      <X className="h-3 w-3" />
+                  <div key={f.name} className="flex items-center gap-3 rounded-md border bg-accent/30 px-3 py-2">
+                    <FileSpreadsheet className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground truncate">{f.name}</p>
+                      <p className="text-sm font-medium text-foreground">{f.detectedCampName}</p>
+                    </div>
+                    <Badge variant="secondary" className="shrink-0">{f.rows.length} rows</Badge>
+                    <button onClick={() => removeFile(f.name)} className="text-muted-foreground hover:text-destructive">
+                      <X className="h-4 w-4" />
                     </button>
-                  </Badge>
+                  </div>
                 ))}
               </div>
-              {allCampNames.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Camps detected: {allCampNames.slice(0, 5).join(", ")}
-                  {allCampNames.length > 5 && ` +${allCampNames.length - 5} more`}
-                </p>
-              )}
             </div>
 
             {/* Column mapping */}
