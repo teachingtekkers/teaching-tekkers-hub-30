@@ -65,8 +65,6 @@ export default function AdminAttendancePage() {
       if (r.synced_booking_id) map.set(r.synced_booking_id, { id: r.id, synced_booking_id: r.synced_booking_id, status: r.status, note: r.note });
     }
     setAttendance(map);
-    setDirty(false);
-    setPendingUpdates(new Map());
   }, [selectedCamp, selectedDate]);
 
   const loadSummary = useCallback(async () => {
@@ -80,76 +78,78 @@ export default function AdminAttendancePage() {
 
   useEffect(() => { loadDayData(); loadSummary(); }, [loadDayData, loadSummary]);
 
-  const toggleStatus = (pid: string) => {
+  // Keep ref in sync
+  useEffect(() => { attendanceRef.current = attendance; }, [attendance]);
+
+  /** Persist a single attendance change immediately */
+  const persistAttendance = useCallback(async (participantId: string, newStatus: "present" | "absent") => {
+    if (!selectedCamp) return;
+    setAutoSaveStatus("saving");
+    clearTimeout(autoSaveTimer.current);
+
+    const existing = attendanceRef.current.get(participantId);
+    if (existing?.id) {
+      await supabase.from("attendance").update({ status: newStatus }).eq("id", existing.id);
+    } else {
+      const { data } = await supabase
+        .from("attendance")
+        .insert({ camp_id: selectedCamp, synced_booking_id: participantId, date: selectedDate, status: newStatus, note: null })
+        .select("id")
+        .single();
+      if (data) {
+        setAttendance((prev) => {
+          const next = new Map(prev);
+          const cur = next.get(participantId);
+          if (cur) next.set(participantId, { ...cur, id: data.id });
+          return next;
+        });
+      }
+    }
+    setAutoSaveStatus("saved");
+    autoSaveTimer.current = setTimeout(() => setAutoSaveStatus("idle"), 1500);
+    // Refresh summary in background
+    loadSummary();
+  }, [selectedCamp, selectedDate, loadSummary]);
+
+  const toggleStatus = useCallback((pid: string) => {
+    let newStatus: "present" | "absent" = "present";
     setAttendance((prev) => {
       const next = new Map(prev);
       const ex = next.get(pid);
-      next.set(pid, ex
-        ? { ...ex, status: ex.status === "present" ? "absent" : "present" }
-        : { synced_booking_id: pid, status: "present", note: null });
+      if (ex) {
+        newStatus = ex.status === "present" ? "absent" : "present";
+        next.set(pid, { ...ex, status: newStatus });
+      } else {
+        newStatus = "present";
+        next.set(pid, { synced_booking_id: pid, status: "present", note: null });
+      }
       return next;
     });
-    setDirty(true);
-  };
+    persistAttendance(pid, newStatus);
+  }, [persistAttendance]);
 
-  const handleFieldUpdate = (id: string, field: string, value: any) => {
+  const handleFieldUpdate = useCallback(async (id: string, field: string, value: any) => {
     setParticipants((prev) =>
       prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
     );
-    setPendingUpdates((prev) => {
-      const next = new Map(prev);
-      const existing = next.get(id) || {};
-      next.set(id, { ...existing, [field]: value });
-      return next;
-    });
-    setDirty(true);
-  };
+    // Persist field update immediately
+    await supabase.from("synced_bookings").update({ [field]: value }).eq("id", id);
+  }, []);
 
   const handlePaymentUpdate = useCallback(async (bookingId: string, updates: Record<string, any>) => {
-    // Update local state immediately
     setParticipants((prev) =>
       prev.map((p) => (p.id === bookingId ? { ...p, ...updates } : p))
     );
-
-    // Persist to synced_bookings immediately
     const { error } = await supabase
       .from("synced_bookings")
       .update(updates)
       .eq("id", bookingId);
-
     if (error) {
       toast.error("Failed to save payment update");
     } else {
       toast.success("Payment updated");
     }
   }, []);
-
-  const saveAttendance = async () => {
-    if (!selectedCamp) return;
-    setSaving(true);
-
-    // Save attendance records
-    const upserts: any[] = []; const inserts: any[] = [];
-    for (const p of participants) {
-      const row = attendance.get(p.id);
-      const status = row?.status || "absent";
-      if (row?.id) upserts.push({ id: row.id, camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status, note: row.note });
-      else inserts.push({ camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status, note: row?.note || null });
-    }
-
-    let err = false;
-    if (upserts.length > 0) { const { error } = await supabase.from("attendance").upsert(upserts); if (error) err = true; }
-    if (inserts.length > 0) { const { error } = await supabase.from("attendance").insert(inserts); if (error) err = true; }
-
-    // Save pending participant field updates to synced_bookings
-    for (const [id, fields] of pendingUpdates.entries()) {
-      const { error } = await supabase.from("synced_bookings").update(fields).eq("id", id);
-      if (error) { console.error("Update error for", id, error); err = true; }
-    }
-
-    setSaving(false);
-    if (err) toast.error("Failed to save"); else { toast.success("Saved successfully"); setDirty(false); setPendingUpdates(new Map()); loadDayData(); loadSummary(); }
-  };
 
   const getStatus = (id: string): "present" | "absent" => attendance.get(id)?.status || "absent";
   const presentCount = participants.filter((p) => getStatus(p.id) === "present").length;
@@ -198,7 +198,7 @@ export default function AdminAttendancePage() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5 sm:col-span-2">
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Camp</Label>
-              <Select value={selectedCamp} onValueChange={(v) => { setSelectedCamp(v); setDirty(false); }}>
+              <Select value={selectedCamp} onValueChange={setSelectedCamp}>
                 <SelectTrigger><SelectValue placeholder="Select camp" /></SelectTrigger>
                 <SelectContent>
                   {camps.map((c) => <SelectItem key={c.id} value={c.id}>{c.name} — {c.club_name}</SelectItem>)}
@@ -207,7 +207,7 @@ export default function AdminAttendancePage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Date</Label>
-              <Input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setDirty(false); }} />
+              <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
             </div>
           </div>
         </CardContent>
@@ -229,9 +229,15 @@ export default function AdminAttendancePage() {
                 </Badge>
                 <AttendanceSortControl value={sortField} onChange={setSortField} />
               </div>
-              <Button size="sm" onClick={saveAttendance} disabled={!dirty || saving} className="gap-1.5">
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}Save
-              </Button>
+              {autoSaveStatus !== "idle" && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground animate-in fade-in duration-200">
+                  {autoSaveStatus === "saving" ? (
+                    <><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>
+                  ) : (
+                    <><Check className="h-3 w-3 text-emerald-600" /> Saved</>
+                  )}
+                </span>
+              )}
             </div>
             {participants.length === 0 ? (
               <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No participants for this camp.</CardContent></Card>
