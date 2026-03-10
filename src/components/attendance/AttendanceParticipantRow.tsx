@@ -99,7 +99,9 @@ export default function AttendanceParticipantRow({
           <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
             {p.age != null && <span>Age {p.age}</span>}
             {p.kit_size && <span>• {p.kit_size}</span>}
-            <span>• {isPaid ? "✅ Paid" : "⏳ Unpaid"}</span>
+            <span className={isPaid ? "text-emerald-600" : "text-amber-600"}>
+              • {isPaid ? "✅ Paid" : (p.amount_owed && p.amount_owed > 0) ? `⏳ €${p.amount_owed} owed` : "⏳ Unpaid"}
+            </span>
             {p.staff_notes && <span title={p.staff_notes}>• 📝</span>}
           </div>
         </div>
