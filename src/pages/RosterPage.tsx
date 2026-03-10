@@ -372,8 +372,19 @@ const RosterPage = () => {
   const toggleDay = (id: string, day: string) => {
     setAssignments(prev => prev.map(a => {
       if (a.id !== id) return a;
-      const days = a.days.includes(day) ? a.days.filter(d => d !== day) : [...a.days, day].sort();
-      return { ...a, days };
+      if (a.days.includes(day)) {
+        // Removing a day is always allowed
+        return { ...a, days: a.days.filter(d => d !== day) };
+      }
+      // Adding a day — check for conflicts
+      const busyDays = getCoachBusyDays(a.coach_id, a.id);
+      if (busyDays.has(day)) {
+        const conflictAssignment = prev.find(o => o.id !== a.id && o.coach_id === a.coach_id && o.days.includes(day));
+        const conflictCamp = conflictAssignment ? camps.find(c => c.id === conflictAssignment.camp_id) : null;
+        toast({ title: "Day conflict", description: `Coach is already assigned to ${conflictCamp?.name || "another camp"} on this day`, variant: "destructive" });
+        return a;
+      }
+      return { ...a, days: [...a.days, day].sort() };
     }));
     markDirty();
   };
