@@ -329,21 +329,18 @@ export default function AttendancePage() {
             {viewMode === "admin" && <AttendanceSortControl value={sortField} onChange={setSortField} />}
           </div>
 
-          <div className="flex gap-2 px-1">
+          <div className="flex items-center gap-2 px-1">
             <Button variant="outline" size="sm" onClick={markAllPresent} disabled={participants.length === 0}>
               Mark All Present
             </Button>
-            {viewMode === "admin" && (
-              <Button size="sm" onClick={saveAttendance} disabled={!dirty || saving} className="gap-1.5">
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                Save
-              </Button>
-            )}
-            {viewMode === "coach" && dirty && (
-              <Button size="sm" onClick={saveAttendance} disabled={saving} variant="outline" className="gap-1.5">
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                Save All
-              </Button>
+            {autoSaveStatus !== "idle" && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground animate-in fade-in duration-200">
+                {autoSaveStatus === "saving" ? (
+                  <><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>
+                ) : (
+                  <><Check className="h-3 w-3 text-emerald-600" /> Saved</>
+                )}
+              </span>
             )}
           </div>
 
