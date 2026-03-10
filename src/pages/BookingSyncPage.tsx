@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink } from "lucide-react";
+import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import BookingImportDialog from "@/components/booking-sync/BookingImportDialog";
 
 interface SyncedBooking {
   id: string;
