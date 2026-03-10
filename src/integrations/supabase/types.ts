@@ -291,10 +291,12 @@ export type Database = {
           email: string
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
+          experience_level: string | null
           first_aid_cert_expiry: string | null
           fuel_allowance_eligible: boolean
           full_name: string
           head_coach_daily_rate: number
+          home_town: string | null
           id: string
           is_head_coach: boolean
           local_counties: string[] | null
@@ -303,6 +305,7 @@ export type Database = {
           phone: string
           pickup_locations: string[] | null
           preferred_counties: string[] | null
+          preferred_driver_id: string | null
           qualification_level: string | null
           role_type: string | null
           safeguarding_cert_expiry: string | null
@@ -318,10 +321,12 @@ export type Database = {
           email: string
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
+          experience_level?: string | null
           first_aid_cert_expiry?: string | null
           fuel_allowance_eligible?: boolean
           full_name: string
           head_coach_daily_rate?: number
+          home_town?: string | null
           id?: string
           is_head_coach?: boolean
           local_counties?: string[] | null
@@ -330,6 +335,7 @@ export type Database = {
           phone: string
           pickup_locations?: string[] | null
           preferred_counties?: string[] | null
+          preferred_driver_id?: string | null
           qualification_level?: string | null
           role_type?: string | null
           safeguarding_cert_expiry?: string | null
@@ -345,10 +351,12 @@ export type Database = {
           email?: string
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
+          experience_level?: string | null
           first_aid_cert_expiry?: string | null
           fuel_allowance_eligible?: boolean
           full_name?: string
           head_coach_daily_rate?: number
+          home_town?: string | null
           id?: string
           is_head_coach?: boolean
           local_counties?: string[] | null
@@ -357,12 +365,21 @@ export type Database = {
           phone?: string
           pickup_locations?: string[] | null
           preferred_counties?: string[] | null
+          preferred_driver_id?: string | null
           qualification_level?: string | null
           role_type?: string | null
           safeguarding_cert_expiry?: string | null
           status?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "coaches_preferred_driver_id_fkey"
+            columns: ["preferred_driver_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       equipment_assignments: {
         Row: {
