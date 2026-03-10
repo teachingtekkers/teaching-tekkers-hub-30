@@ -91,11 +91,22 @@ const ALIASES: Record<string, string[]> = {
   booking_status: ["booking status", "booking_status", "state"],
 };
 
+function normalizeHeader(header: string): string {
+  return header
+    .replace(/^\uFEFF/, "")
+    .replace(/[\u00A0\u200B\u200C\u200D\uFEFF\u2000-\u200A\u202F\u205F\u3000]/g, " ") // normalize exotic whitespace
+    .replace(/[""'']/g, "") // strip smart quotes
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 function autoMapColumn(header: string): string {
-  const h = header.replace(/^\uFEFF/, "").toLowerCase().trim();
+  const h = normalizeHeader(header);
   for (const [field, aliases] of Object.entries(ALIASES)) {
     if (aliases.includes(h) || h === field) return field;
   }
+  console.log(`[BookingImport] Unmapped CSV header: "${header}" → normalized: "${h}"`);
   return "skip";
 }
 
@@ -123,7 +134,16 @@ function parseCSV(text: string): { headers: string[]; rows: ParsedRow[] } {
     return result;
   };
 
-  const headers = parseRow(lines[0]);
+  const rawHeaders = parseRow(lines[0]);
+  // Normalize headers for consistent key access — strip BOM, exotic whitespace, smart quotes
+  const headers = rawHeaders.map((h) =>
+    h.replace(/^\uFEFF/, "")
+     .replace(/[\u00A0\u200B\u200C\u200D\uFEFF\u2000-\u200A\u202F\u205F\u3000]/g, " ")
+     .replace(/[""'']/g, "")
+     .replace(/\s+/g, " ")
+     .trim()
+  );
+  console.log("[BookingImport] Parsed CSV headers:", headers);
   const rows = lines.slice(1).map((line) => {
     const vals = parseRow(line);
     const obj: ParsedRow = {};
@@ -275,10 +295,22 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
       const hasCampCol = f.headers.some((h) => mapping[h] === "camp_name");
       const hasVenueCol = f.headers.some((h) => mapping[h] === "venue");
       const hasCountyCol = f.headers.some((h) => mapping[h] === "county");
-      f.rows.forEach((row) => {
+      f.rows.forEach((row, rowIdx) => {
         const mapped: Record<string, string> = {};
         for (const [csvCol, field] of Object.entries(mapping)) {
           if (field !== "skip" && row[csvCol] !== undefined && row[csvCol] !== "") mapped[field] = row[csvCol];
+        }
+        // Log first row finance fields for debugging
+        if (rowIdx === 0) {
+          console.log("[BookingImport] Row 0 mapped finance:", {
+            total_amount: mapped.total_amount,
+            amount_paid: mapped.amount_paid,
+            sibling_discount: mapped.sibling_discount,
+            refund_amount: mapped.refund_amount,
+            payment_status: mapped.payment_status,
+            payment_type: mapped.payment_type,
+          });
+          console.log("[BookingImport] Row 0 raw keys:", Object.keys(row));
         }
         // Inject metadata from filename if not mapped from columns
         if (!hasCampCol || !mapped.camp_name) mapped.camp_name = f.detectedCampName;
