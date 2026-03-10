@@ -79,6 +79,12 @@ function findBestCamp(
 ): CampRow | null {
   if (!camps.length) return null;
 
+  // Fast path: exact normalized name match
+  const bookingNameNorm = normalize(booking.camp_name);
+  for (const camp of camps) {
+    if (normalize(camp.name) === bookingNameNorm) return camp;
+  }
+
   type Scored = { camp: CampRow; score: number };
   const scored: Scored[] = camps.map((camp) => {
     let score = 0;
@@ -109,8 +115,8 @@ function findBestCamp(
   scored.sort((a, b) => b.score - a.score);
   const best = scored[0];
 
-  // Minimum threshold: at least 30% name similarity OR date match with some name overlap
-  if (best.score >= 30) return best.camp;
+  // Minimum threshold: at least 25 score (lowered to catch more partial matches)
+  if (best.score >= 25) return best.camp;
   return null;
 }
 
