@@ -75,6 +75,13 @@ const ALIASES: Record<string, string[]> = {
   kit_size: ["kit", "kit size", "kit_size", "jersey size", "size", "t-shirt size"],
   payment_status: ["payment", "payment status", "payment_status", "paid", "payment state"],
   booking_status: ["status", "booking status", "booking_status", "state"],
+  total_amount: ["total", "total amount", "total_amount", "price", "cost", "booking total", "total price"],
+  amount_paid: ["amount paid", "amount_paid", "paid amount", "paid"],
+  sibling_discount: ["sibling discount", "sibling_discount", "discount", "sibling"],
+  refund_amount: ["refund", "refund amount", "refund_amount", "refunded"],
+  amount_owed: ["amount owed", "amount_owed", "owed", "balance", "outstanding"],
+  payment_type: ["payment type", "payment_type", "payment method", "method", "pay type"],
+  photo_permission: ["photo", "photo permission", "photo_permission", "photos", "photo consent"],
 };
 
 function autoMapColumn(header: string): string {

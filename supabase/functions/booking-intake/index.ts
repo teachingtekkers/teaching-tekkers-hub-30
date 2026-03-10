@@ -24,16 +24,30 @@ interface IncomingBooking {
   kit_size?: string;
   payment_status?: string;
   booking_status?: string;
+  // Finance fields
+  total_amount?: string | number;
+  amount_paid?: string | number;
+  sibling_discount?: string | number;
+  refund_amount?: string | number;
+  payment_type?: string;
+  amount_owed?: string | number;
+  photo_permission?: string | boolean;
+}
+
+function parseMoney(val: unknown): number {
+  if (val == null || val === "") return 0;
+  if (typeof val === "number") return val;
+  const s = String(val).replace(/[€£$,\s]/g, "").trim();
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
 }
 
 function parseAge(val: unknown): number | null {
   if (val == null || val === "") return null;
   if (typeof val === "number") return val;
   const s = String(val).trim();
-  // Handle "9 Years, 8 Months" format
   const yearsMatch = s.match(/(\d+)\s*year/i);
   if (yearsMatch) return parseInt(yearsMatch[1], 10);
-  // Handle plain number string
   const n = parseInt(s, 10);
   return isNaN(n) ? null : n;
 }
@@ -41,22 +55,35 @@ function parseAge(val: unknown): number | null {
 function parseDateOfBirth(val: unknown): string | null {
   if (val == null || val === "") return null;
   const s = String(val).trim();
-  // Already ISO format
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  // DD/MM/YYYY
   const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
-  // Try native parse
   const d = new Date(s);
   if (!isNaN(d.getTime())) return d.toISOString().split("T")[0];
   return null;
+}
+
+function parseBool(val: unknown): boolean {
+  if (val == null) return true;
+  if (typeof val === "boolean") return val;
+  const s = String(val).toLowerCase().trim();
+  return s !== "no" && s !== "false" && s !== "0" && s !== "n";
+}
+
+function normalizePaymentStatus(val: unknown): string {
+  if (val == null || val === "") return "pending";
+  const s = String(val).toLowerCase().trim();
+  if (s === "paid" || s === "complete" || s === "completed" || s === "success") return "paid";
+  if (s === "refunded" || s === "refund") return "refunded";
+  if (s === "partial" || s === "partially paid") return "partial";
+  if (s === "unpaid" || s === "pending" || s === "awaiting") return "pending";
+  return s || "pending";
 }
 
 function normalize(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-// Strip common suffixes like WK1, WK2, Week 1, etc. for matching
 function normalizeForMatching(s: string): string {
   return normalize(s)
     .replace(/\b(wk\s*\d+|week\s*\d+)\b/gi, "")
@@ -103,17 +130,12 @@ function findBestCamp(booking: IncomingBooking, camps: CampRow[]): CampRow | nul
   const bookingNameNorm = normalize(booking.camp_name);
   const bookingNameMatch = normalizeForMatching(booking.camp_name);
 
-  // Fast path: exact normalized name match
   for (const camp of camps) {
     if (normalize(camp.name) === bookingNameNorm) return camp;
   }
-
-  // Fast path: match after stripping WK1/Week suffixes
   for (const camp of camps) {
     if (normalizeForMatching(camp.name) === bookingNameMatch) return camp;
   }
-
-  // Fast path: one name contains the other
   for (const camp of camps) {
     const campNorm = normalize(camp.name);
     if (campNorm.includes(bookingNameNorm) || bookingNameNorm.includes(campNorm)) return camp;
@@ -157,7 +179,6 @@ Deno.serve(async (req) => {
       ? body.bookings
       : [body];
 
-    // Create sync log
     const { data: syncLog, error: logErr } = await supabase
       .from("sync_logs")
       .insert({ status: "running", records_processed: bookings.length })
@@ -166,17 +187,15 @@ Deno.serve(async (req) => {
 
     if (logErr) throw logErr;
 
-    // Load all camps once for matching
     const { data: allCamps } = await supabase
       .from("camps")
       .select("id, name, venue, county, start_date, end_date, club_name");
     const campsList: CampRow[] = allCamps || [];
 
-    // Load existing external_booking_ids in one query for dedup
     const externalIds = bookings
       .map((b) => b.external_booking_id)
       .filter(Boolean) as string[];
-    
+
     const existingByExtId: Record<string, string> = {};
     if (externalIds.length > 0) {
       const { data: existingRows } = await supabase
@@ -192,7 +211,6 @@ Deno.serve(async (req) => {
     let created = 0, updated = 0, failed = 0, campsCreated = 0;
     const errors: string[] = [];
 
-    // Process bookings in batches of 10 for efficiency
     const BATCH_SIZE = 10;
     for (let i = 0; i < bookings.length; i += BATCH_SIZE) {
       const batch = bookings.slice(i, i + BATCH_SIZE);
@@ -201,14 +219,12 @@ Deno.serve(async (req) => {
 
       for (const b of batch) {
         try {
-          // Camp matching
           let matched_camp_id: string | null = null;
           const bestCamp = findBestCamp(b, campsList);
 
           if (bestCamp) {
             matched_camp_id = bestCamp.id;
           } else if (b.camp_name) {
-            // Auto-create camp
             const campDate = b.camp_date || new Date().toISOString().split("T")[0];
             const newCamp = {
               name: b.camp_name,
@@ -233,6 +249,16 @@ Deno.serve(async (req) => {
             }
           }
 
+          // Parse finance fields
+          const totalAmount = parseMoney(b.total_amount);
+          const amountPaidRaw = parseMoney(b.amount_paid);
+          const siblingDiscount = parseMoney(b.sibling_discount);
+          const refundAmount = parseMoney(b.refund_amount);
+          const amountOwedRaw = parseMoney(b.amount_owed);
+          // Calculate amount_owed: use explicit value if provided, otherwise derive
+          const amountOwed = amountOwedRaw > 0 ? amountOwedRaw : Math.max(0, totalAmount - amountPaidRaw - refundAmount);
+          const paymentStatus = normalizePaymentStatus(b.payment_status);
+
           const record = {
             external_booking_id: b.external_booking_id || null,
             camp_name: b.camp_name,
@@ -249,7 +275,7 @@ Deno.serve(async (req) => {
             emergency_contact: b.emergency_contact || null,
             medical_notes: b.medical_notes || null,
             kit_size: b.kit_size || "M",
-            payment_status: b.payment_status || "pending",
+            payment_status: paymentStatus,
             booking_status: b.booking_status || "confirmed",
             source_system: "bookings.teachingtekkers.com",
             last_synced_at: new Date().toISOString(),
@@ -257,9 +283,16 @@ Deno.serve(async (req) => {
             matched_camp_id,
             match_status: matched_camp_id ? "matched" : "unmatched",
             duplicate_warning: false,
+            // Finance fields
+            total_amount: totalAmount,
+            amount_paid: amountPaidRaw,
+            sibling_discount: siblingDiscount,
+            refund_amount: refundAmount,
+            amount_owed: amountOwed,
+            payment_type: b.payment_type || null,
+            photo_permission: parseBool(b.photo_permission),
           };
 
-          // Check if existing by external_booking_id
           const existingId = b.external_booking_id ? existingByExtId[b.external_booking_id] : null;
 
           if (existingId) {
@@ -275,13 +308,11 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Batch insert new records — try batch first, fall back to individual on error
       if (inserts.length > 0) {
         const { error: insertErr } = await supabase
           .from("synced_bookings")
           .insert(inserts);
         if (insertErr) {
-          // Fall back to individual inserts to isolate bad rows
           let batchFailed = 0;
           for (const row of inserts) {
             const { error: rowErr } = await supabase
@@ -298,7 +329,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Batch updates (still need individual updates due to different where clauses)
       for (const u of updates) {
         const { error: updateErr } = await supabase
           .from("synced_bookings")
@@ -312,7 +342,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update sync log
     await supabase
       .from("sync_logs")
       .update({
