@@ -50,7 +50,7 @@ export default function CampDetailPage() {
       supabase.from("camps").select("*").eq("id", id).single(),
       supabase
         .from("synced_bookings")
-        .select("id, child_first_name, child_last_name, parent_name, parent_phone, parent_email, medical_notes, kit_size, payment_status, age")
+        .select("id, child_first_name, child_last_name, parent_name, parent_phone, parent_email, emergency_contact, medical_notes, kit_size, payment_status, age, date_of_birth, camp_date, imported_at")
         .eq("matched_camp_id", id)
         .order("child_last_name"),
     ]);
