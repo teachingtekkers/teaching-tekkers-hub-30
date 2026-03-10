@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Users, MapPin, Calendar, Heart } from "lucide-react";
+import { ArrowLeft, Users, MapPin, Calendar, Heart, Phone, Mail, AlertCircle } from "lucide-react";
 
 interface CampData {
   id: string;
@@ -26,10 +26,14 @@ interface Participant {
   parent_name: string | null;
   parent_phone: string | null;
   parent_email: string | null;
+  emergency_contact: string | null;
   medical_notes: string | null;
   kit_size: string | null;
   payment_status: string | null;
   age: number | null;
+  date_of_birth: string | null;
+  camp_date: string | null;
+  imported_at: string | null;
 }
 
 export default function CampDetailPage() {
@@ -46,7 +50,7 @@ export default function CampDetailPage() {
       supabase.from("camps").select("*").eq("id", id).single(),
       supabase
         .from("synced_bookings")
-        .select("id, child_first_name, child_last_name, parent_name, parent_phone, parent_email, medical_notes, kit_size, payment_status, age")
+        .select("id, child_first_name, child_last_name, parent_name, parent_phone, parent_email, emergency_contact, medical_notes, kit_size, payment_status, age, date_of_birth, camp_date, imported_at")
         .eq("matched_camp_id", id)
         .order("child_last_name"),
     ]);
@@ -120,8 +124,10 @@ export default function CampDetailPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Child Name</TableHead>
+                  <TableHead>Age / DOB</TableHead>
                   <TableHead>Parent</TableHead>
-                  <TableHead className="hidden md:table-cell">Phone</TableHead>
+                  <TableHead className="hidden md:table-cell">Contact</TableHead>
+                  <TableHead className="hidden lg:table-cell">Emergency</TableHead>
                   <TableHead className="hidden lg:table-cell">Medical</TableHead>
                   <TableHead>Kit</TableHead>
                   <TableHead>Payment</TableHead>
@@ -132,10 +138,22 @@ export default function CampDetailPage() {
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">
                       {p.child_first_name} {p.child_last_name}
-                      {p.age && <span className="ml-1 text-xs text-muted-foreground">({p.age})</span>}
                     </TableCell>
-                    <TableCell className="text-sm">{p.parent_name || "—"}</TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{p.parent_phone || "—"}</TableCell>
+                    <TableCell className="text-sm">
+                      {p.age && <span>{p.age} yrs</span>}
+                      {p.date_of_birth && <span className="block text-xs text-muted-foreground">{p.date_of_birth}</span>}
+                      {!p.age && !p.date_of_birth && "—"}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {p.parent_name || "—"}
+                      {p.parent_email && <span className="block text-xs text-muted-foreground">{p.parent_email}</span>}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                      {p.parent_phone || "—"}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                      {p.emergency_contact || "—"}
+                    </TableCell>
                     <TableCell className="hidden lg:table-cell text-sm">
                       {p.medical_notes ? (
                         <span className="flex items-center gap-1 text-destructive">
