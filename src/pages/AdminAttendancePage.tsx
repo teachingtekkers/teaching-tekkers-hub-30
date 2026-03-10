@@ -11,23 +11,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Users, CheckCircle, XCircle, Calendar, BarChart3, Save, Loader2 } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import AttendanceParticipantRow, { type ParticipantData } from "@/components/attendance/AttendanceParticipantRow";
+import AttendanceSortControl, { type SortField } from "@/components/attendance/AttendanceSortControl";
 
 interface CampOption { id: string; name: string; club_name: string; start_date: string; end_date: string; }
-interface Participant { id: string; child_first_name: string; child_last_name: string; medical_notes: string | null; }
 interface AttendanceRow { id?: string; synced_booking_id: string; status: "present" | "absent"; note: string | null; }
 
 export default function AdminAttendancePage() {
   const [camps, setCamps] = useState<CampOption[]>([]);
   const [selectedCamp, setSelectedCamp] = useState("");
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participants, setParticipants] = useState<ParticipantData[]>([]);
   const [attendance, setAttendance] = useState<Map<string, AttendanceRow>>(new Map());
   const [allAttendance, setAllAttendance] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [sortField, setSortField] = useState<SortField>("last_name");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [pendingUpdates, setPendingUpdates] = useState<Map<string, Record<string, any>>>(new Map());
 
   useEffect(() => {
     (async () => {
@@ -48,7 +51,7 @@ export default function AdminAttendancePage() {
     if (!selectedCamp) return;
     const [pRes, aRes] = await Promise.all([
       supabase.from("synced_bookings")
-        .select("id, child_first_name, child_last_name, medical_notes")
+        .select("id, child_first_name, child_last_name, age, kit_size, medical_notes, photo_permission, payment_status, amount_paid, amount_owed, staff_notes")
         .eq("matched_camp_id", selectedCamp)
         .order("child_last_name"),
       supabase.from("attendance")
@@ -56,13 +59,14 @@ export default function AdminAttendancePage() {
         .eq("camp_id", selectedCamp)
         .eq("date", selectedDate),
     ]);
-    setParticipants((pRes.data as Participant[]) || []);
+    setParticipants((pRes.data as ParticipantData[]) || []);
     const map = new Map<string, AttendanceRow>();
     for (const r of (aRes.data || []) as any[]) {
       if (r.synced_booking_id) map.set(r.synced_booking_id, { id: r.id, synced_booking_id: r.synced_booking_id, status: r.status, note: r.note });
     }
     setAttendance(map);
     setDirty(false);
+    setPendingUpdates(new Map());
   }, [selectedCamp, selectedDate]);
 
   const loadSummary = useCallback(async () => {
@@ -88,9 +92,26 @@ export default function AdminAttendancePage() {
     setDirty(true);
   };
 
+  const handleFieldUpdate = (id: string, field: string, value: any) => {
+    // Update local participant state for immediate UI feedback
+    setParticipants((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
+    );
+    // Track pending synced_bookings updates
+    setPendingUpdates((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(id) || {};
+      next.set(id, { ...existing, [field]: value });
+      return next;
+    });
+    setDirty(true);
+  };
+
   const saveAttendance = async () => {
     if (!selectedCamp) return;
     setSaving(true);
+
+    // Save attendance records
     const upserts: any[] = []; const inserts: any[] = [];
     for (const p of participants) {
       const row = attendance.get(p.id);
@@ -98,17 +119,30 @@ export default function AdminAttendancePage() {
       if (row?.id) upserts.push({ id: row.id, camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status, note: row.note });
       else inserts.push({ camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status, note: row?.note || null });
     }
+
     let err = false;
     if (upserts.length > 0) { const { error } = await supabase.from("attendance").upsert(upserts); if (error) err = true; }
     if (inserts.length > 0) { const { error } = await supabase.from("attendance").insert(inserts); if (error) err = true; }
+
+    // Save pending participant field updates to synced_bookings
+    for (const [id, fields] of pendingUpdates.entries()) {
+      const { error } = await supabase.from("synced_bookings").update(fields).eq("id", id);
+      if (error) { console.error("Update error for", id, error); err = true; }
+    }
+
     setSaving(false);
-    if (err) toast.error("Failed to save"); else { toast.success("Attendance saved"); setDirty(false); loadDayData(); loadSummary(); }
+    if (err) toast.error("Failed to save"); else { toast.success("Saved successfully"); setDirty(false); setPendingUpdates(new Map()); loadDayData(); loadSummary(); }
   };
 
   const getStatus = (id: string): "present" | "absent" => attendance.get(id)?.status || "absent";
   const presentCount = participants.filter((p) => getStatus(p.id) === "present").length;
 
-  // Summary: group by date
+  const sorted = [...participants].sort((a, b) => {
+    if (sortField === "first_name") return a.child_first_name.localeCompare(b.child_first_name);
+    if (sortField === "age") return (a.age ?? 99) - (b.age ?? 99);
+    return a.child_last_name.localeCompare(b.child_last_name);
+  });
+
   const dateSummary = (() => {
     const map = new Map<string, { present: number; absent: number }>();
     for (const r of allAttendance) {
@@ -120,7 +154,6 @@ export default function AdminAttendancePage() {
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   })();
 
-  // Summary: group by participant
   const participantSummary = (() => {
     const map = new Map<string, { present: number; absent: number }>();
     for (const r of allAttendance) {
@@ -171,12 +204,14 @@ export default function AdminAttendancePage() {
             <TabsTrigger value="by-child" className="gap-1.5"><Users className="h-3.5 w-3.5" />By Child</TabsTrigger>
           </TabsList>
 
-          {/* Mark attendance tab */}
           <TabsContent value="mark" className="space-y-3 mt-4">
             <div className="flex items-center justify-between">
-              <Badge variant={presentCount === participants.length && participants.length > 0 ? "default" : "secondary"} className="gap-1 text-xs">
-                <CheckCircle className="h-3 w-3" />{presentCount}/{participants.length}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={presentCount === participants.length && participants.length > 0 ? "default" : "secondary"} className="gap-1 text-xs">
+                  <CheckCircle className="h-3 w-3" />{presentCount}/{participants.length}
+                </Badge>
+                <AttendanceSortControl value={sortField} onChange={setSortField} />
+              </div>
               <Button size="sm" onClick={saveAttendance} disabled={!dirty || saving} className="gap-1.5">
                 {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}Save
               </Button>
@@ -185,23 +220,22 @@ export default function AdminAttendancePage() {
               <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No participants for this camp.</CardContent></Card>
             ) : (
               <div className="space-y-1">
-                {participants.map((p) => {
-                  const present = getStatus(p.id) === "present";
-                  return (
-                    <div key={p.id} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${present ? "bg-primary/5 border-primary/20" : "bg-card hover:bg-accent/30"}`} onClick={() => toggleStatus(p.id)}>
-                      <div className="flex items-center gap-3">
-                        <Checkbox checked={present} onCheckedChange={() => toggleStatus(p.id)} className="h-5 w-5" />
-                        <span className="text-sm font-medium text-foreground">{p.child_first_name} {p.child_last_name}</span>
-                      </div>
-                      <Badge variant={present ? "default" : "secondary"} className="text-[10px]">{present ? "Present" : "Absent"}</Badge>
-                    </div>
-                  );
-                })}
+                {sorted.map((p) => (
+                  <AttendanceParticipantRow
+                    key={p.id}
+                    participant={p}
+                    isPresent={getStatus(p.id) === "present"}
+                    onToggle={() => toggleStatus(p.id)}
+                    isAdmin={true}
+                    onFieldUpdate={handleFieldUpdate}
+                    expandedId={expandedId}
+                    onExpand={setExpandedId}
+                  />
+                ))}
               </div>
             )}
           </TabsContent>
 
-          {/* By-date summary */}
           <TabsContent value="by-date" className="mt-4">
             <Card>
               <CardHeader><CardTitle className="text-base flex items-center gap-2"><BarChart3 className="h-4 w-4" />Daily Summary</CardTitle></CardHeader>
@@ -234,7 +268,6 @@ export default function AdminAttendancePage() {
             </Card>
           </TabsContent>
 
-          {/* By-child summary */}
           <TabsContent value="by-child" className="mt-4">
             <Card>
               <CardHeader><CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" />Participant Summary</CardTitle></CardHeader>

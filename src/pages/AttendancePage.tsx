@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -10,8 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Heart, Users, CheckCircle, Save, Loader2 } from "lucide-react";
+import { Users, CheckCircle, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import AttendanceParticipantRow, { type ParticipantData } from "@/components/attendance/AttendanceParticipantRow";
+import AttendanceSortControl, { type SortField } from "@/components/attendance/AttendanceSortControl";
 
 interface CampOption {
   id: string;
@@ -19,13 +20,6 @@ interface CampOption {
   club_name: string;
   start_date: string;
   end_date: string;
-}
-
-interface Participant {
-  id: string;
-  child_first_name: string;
-  child_last_name: string;
-  medical_notes: string | null;
 }
 
 interface AttendanceRow {
@@ -40,17 +34,17 @@ export default function AttendancePage() {
   const [camps, setCamps] = useState<CampOption[]>([]);
   const [selectedCamp, setSelectedCamp] = useState("");
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participants, setParticipants] = useState<ParticipantData[]>([]);
   const [attendance, setAttendance] = useState<Map<string, AttendanceRow>>(new Map());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [sortField, setSortField] = useState<SortField>("last_name");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Load camps based on role
   useEffect(() => {
     (async () => {
       if (role === "head_coach" && user) {
-        // Get coach profile link
         const { data: profile } = await supabase
           .from("profiles")
           .select("coach_id")
@@ -74,7 +68,6 @@ export default function AttendancePage() {
           }
         }
       } else {
-        // Admin: all camps
         const { data } = await supabase
           .from("camps")
           .select("id, name, club_name, start_date, end_date")
@@ -85,19 +78,17 @@ export default function AttendancePage() {
     })();
   }, [user, role]);
 
-  // Auto-select first camp
   useEffect(() => {
     if (camps.length > 0 && !selectedCamp) setSelectedCamp(camps[0].id);
   }, [camps, selectedCamp]);
 
-  // Load participants + attendance when camp/date changes
   const loadData = useCallback(async () => {
     if (!selectedCamp) return;
 
     const [pRes, aRes] = await Promise.all([
       supabase
         .from("synced_bookings")
-        .select("id, child_first_name, child_last_name, medical_notes")
+        .select("id, child_first_name, child_last_name, age, kit_size, medical_notes, photo_permission, payment_status, amount_paid, amount_owed, staff_notes")
         .eq("matched_camp_id", selectedCamp)
         .order("child_last_name"),
       supabase
@@ -107,7 +98,7 @@ export default function AttendancePage() {
         .eq("date", selectedDate),
     ]);
 
-    setParticipants((pRes.data as Participant[]) || []);
+    setParticipants((pRes.data as ParticipantData[]) || []);
 
     const map = new Map<string, AttendanceRow>();
     for (const row of (aRes.data || []) as any[]) {
@@ -172,11 +163,11 @@ export default function AttendancePage() {
     let hasError = false;
     if (upserts.length > 0) {
       const { error } = await supabase.from("attendance").upsert(upserts);
-      if (error) { console.error("Upsert error:", error); hasError = true; }
+      if (error) hasError = true;
     }
     if (inserts.length > 0) {
       const { error } = await supabase.from("attendance").insert(inserts);
-      if (error) { console.error("Insert error:", error); hasError = true; }
+      if (error) hasError = true;
     }
 
     setSaving(false);
@@ -193,6 +184,12 @@ export default function AttendancePage() {
   const presentCount = participants.filter((p) => getStatus(p.id) === "present").length;
   const camp = camps.find((c) => c.id === selectedCamp);
 
+  const sorted = [...participants].sort((a, b) => {
+    if (sortField === "first_name") return a.child_first_name.localeCompare(b.child_first_name);
+    if (sortField === "age") return (a.age ?? 99) - (b.age ?? 99);
+    return a.child_last_name.localeCompare(b.child_last_name);
+  });
+
   if (loading) return <div className="p-8 text-muted-foreground">Loading…</div>;
 
   return (
@@ -202,7 +199,6 @@ export default function AttendancePage() {
         <p className="text-sm text-muted-foreground">Mark daily attendance for camp participants</p>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="p-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -227,20 +223,18 @@ export default function AttendancePage() {
 
       {camp && (
         <>
-          {/* Status bar + actions */}
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium text-foreground">{camp.name}</span>
-              <span className="text-sm text-muted-foreground">• {selectedDate}</span>
+              <Badge variant={presentCount === participants.length && participants.length > 0 ? "default" : "secondary"} className="gap-1 text-xs">
+                <CheckCircle className="h-3 w-3" />
+                {presentCount}/{participants.length}
+              </Badge>
             </div>
-            <Badge variant={presentCount === participants.length && participants.length > 0 ? "default" : "secondary"} className="gap-1 text-xs">
-              <CheckCircle className="h-3 w-3" />
-              {presentCount}/{participants.length}
-            </Badge>
+            <AttendanceSortControl value={sortField} onChange={setSortField} />
           </div>
 
-          {/* Quick actions */}
           <div className="flex gap-2 px-1">
             <Button variant="outline" size="sm" onClick={markAllPresent} disabled={participants.length === 0}>
               Mark All Present
@@ -251,7 +245,6 @@ export default function AttendancePage() {
             </Button>
           </div>
 
-          {/* Participant list */}
           {participants.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
@@ -261,40 +254,17 @@ export default function AttendancePage() {
             </Card>
           ) : (
             <div className="space-y-1">
-              {participants.map((p) => {
-                const isPresent = getStatus(p.id) === "present";
-                return (
-                  <div
-                    key={p.id}
-                    className={`flex items-center justify-between p-3.5 rounded-lg border cursor-pointer transition-colors ${
-                      isPresent
-                        ? "bg-primary/5 border-primary/20"
-                        : "bg-card hover:bg-accent/30"
-                    }`}
-                    onClick={() => toggleStatus(p.id)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        checked={isPresent}
-                        onCheckedChange={() => toggleStatus(p.id)}
-                        className="h-5 w-5"
-                      />
-                      <div>
-                        <p className="font-medium text-sm text-foreground">{p.child_first_name} {p.child_last_name}</p>
-                        {p.medical_notes && (
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <Heart className="h-3 w-3 text-destructive shrink-0" />
-                            <p className="text-xs text-destructive">{p.medical_notes}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <Badge variant={isPresent ? "default" : "secondary"} className="text-[10px] shrink-0">
-                      {isPresent ? "Present" : "Absent"}
-                    </Badge>
-                  </div>
-                );
-              })}
+              {sorted.map((p) => (
+                <AttendanceParticipantRow
+                  key={p.id}
+                  participant={p}
+                  isPresent={getStatus(p.id) === "present"}
+                  onToggle={() => toggleStatus(p.id)}
+                  isAdmin={false}
+                  expandedId={expandedId}
+                  onExpand={setExpandedId}
+                />
+              ))}
             </div>
           )}
         </>

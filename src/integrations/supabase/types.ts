@@ -920,6 +920,8 @@ export type Database = {
       synced_bookings: {
         Row: {
           age: number | null
+          amount_owed: number | null
+          amount_paid: number | null
           booking_status: string | null
           camp_date: string | null
           camp_name: string
@@ -945,12 +947,16 @@ export type Database = {
           parent_name: string | null
           parent_phone: string | null
           payment_status: string | null
+          photo_permission: boolean | null
           source_system: string
+          staff_notes: string | null
           sync_log_id: string | null
           venue: string | null
         }
         Insert: {
           age?: number | null
+          amount_owed?: number | null
+          amount_paid?: number | null
           booking_status?: string | null
           camp_date?: string | null
           camp_name: string
@@ -976,12 +982,16 @@ export type Database = {
           parent_name?: string | null
           parent_phone?: string | null
           payment_status?: string | null
+          photo_permission?: boolean | null
           source_system?: string
+          staff_notes?: string | null
           sync_log_id?: string | null
           venue?: string | null
         }
         Update: {
           age?: number | null
+          amount_owed?: number | null
+          amount_paid?: number | null
           booking_status?: string | null
           camp_date?: string | null
           camp_name?: string
@@ -1007,7 +1017,9 @@ export type Database = {
           parent_name?: string | null
           parent_phone?: string | null
           payment_status?: string | null
+          photo_permission?: boolean | null
           source_system?: string
+          staff_notes?: string | null
           sync_log_id?: string | null
           venue?: string | null
         }
