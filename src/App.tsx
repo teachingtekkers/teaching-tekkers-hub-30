@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -35,6 +35,22 @@ import CoachItineraryPage from "./pages/coach/CoachItineraryPage";
 
 const queryClient = new QueryClient();
 
+function ProtectedAdminLayout() {
+  return (
+    <ProtectedRoute allowedRoles={["admin"]}>
+      <AdminLayout />
+    </ProtectedRoute>
+  );
+}
+
+function ProtectedCoachLayout() {
+  return (
+    <ProtectedRoute allowedRoles={["head_coach"]}>
+      <CoachLayout />
+    </ProtectedRoute>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -46,8 +62,7 @@ const App = () => (
             <Route path="/" element={<LoginPage />} />
 
             {/* Admin routes */}
-            <Route element={<ProtectedRoute allowedRoles={["admin"]}><AdminLayout /></ProtectedRoute>}>
-              {/* Seasonal Camps */}
+            <Route element={<ProtectedAdminLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/camps" element={<CampsPage />} />
               <Route path="/players" element={<PlayersPage />} />
@@ -57,8 +72,6 @@ const App = () => (
               <Route path="/invoices" element={<InvoicesPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/users" element={<UserManagementPage />} />
-
-              {/* Private Coaching */}
               <Route path="/private/dashboard" element={<PrivateDashboardPage />} />
               <Route path="/private/sessions" element={<PrivateSessionsPage />} />
               <Route path="/private/bookings" element={<PrivateBookingsPage />} />
@@ -66,7 +79,7 @@ const App = () => (
             </Route>
 
             {/* Head Coach routes */}
-            <Route element={<ProtectedRoute allowedRoles={["head_coach"]}><CoachLayout /></ProtectedRoute>}>
+            <Route element={<ProtectedCoachLayout />}>
               <Route path="/coach/my-camps" element={<MyCampsPage />} />
               <Route path="/coach/attendance" element={<AttendancePage />} />
               <Route path="/coach/fixtures" element={<FixturesPage />} />
