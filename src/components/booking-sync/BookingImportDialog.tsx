@@ -91,11 +91,22 @@ const ALIASES: Record<string, string[]> = {
   booking_status: ["booking status", "booking_status", "state"],
 };
 
+function normalizeHeader(header: string): string {
+  return header
+    .replace(/^\uFEFF/, "")
+    .replace(/[\u00A0\u200B\u200C\u200D\uFEFF\u2000-\u200A\u202F\u205F\u3000]/g, " ") // normalize exotic whitespace
+    .replace(/[""'']/g, "") // strip smart quotes
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 function autoMapColumn(header: string): string {
-  const h = header.replace(/^\uFEFF/, "").toLowerCase().trim();
+  const h = normalizeHeader(header);
   for (const [field, aliases] of Object.entries(ALIASES)) {
     if (aliases.includes(h) || h === field) return field;
   }
+  console.log(`[BookingImport] Unmapped CSV header: "${header}" → normalized: "${h}"`);
   return "skip";
 }
 
