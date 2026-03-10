@@ -100,7 +100,9 @@ function autoMapColumn(header: string): string {
 }
 
 function parseCSV(text: string): { headers: string[]; rows: ParsedRow[] } {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  // Strip BOM and normalise line endings
+  const clean = text.replace(/^\uFEFF/, "");
+  const lines = clean.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length === 0) return { headers: [], rows: [] };
   const firstLine = lines[0];
   const delimiter = firstLine.includes("\t") ? "\t" : ",";
