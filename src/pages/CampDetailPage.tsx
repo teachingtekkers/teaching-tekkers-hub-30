@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Users, MapPin, Calendar, Heart } from "lucide-react";
+import { ArrowLeft, Users, MapPin, Calendar, Heart, Phone, Mail, AlertCircle } from "lucide-react";
 
 interface CampData {
   id: string;
