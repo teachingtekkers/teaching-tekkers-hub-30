@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 // Admin: Seasonal Camps
 import DashboardPage from "./pages/DashboardPage";
 import CampsPage from "./pages/CampsPage";
+import CampDetailPage from "./pages/CampDetailPage";
 import PlayersPage from "./pages/PlayersPage";
 import CoachesPage from "./pages/CoachesPage";
 import CoachDetailPage from "./pages/CoachDetailPage";
