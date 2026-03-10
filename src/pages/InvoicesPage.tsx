@@ -154,12 +154,12 @@ const InvoicesPage = () => {
   }, [weekStart, weekEnd, invoices, toast, loadData]);
 
   // Update invoice field
-  const updateInvoice = useCallback(async (id: string, updates: Partial<InvoiceRow>) => {
+  const updateInvoice = useCallback(async (id: string, updates: Record<string, unknown>) => {
     const { error } = await supabase.from("club_invoices").update(updates).eq("id", id);
     if (error) {
       toast({ title: "Error updating", description: error.message, variant: "destructive" });
     } else {
-      setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, ...updates } : inv));
+      setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, ...updates } as InvoiceRow : inv));
     }
   }, [toast]);
 
