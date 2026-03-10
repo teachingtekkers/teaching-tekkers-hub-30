@@ -309,7 +309,7 @@ export default function AttendancePage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Date</Label>
-              <Input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setDirty(false); }} />
+              <Input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); }} />
             </div>
           </div>
         </CardContent>
