@@ -1,13 +1,14 @@
 import {
   LayoutDashboard, Tent, Users, UserCog, ClipboardCheck, Trophy, LogOut,
   CalendarClock, DollarSign, FileText, Swords, BookOpen, BarChart3,
-  Briefcase, CreditCard, Calendar, FileCheck,
+  Briefcase, CreditCard, Calendar, FileCheck, ShieldCheck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/hooks/useAuth";
 
 /* ── Admin: Seasonal Camps ── */
 const seasonalCampsItems = [
@@ -29,6 +30,11 @@ const privateCoachingItems = [
   { title: "Payments", url: "/private/payments", icon: CreditCard },
 ];
 
+/* ── Admin: System ── */
+const systemItems = [
+  { title: "User Management", url: "/users", icon: ShieldCheck },
+];
+
 /* ── Head Coach ── */
 const headCoachItems = [
   { title: "My Camps", url: "/coach/my-camps", icon: Trophy },
@@ -45,6 +51,7 @@ interface AppSidebarProps {
 export function AppSidebar({ role }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const { signOut } = useAuth();
 
   const renderItems = (items: { title: string; url: string; icon: React.ElementType }[]) =>
     items.map((item) => (
@@ -95,6 +102,8 @@ export function AppSidebar({ role }: AppSidebarProps) {
             {renderGroup("Seasonal Camps", seasonalCampsItems)}
             <div className="my-1 mx-4 border-t border-sidebar-border" />
             {renderGroup("Private Coaching", privateCoachingItems)}
+            <div className="my-1 mx-4 border-t border-sidebar-border" />
+            {renderGroup("System", systemItems)}
           </>
         ) : (
           renderGroup("Head Coach", headCoachItems)
@@ -105,10 +114,13 @@ export function AppSidebar({ role }: AppSidebarProps) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <NavLink to="/" className="text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" activeClassName="">
+              <button
+                onClick={() => signOut()}
+                className="flex items-center w-full text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground px-3 py-2 rounded-md transition-colors"
+              >
                 <LogOut className="mr-2.5 h-4 w-4" />
                 {!collapsed && <span className="text-sm">Logout</span>}
-              </NavLink>
+              </button>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
