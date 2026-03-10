@@ -517,26 +517,58 @@ const RosterPage = () => {
             <RosterUnassignedPool coaches={unassignedCoaches} onDragStart={handleDragStart} />
           )}
 
-          <div className="space-y-4">
-            {camps.map(camp => (
-              <RosterDailyGrid
-                key={camp.id}
-                camp={camp}
-                assignments={assignments.filter(a => a.camp_id === camp.id)}
+          {/* Multi-venue conflict summary */}
+          {assignments.length > 0 && (() => {
+            const multiVenueCoaches = [...new Set(assignments.map(a => a.coach_id))].filter(cid => {
+              const campIds = new Set(assignments.filter(a => a.coach_id === cid).map(a => a.camp_id));
+              return campIds.size > 1;
+            });
+            if (multiVenueCoaches.length === 0) return null;
+            return (
+              <div className="flex items-center gap-2 text-xs p-2 rounded-md bg-accent/50 border">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                <span>
+                  <strong>{multiVenueCoaches.length}</strong> coach{multiVenueCoaches.length > 1 ? "es" : ""} assigned across multiple venues this week.
+                  Switch to <button className="underline font-semibold" onClick={() => setRosterView("coach")}>Coach View</button> for details.
+                </span>
+              </div>
+            );
+          })()}
+
+          <Tabs value={rosterView} onValueChange={(v) => setRosterView(v as "camp" | "coach")}>
+            <TabsList>
+              <TabsTrigger value="camp">Camp View</TabsTrigger>
+              <TabsTrigger value="coach">Coach View</TabsTrigger>
+            </TabsList>
+            <TabsContent value="camp" className="space-y-4 mt-4">
+              {camps.map(camp => (
+                <RosterDailyGrid
+                  key={camp.id}
+                  camp={camp}
+                  assignments={assignments.filter(a => a.camp_id === camp.id)}
+                  coaches={availableCoaches}
+                  unassignedCoaches={unassignedCoaches}
+                  onRemove={removeAssignment}
+                  onAdd={addAssignment}
+                  onAddDay1Support={addDay1Support}
+                  onChangeRole={changeRole}
+                  onToggleDay={toggleDay}
+                  onToggleDriving={toggleDrivingThisWeek}
+                  onDragStart={handleDragStart}
+                  onDrop={() => handleDrop(camp.id)}
+                  availabilitySet={availabilitySet}
+                />
+              ))}
+            </TabsContent>
+            <TabsContent value="coach" className="mt-4">
+              <RosterCoachView
+                camps={camps}
+                assignments={assignments}
                 coaches={availableCoaches}
-                unassignedCoaches={unassignedCoaches}
-                onRemove={removeAssignment}
-                onAdd={addAssignment}
-                onAddDay1Support={addDay1Support}
-                onChangeRole={changeRole}
-                onToggleDay={toggleDay}
-                onToggleDriving={toggleDrivingThisWeek}
-                onDragStart={handleDragStart}
-                onDrop={() => handleDrop(camp.id)}
-                availabilitySet={availabilitySet}
+                weekDays={weekDays}
               />
-            ))}
-          </div>
+            </TabsContent>
+          </Tabs>
         </>
       )}
     </div>
