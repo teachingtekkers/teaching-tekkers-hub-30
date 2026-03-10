@@ -920,8 +920,10 @@ export type Database = {
       synced_bookings: {
         Row: {
           age: number | null
+          alternate_phone: string | null
           amount_owed: number | null
           amount_paid: number | null
+          booking_date: string | null
           booking_status: string | null
           camp_date: string | null
           camp_name: string
@@ -941,6 +943,7 @@ export type Database = {
           matched_booking_id: string | null
           matched_camp_id: string | null
           matched_player_id: string | null
+          medical_condition: string | null
           medical_notes: string | null
           notes: string | null
           parent_email: string | null
@@ -959,8 +962,10 @@ export type Database = {
         }
         Insert: {
           age?: number | null
+          alternate_phone?: string | null
           amount_owed?: number | null
           amount_paid?: number | null
+          booking_date?: string | null
           booking_status?: string | null
           camp_date?: string | null
           camp_name: string
@@ -980,6 +985,7 @@ export type Database = {
           matched_booking_id?: string | null
           matched_camp_id?: string | null
           matched_player_id?: string | null
+          medical_condition?: string | null
           medical_notes?: string | null
           notes?: string | null
           parent_email?: string | null
@@ -998,8 +1004,10 @@ export type Database = {
         }
         Update: {
           age?: number | null
+          alternate_phone?: string | null
           amount_owed?: number | null
           amount_paid?: number | null
+          booking_date?: string | null
           booking_status?: string | null
           camp_date?: string | null
           camp_name?: string
@@ -1019,6 +1027,7 @@ export type Database = {
           matched_booking_id?: string | null
           matched_camp_id?: string | null
           matched_player_id?: string | null
+          medical_condition?: string | null
           medical_notes?: string | null
           notes?: string | null
           parent_email?: string | null

@@ -10,7 +10,9 @@ export interface ParticipantData {
   child_first_name: string;
   child_last_name: string;
   age: number | null;
+  date_of_birth: string | null;
   kit_size: string | null;
+  medical_condition: string | null;
   medical_notes: string | null;
   photo_permission: boolean | null;
   payment_status: string | null;
@@ -21,6 +23,12 @@ export interface ParticipantData {
   refund_amount: number | null;
   payment_type: string | null;
   staff_notes: string | null;
+  parent_name: string | null;
+  parent_email: string | null;
+  parent_phone: string | null;
+  emergency_contact: string | null;
+  alternate_phone: string | null;
+  booking_date: string | null;
 }
 
 interface Props {
@@ -29,7 +37,6 @@ interface Props {
   onToggle: () => void;
   isAdmin?: boolean;
   onFieldUpdate?: (id: string, field: string, value: any) => void;
-  /** Show expanded detail on click instead of inline editing */
   expandedId?: string | null;
   onExpand?: (id: string | null) => void;
 }
@@ -44,13 +51,15 @@ export default function AttendanceParticipantRow({
   onExpand,
 }: Props) {
   const isExpanded = expandedId === p.id;
-  const hasMedical = !!p.medical_notes;
+  const hasMedical = !!(p.medical_condition || p.medical_notes);
   const noPhoto = p.photo_permission === false;
   const isPaid = p.payment_status === "paid";
 
+  const medicalText = [p.medical_condition, p.medical_notes].filter(Boolean).join(" — ");
+
   return (
     <div className="rounded-lg border overflow-hidden transition-colors">
-      {/* Main row — click to toggle attendance */}
+      {/* Main row */}
       <div
         className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${
           isPresent ? "bg-primary/5 border-primary/20" : "bg-card hover:bg-accent/30"
@@ -63,7 +72,6 @@ export default function AttendanceParticipantRow({
           className="h-5 w-5 shrink-0"
         />
 
-        {/* Name + indicators */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-sm font-medium text-foreground truncate">
@@ -77,7 +85,7 @@ export default function AttendanceParticipantRow({
                 <PopoverContent side="top" className="w-auto max-w-60 p-2 text-xs text-destructive" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-start gap-1.5">
                     <Heart className="h-3 w-3 mt-0.5 shrink-0" />
-                    <span>{p.medical_notes}</span>
+                    <span>{medicalText}</span>
                   </div>
                 </PopoverContent>
               </Popover>
@@ -95,7 +103,6 @@ export default function AttendanceParticipantRow({
               </Popover>
             )}
           </div>
-          {/* Compact info line */}
           <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
             {p.age != null && <span>Age {p.age}</span>}
             {p.kit_size && <span>• {p.kit_size}</span>}
@@ -106,7 +113,6 @@ export default function AttendanceParticipantRow({
           </div>
         </div>
 
-        {/* Expand toggle for details */}
         <button
           className="text-xs text-muted-foreground hover:text-foreground px-1"
           onClick={(e) => {
@@ -126,19 +132,18 @@ export default function AttendanceParticipantRow({
       {/* Expanded detail panel */}
       {isExpanded && (
         <div className="border-t bg-muted/30 p-3 space-y-2 text-sm" onClick={(e) => e.stopPropagation()}>
-          {/* Medical notes */}
           {hasMedical && (
             <div className="flex items-start gap-2">
               <Heart className="h-3.5 w-3.5 text-destructive mt-0.5 shrink-0" />
-              <p className="text-xs text-destructive">{p.medical_notes}</p>
+              <p className="text-xs text-destructive">{medicalText}</p>
             </div>
           )}
 
-          {/* Info grid */}
+          {/* Contact info */}
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>
               <span className="text-muted-foreground">Age:</span>{" "}
-              <span className="font-medium">{p.age ?? "—"}</span>
+              <span className="font-medium">{p.age ?? "—"}{p.date_of_birth ? ` (${p.date_of_birth})` : ""}</span>
             </div>
             <div>
               <span className="text-muted-foreground">Kit:</span>{" "}
@@ -156,6 +161,36 @@ export default function AttendanceParticipantRow({
                 <span className="font-medium">{p.kit_size || "—"}</span>
               )}
             </div>
+            {p.parent_name && (
+              <div>
+                <span className="text-muted-foreground">Parent:</span>{" "}
+                <span className="font-medium">{p.parent_name}</span>
+              </div>
+            )}
+            {p.parent_phone && (
+              <div>
+                <span className="text-muted-foreground">Phone:</span>{" "}
+                <a href={`tel:${p.parent_phone}`} className="font-medium text-primary">{p.parent_phone}</a>
+              </div>
+            )}
+            {p.parent_email && (
+              <div className="col-span-2">
+                <span className="text-muted-foreground">Email:</span>{" "}
+                <span className="font-medium">{p.parent_email}</span>
+              </div>
+            )}
+            {p.emergency_contact && (
+              <div>
+                <span className="text-muted-foreground">Emergency:</span>{" "}
+                <a href={`tel:${p.emergency_contact}`} className="font-medium text-destructive">{p.emergency_contact}</a>
+              </div>
+            )}
+            {p.alternate_phone && (
+              <div>
+                <span className="text-muted-foreground">Alt Phone:</span>{" "}
+                <span className="font-medium">{p.alternate_phone}</span>
+              </div>
+            )}
             <div>
               <span className="text-muted-foreground">Payment:</span>{" "}
               <Badge variant={isPaid ? "default" : "secondary"} className="text-[10px] ml-1">
@@ -173,7 +208,7 @@ export default function AttendanceParticipantRow({
             )}
           </div>
 
-          {/* Finance summary — visible to all */}
+          {/* Finance summary */}
           <div className="grid grid-cols-3 gap-2 text-xs">
             <div>
               <span className="text-muted-foreground">Total:</span>{" "}
