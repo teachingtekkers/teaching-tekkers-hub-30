@@ -18,6 +18,8 @@ interface ParsedFile {
   rows: ParsedRow[];
   campNames: string[];
   detectedCampName: string;
+  detectedVenue: string | null;
+  detectedCounty: string | null;
 }
 
 interface ImportResult {
