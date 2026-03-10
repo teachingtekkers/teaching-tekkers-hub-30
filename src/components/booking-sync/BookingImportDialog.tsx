@@ -300,9 +300,33 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
   const mappedFields = Object.values(mapping).filter((v) => v !== "skip");
   const hasRequired = ["child_first_name", "child_last_name"].every((f) => mappedFields.includes(f));
 
+  // Known Teaching Tekkers finance headers → field mapping (bypasses manual mapping)
+  const TT_FINANCE_MAP: Record<string, string[]> = {
+    total_amount: ["total amount", "total_amount", "total", "price", "cost"],
+    sibling_discount: ["siblings discount", "sibling discount", "sibling_discount", "discount"],
+    amount_paid: ["amount paid", "amount_paid", "paid amount", "paid"],
+    payment_status: ["status", "payment status", "payment_status"],
+    payment_type: ["payment type", "payment_type", "payment method"],
+    refund_amount: ["refund amount", "refund_amount", "refund"],
+  };
+
   const getMappedRows = useCallback(() => {
     const allMapped: Record<string, string>[] = [];
     files.forEach((f) => {
+      // Build a direct header→field index for finance fields from actual CSV headers
+      const financeHeaderMap: Record<string, string> = {};
+      for (const header of f.headers) {
+        const norm = header.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+        for (const [field, aliases] of Object.entries(TT_FINANCE_MAP)) {
+          if (aliases.includes(norm) && !financeHeaderMap[field]) {
+            financeHeaderMap[field] = header; // map field → actual CSV header key
+          }
+        }
+      }
+      if (f.rows[0]) {
+        console.log("[BookingImport] Finance header detection:", JSON.stringify(financeHeaderMap));
+      }
+
       const hasCampCol = f.headers.some((h) => mapping[h] === "camp_name");
       const hasVenueCol = f.headers.some((h) => mapping[h] === "venue");
       const hasCountyCol = f.headers.some((h) => mapping[h] === "county");
@@ -311,9 +335,17 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         for (const [csvCol, field] of Object.entries(mapping)) {
           if (field !== "skip" && row[csvCol] !== undefined && row[csvCol] !== "") mapped[field] = row[csvCol];
         }
-        // Log first row finance fields for debugging
+
+        // Force-inject finance fields directly from raw CSV row using detected headers
+        for (const [field, csvHeader] of Object.entries(financeHeaderMap)) {
+          const val = row[csvHeader];
+          if (val !== undefined && val !== "") {
+            mapped[field] = val;
+          }
+        }
+
         if (rowIdx === 0) {
-          console.log("[BookingImport] Row 0 mapped finance:", {
+          console.log("[BookingImport] Row 0 FINAL finance:", {
             total_amount: mapped.total_amount,
             amount_paid: mapped.amount_paid,
             sibling_discount: mapped.sibling_discount,
@@ -321,7 +353,6 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
             payment_status: mapped.payment_status,
             payment_type: mapped.payment_type,
           });
-          console.log("[BookingImport] Row 0 raw keys:", Object.keys(row));
         }
         // Inject metadata from filename if not mapped from columns
         if (!hasCampCol || !mapped.camp_name) mapped.camp_name = f.detectedCampName;
