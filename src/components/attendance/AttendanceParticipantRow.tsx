@@ -16,6 +16,10 @@ export interface ParticipantData {
   payment_status: string | null;
   amount_paid: number | null;
   amount_owed: number | null;
+  total_amount: number | null;
+  sibling_discount: number | null;
+  refund_amount: number | null;
+  payment_type: string | null;
   staff_notes: string | null;
 }
 
