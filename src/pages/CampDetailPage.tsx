@@ -192,11 +192,15 @@ export default function CampDetailPage() {
                         {p.payment_type && <span className="block text-[10px] text-muted-foreground">{p.payment_type}</span>}
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-sm">
-                        {(p.amount_owed ?? 0) > 0 ? (
-                          <span className="text-amber-600 font-medium">€{p.amount_owed}</span>
-                        ) : (
-                          <span className="text-muted-foreground">€0</span>
-                        )}
+                        {(() => {
+                          const totalCost = Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+                          const owed = (p.amount_owed ?? 0) > 0 ? p.amount_owed : Math.max(0, totalCost - (p.amount_paid ?? 0) - (p.refund_amount ?? 0));
+                          return (owed ?? 0) > 0 ? (
+                            <span className="text-amber-600 font-medium">€{owed}</span>
+                          ) : (
+                            <span className="text-muted-foreground">€0</span>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         <div className="flex gap-1">
