@@ -243,18 +243,26 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
   }, []);
 
   const mappedFields = Object.values(mapping).filter((v) => v !== "skip");
-  const hasRequired = BOOKING_FIELDS.filter((f) => f.required).every((f) => mappedFields.includes(f.key));
+  // Camp name is auto-detected from filename, so only child names are truly required from columns
+  const hasRequired = ["child_first_name", "child_last_name"].every((f) => mappedFields.includes(f));
 
   const getMappedRows = useCallback(() => {
-    const allRows: ParsedRow[] = [];
-    files.forEach((f) => allRows.push(...f.rows));
-    return allRows.map((row) => {
-      const mapped: Record<string, string> = {};
-      for (const [csvCol, field] of Object.entries(mapping)) {
-        if (field !== "skip" && row[csvCol]) mapped[field] = row[csvCol];
-      }
-      return mapped;
-    }).filter((r) => r.child_first_name && r.child_last_name && r.camp_name);
+    const allMapped: Record<string, string>[] = [];
+    files.forEach((f) => {
+      const hasCampCol = f.headers.some((h) => mapping[h] === "camp_name");
+      f.rows.forEach((row) => {
+        const mapped: Record<string, string> = {};
+        for (const [csvCol, field] of Object.entries(mapping)) {
+          if (field !== "skip" && row[csvCol]) mapped[field] = row[csvCol];
+        }
+        // If no camp_name column mapped, inject from filename
+        if (!hasCampCol || !mapped.camp_name) {
+          mapped.camp_name = f.detectedCampName;
+        }
+        allMapped.push(mapped);
+      });
+    });
+    return allMapped.filter((r) => r.child_first_name && r.child_last_name && r.camp_name);
   }, [files, mapping]);
 
   const handleImport = useCallback(async () => {
