@@ -134,7 +134,16 @@ function parseCSV(text: string): { headers: string[]; rows: ParsedRow[] } {
     return result;
   };
 
-  const headers = parseRow(lines[0]);
+  const rawHeaders = parseRow(lines[0]);
+  // Normalize headers for consistent key access — strip BOM, exotic whitespace, smart quotes
+  const headers = rawHeaders.map((h) =>
+    h.replace(/^\uFEFF/, "")
+     .replace(/[\u00A0\u200B\u200C\u200D\uFEFF\u2000-\u200A\u202F\u205F\u3000]/g, " ")
+     .replace(/[""'']/g, "")
+     .replace(/\s+/g, " ")
+     .trim()
+  );
+  console.log("[BookingImport] Parsed CSV headers:", headers);
   const rows = lines.slice(1).map((line) => {
     const vals = parseRow(line);
     const obj: ParsedRow = {};
