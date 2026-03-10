@@ -66,10 +66,29 @@ export default function AttendanceParticipantRow({
               {p.child_first_name} {p.child_last_name}
             </span>
             {hasMedical && (
-              <span title={p.medical_notes!} className="text-destructive text-xs">🏥</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button type="button" className="text-destructive text-xs cursor-pointer" onClick={(e) => e.stopPropagation()}>🏥</button>
+                </PopoverTrigger>
+                <PopoverContent side="top" className="w-auto max-w-60 p-2 text-xs text-destructive" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-start gap-1.5">
+                    <Heart className="h-3 w-3 mt-0.5 shrink-0" />
+                    <span>{p.medical_notes}</span>
+                  </div>
+                </PopoverContent>
+              </Popover>
             )}
             {noPhoto && (
-              <span title="No photo permission" className="text-xs"><CameraOff className="h-3 w-3 text-muted-foreground" /></span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button type="button" className="text-xs cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                    <CameraOff className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="top" className="w-auto max-w-48 p-2 text-xs text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                  📷🚫 No photo permission
+                </PopoverContent>
+              </Popover>
             )}
           </div>
           {/* Compact info line */}
