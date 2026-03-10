@@ -880,6 +880,42 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_rosters: {
+        Row: {
+          assignments: Json
+          available_coach_ids: Json
+          camps_count: number
+          coaches_count: number
+          created_at: string
+          id: string
+          status: Database["public"]["Enums"]["roster_status"]
+          updated_at: string
+          week_start: string
+        }
+        Insert: {
+          assignments?: Json
+          available_coach_ids?: Json
+          camps_count?: number
+          coaches_count?: number
+          created_at?: string
+          id?: string
+          status?: Database["public"]["Enums"]["roster_status"]
+          updated_at?: string
+          week_start: string
+        }
+        Update: {
+          assignments?: Json
+          available_coach_ids?: Json
+          camps_count?: number
+          coaches_count?: number
+          created_at?: string
+          id?: string
+          status?: Database["public"]["Enums"]["roster_status"]
+          updated_at?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -905,6 +941,7 @@ export type Database = {
       invoice_status: "draft" | "sent" | "paid"
       payment_status: "paid" | "pending" | "refunded"
       proposal_status: "draft" | "sent" | "accepted" | "rejected"
+      roster_status: "draft" | "finalised"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1039,6 +1076,7 @@ export const Constants = {
       invoice_status: ["draft", "sent", "paid"],
       payment_status: ["paid", "pending", "refunded"],
       proposal_status: ["draft", "sent", "accepted", "rejected"],
+      roster_status: ["draft", "finalised"],
     },
   },
 } as const
