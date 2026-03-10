@@ -159,8 +159,11 @@ export default function AttendanceParticipantRow({
             <div>
               <span className="text-muted-foreground">Payment:</span>{" "}
               <Badge variant={isPaid ? "default" : "secondary"} className="text-[10px] ml-1">
-                {isPaid ? "Paid" : "Unpaid"}
+                {isPaid ? "Paid" : p.payment_status || "Unpaid"}
               </Badge>
+              {p.payment_type && (
+                <span className="text-muted-foreground ml-1">({p.payment_type})</span>
+              )}
             </div>
             {noPhoto && (
               <div className="flex items-center gap-1">
@@ -169,6 +172,27 @@ export default function AttendanceParticipantRow({
               </div>
             )}
           </div>
+
+          {/* Finance summary — visible to all */}
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <span className="text-muted-foreground">Total:</span>{" "}
+              <span className="font-medium">€{p.total_amount ?? 0}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Paid:</span>{" "}
+              <span className="font-medium text-emerald-600">€{p.amount_paid ?? 0}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Owed:</span>{" "}
+              <span className={`font-medium ${(p.amount_owed ?? 0) > 0 ? "text-amber-600" : ""}`}>€{p.amount_owed ?? 0}</span>
+            </div>
+          </div>
+          {(p.sibling_discount ?? 0) > 0 && (
+            <div className="text-xs text-muted-foreground">
+              Sibling discount: €{p.sibling_discount}
+            </div>
+          )}
 
           {/* Payment editing — admin only */}
           {isAdmin && (
