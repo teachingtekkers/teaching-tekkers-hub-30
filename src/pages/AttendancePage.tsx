@@ -209,42 +209,6 @@ export default function AttendancePage() {
     }
   }, []);
 
-  const saveAttendance = async () => {
-    if (!selectedCamp) return;
-    setSaving(true);
-
-    const upserts: any[] = [];
-    const inserts: any[] = [];
-
-    for (const p of participants) {
-      const row = attendance.get(p.id);
-      const status = row?.status || "absent";
-      if (row?.id) {
-        upserts.push({ id: row.id, camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status, note: row.note });
-      } else {
-        inserts.push({ camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status, note: row?.note || null });
-      }
-    }
-
-    let hasError = false;
-    if (upserts.length > 0) {
-      const { error } = await supabase.from("attendance").upsert(upserts);
-      if (error) hasError = true;
-    }
-    if (inserts.length > 0) {
-      const { error } = await supabase.from("attendance").insert(inserts);
-      if (error) hasError = true;
-    }
-
-    setSaving(false);
-    if (hasError) {
-      toast.error("Failed to save attendance");
-    } else {
-      toast.success("Attendance saved");
-      setDirty(false);
-      loadData();
-    }
-  };
 
   const getStatus = (id: string): "present" | "absent" => attendance.get(id)?.status || "absent";
   const presentCount = participants.filter((p) => getStatus(p.id) === "present").length;
