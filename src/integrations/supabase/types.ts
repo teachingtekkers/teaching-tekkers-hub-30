@@ -947,10 +947,14 @@ export type Database = {
           parent_name: string | null
           parent_phone: string | null
           payment_status: string | null
+          payment_type: string | null
           photo_permission: boolean | null
+          refund_amount: number | null
+          sibling_discount: number | null
           source_system: string
           staff_notes: string | null
           sync_log_id: string | null
+          total_amount: number | null
           venue: string | null
         }
         Insert: {
@@ -982,10 +986,14 @@ export type Database = {
           parent_name?: string | null
           parent_phone?: string | null
           payment_status?: string | null
+          payment_type?: string | null
           photo_permission?: boolean | null
+          refund_amount?: number | null
+          sibling_discount?: number | null
           source_system?: string
           staff_notes?: string | null
           sync_log_id?: string | null
+          total_amount?: number | null
           venue?: string | null
         }
         Update: {
@@ -1017,10 +1025,14 @@ export type Database = {
           parent_name?: string | null
           parent_phone?: string | null
           payment_status?: string | null
+          payment_type?: string | null
           photo_permission?: boolean | null
+          refund_amount?: number | null
+          sibling_discount?: number | null
           source_system?: string
           staff_notes?: string | null
           sync_log_id?: string | null
+          total_amount?: number | null
           venue?: string | null
         }
         Relationships: [
