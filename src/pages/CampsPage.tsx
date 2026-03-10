@@ -42,22 +42,29 @@ const CampsPage = () => {
 
   const loadCamps = useCallback(async () => {
     setLoading(true);
-    const { data: campsData } = await supabase
+    const { data: campsData, error: campsErr } = await supabase
       .from("camps")
       .select("id, name, club_name, venue, county, start_date, end_date, age_group, capacity, price_per_child")
       .order("start_date", { ascending: false });
 
+    if (campsErr) console.error("[Camps] Camps fetch error:", campsErr);
+
     if (campsData) {
       // Count synced participants per camp
-      const { data: counts } = await supabase
+      const { data: counts, error: countsErr } = await supabase
         .from("synced_bookings")
-        .select("matched_camp_id");
+        .select("matched_camp_id")
+        .not("matched_camp_id", "is", null);
+
+      if (countsErr) console.error("[Camps] Participant counts error:", countsErr);
+      console.log("[Camps] Total matched synced bookings:", counts?.length ?? 0);
 
       const countMap: Record<string, number> = {};
       (counts || []).forEach((r: { matched_camp_id: string | null }) => {
         if (r.matched_camp_id) countMap[r.matched_camp_id] = (countMap[r.matched_camp_id] || 0) + 1;
       });
 
+      console.log("[Camps] Participant count map:", countMap);
       setCamps(campsData.map(c => ({ ...c, participant_count: countMap[c.id] || 0 })) as CampRow[]);
     }
     setLoading(false);
