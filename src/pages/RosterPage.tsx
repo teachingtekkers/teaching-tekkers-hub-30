@@ -166,10 +166,30 @@ const RosterPage = () => {
     [assignments]
   );
 
-  const unassignedCoaches = useMemo(
-    () => availableCoaches.filter(c => !assignedCoachIds.has(c.id)),
-    [availableCoaches, assignedCoachIds]
-  );
+  // Get all weekdays for this week (for coach view)
+  const weekDays = useMemo(() => {
+    return eachDayOfInterval({ start: weekStart, end: weekEnd }).filter(d => !isWeekend(d));
+  }, [weekStart, weekEnd]);
+
+  // Conflict detection: which days is a coach busy?
+  const getCoachBusyDays = useCallback((coachId: string, excludeAssignmentId?: string): Set<string> => {
+    const busy = new Set<string>();
+    assignments.forEach(a => {
+      if (a.coach_id === coachId && a.id !== excludeAssignmentId) {
+        a.days.forEach(d => busy.add(d));
+      }
+    });
+    return busy;
+  }, [assignments]);
+
+  // Coaches with at least one free day (partially or fully unassigned)
+  const unassignedCoaches = useMemo(() => {
+    const allWeekDays = weekDays.map(d => format(d, "yyyy-MM-dd"));
+    return availableCoaches.filter(c => {
+      const busyDays = getCoachBusyDays(c.id);
+      return busyDays.size < allWeekDays.length; // has at least one free day
+    });
+  }, [availableCoaches, getCoachBusyDays, weekDays]);
 
   // Mark changes as unsaved whenever assignments change after initial load
   const markDirty = useCallback(() => setHasUnsavedChanges(true), []);
