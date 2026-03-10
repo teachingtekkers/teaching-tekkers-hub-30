@@ -275,15 +275,26 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Batch insert new records
+      // Batch insert new records — try batch first, fall back to individual on error
       if (inserts.length > 0) {
         const { error: insertErr } = await supabase
           .from("synced_bookings")
           .insert(inserts);
         if (insertErr) {
-          failed += inserts.length;
-          created -= inserts.length;
-          errors.push(`Batch insert error: ${insertErr.message}`);
+          // Fall back to individual inserts to isolate bad rows
+          let batchFailed = 0;
+          for (const row of inserts) {
+            const { error: rowErr } = await supabase
+              .from("synced_bookings")
+              .insert(row);
+            if (rowErr) {
+              batchFailed++;
+              const name = `${row.child_first_name} ${row.child_last_name}`;
+              errors.push(`Row "${name}": ${rowErr.message}`);
+            }
+          }
+          failed += batchFailed;
+          created -= batchFailed;
         }
       }
 
