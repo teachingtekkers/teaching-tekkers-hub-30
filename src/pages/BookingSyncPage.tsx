@@ -121,7 +121,8 @@ export default function BookingSyncPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Booking Sync / Intake</h1>
           <p className="text-sm text-muted-foreground">
-            Receives booking data from <span className="font-medium">bookings.teachingtekkers.com</span> via automation
+            Import and manage booking data from <span className="font-medium">bookings.teachingtekkers.com</span>
+          </p>
           </p>
         </div>
         <div className="flex gap-2">
