@@ -68,6 +68,7 @@ const App = () => (
             <Route element={<ProtectedAdminLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/camps" element={<CampsPage />} />
+              <Route path="/camps/:id" element={<CampDetailPage />} />
               <Route path="/players" element={<PlayersPage />} />
               <Route path="/coaches" element={<CoachesPage />} />
               <Route path="/coaches/:id" element={<CoachDetailPage />} />
