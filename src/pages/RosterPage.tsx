@@ -1,16 +1,19 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { format, startOfWeek, endOfWeek, parseISO, addWeeks, subWeeks } from "date-fns";
+import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, isWeekend } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 import { RosterWeekSelector } from "@/components/roster/RosterWeekSelector";
 import { RosterStats } from "@/components/roster/RosterStats";
 import { RosterAvailabilityInput } from "@/components/roster/RosterAvailabilityInput";
-import { RosterCampCard } from "@/components/roster/RosterCampCard";
+import { RosterDailyGrid } from "@/components/roster/RosterDailyGrid";
 import { RosterExport } from "@/components/roster/RosterExport";
+import { RosterUnassignedPool } from "@/components/roster/RosterUnassignedPool";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Users, Wand2 } from "lucide-react";
+
+export type ExperienceLevel = "lead" | "senior" | "standard" | "junior";
 
 export interface RosterCamp {
   id: string;
@@ -31,20 +34,43 @@ export interface RosterCoach {
   can_drive: boolean;
   is_head_coach: boolean;
   role_type: string | null;
+  experience_level: ExperienceLevel;
   daily_rate: number;
   head_coach_daily_rate: number;
   fuel_allowance_eligible: boolean;
   pickup_locations: string[] | null;
   preferred_counties: string[] | null;
   local_counties: string[] | null;
+  home_town: string | null;
+  preferred_driver_id: string | null;
   status: string | null;
 }
 
-export interface RosterAssignment {
+export interface DailyAssignment {
   id: string;
   camp_id: string;
   coach_id: string;
   role: "head_coach" | "assistant";
+  /** ISO date strings the coach works */
+  days: string[];
+  is_day1_support?: boolean;
+}
+
+/** Get weekday dates (Tue-Fri for camp weeks, or Mon-Fri) from a camp's date range */
+export function getCampDays(camp: RosterCamp): Date[] {
+  const start = new Date(camp.start_date + "T00:00:00");
+  const end = new Date(camp.end_date + "T00:00:00");
+  return eachDayOfInterval({ start, end }).filter(d => !isWeekend(d));
+}
+
+function experienceScore(level: ExperienceLevel): number {
+  return { lead: 4, senior: 3, standard: 2, junior: 1 }[level] || 2;
+}
+
+function preferredExperience(playerCount: number): ExperienceLevel[] {
+  if (playerCount >= 60) return ["lead", "senior"];
+  if (playerCount >= 40) return ["senior", "standard"];
+  return ["standard", "junior"];
 }
 
 const RosterPage = () => {
@@ -53,7 +79,7 @@ const RosterPage = () => {
   const [camps, setCamps] = useState<RosterCamp[]>([]);
   const [allCoaches, setAllCoaches] = useState<RosterCoach[]>([]);
   const [availableCoachIds, setAvailableCoachIds] = useState<string[]>([]);
-  const [assignments, setAssignments] = useState<RosterAssignment[]>([]);
+  const [assignments, setAssignments] = useState<DailyAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [availabilitySet, setAvailabilitySet] = useState(false);
   const [dragCoach, setDragCoach] = useState<{ coachId: string; fromCampId: string | null } | null>(null);
@@ -61,7 +87,6 @@ const RosterPage = () => {
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
 
-  // Fetch camps + coaches
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -71,7 +96,7 @@ const RosterPage = () => {
       const [campsRes, coachesRes, bookingsRes] = await Promise.all([
         supabase.from("camps").select("id, name, club_name, venue, county, start_date, end_date")
           .lte("start_date", weISO).gte("end_date", wsISO).order("name"),
-        supabase.from("coaches").select("id, full_name, county, can_drive, is_head_coach, role_type, daily_rate, head_coach_daily_rate, fuel_allowance_eligible, pickup_locations, preferred_counties, local_counties, status")
+        supabase.from("coaches").select("id, full_name, county, can_drive, is_head_coach, role_type, experience_level, daily_rate, head_coach_daily_rate, fuel_allowance_eligible, pickup_locations, preferred_counties, local_counties, home_town, preferred_driver_id, status")
           .eq("status", "active").order("full_name"),
         supabase.from("bookings").select("camp_id"),
       ]);
@@ -117,43 +142,47 @@ const RosterPage = () => {
     [availableCoaches, assignedCoachIds]
   );
 
-  // Auto-generate assignments
+  // Auto-generate with daily grid + experience logic
   const autoGenerate = useCallback(() => {
     if (camps.length === 0 || availableCoaches.length === 0) return;
 
-    const newAssignments: RosterAssignment[] = [];
+    const newAssignments: DailyAssignment[] = [];
     let nextId = 1;
     const used = new Set<string>();
 
-    // Sort camps by required coaches desc so biggest camps get priority
     const sortedCamps = [...camps].sort((a, b) => b.required_coaches - a.required_coaches);
 
-    // Pass 1: assign head coaches
+    // Pass 1: head coaches with experience matching
     for (const camp of sortedCamps) {
+      const campDays = getCampDays(camp).map(d => format(d, "yyyy-MM-dd"));
+      const preferred = preferredExperience(camp.player_count);
+
       const headCoach = availableCoaches.find(c =>
         !used.has(c.id) &&
         (c.is_head_coach || c.role_type === "head_coach") &&
+        preferred.includes(c.experience_level) &&
         (c.preferred_counties?.includes(camp.county) || c.local_counties?.includes(camp.county) || c.county === camp.county)
+      ) || availableCoaches.find(c =>
+        !used.has(c.id) &&
+        (c.is_head_coach || c.role_type === "head_coach") &&
+        preferred.includes(c.experience_level)
       ) || availableCoaches.find(c =>
         !used.has(c.id) && (c.is_head_coach || c.role_type === "head_coach")
       );
 
       if (headCoach) {
-        newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: headCoach.id, role: "head_coach" });
+        newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: headCoach.id, role: "head_coach", days: campDays });
         used.add(headCoach.id);
       }
     }
 
-    // Pass 2: fill remaining spots, prioritise drivers for camps without one
+    // Pass 2: drivers + fill
     for (const camp of sortedCamps) {
+      const campDays = getCampDays(camp).map(d => format(d, "yyyy-MM-dd"));
       const campAssigns = newAssignments.filter(a => a.camp_id === camp.id);
       const remaining = camp.required_coaches - campAssigns.length;
-      const hasDriver = campAssigns.some(a => {
-        const c = availableCoaches.find(co => co.id === a.coach_id);
-        return c?.can_drive;
-      });
+      const hasDriver = campAssigns.some(a => availableCoaches.find(co => co.id === a.coach_id)?.can_drive);
 
-      // If no driver yet, try to assign one first
       if (!hasDriver && remaining > 0) {
         const driver = availableCoaches.find(c =>
           !used.has(c.id) && c.can_drive &&
@@ -161,12 +190,11 @@ const RosterPage = () => {
         ) || availableCoaches.find(c => !used.has(c.id) && c.can_drive);
 
         if (driver) {
-          newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: driver.id, role: "assistant" });
+          newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: driver.id, role: "assistant", days: campDays });
           used.add(driver.id);
         }
       }
 
-      // Fill the rest
       const nowAssigned = newAssignments.filter(a => a.camp_id === camp.id).length;
       const stillNeeded = camp.required_coaches - nowAssigned;
       for (let i = 0; i < stillNeeded; i++) {
@@ -176,8 +204,20 @@ const RosterPage = () => {
         ) || availableCoaches.find(c => !used.has(c.id));
 
         if (coach) {
-          newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: coach.id, role: "assistant" });
+          newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: coach.id, role: "assistant", days: campDays });
           used.add(coach.id);
+        }
+      }
+
+      // Day 1 overflow for large camps
+      if (camp.player_count >= 60) {
+        const day1Coach = availableCoaches.find(c => !used.has(c.id));
+        if (day1Coach && campDays.length > 0) {
+          newAssignments.push({
+            id: String(nextId++), camp_id: camp.id, coach_id: day1Coach.id,
+            role: "assistant", days: [campDays[0]], is_day1_support: true,
+          });
+          used.add(day1Coach.id);
         }
       }
     }
@@ -186,17 +226,39 @@ const RosterPage = () => {
     toast({ title: "Roster generated", description: `${newAssignments.length} assignments across ${camps.length} camps` });
   }, [camps, availableCoaches, toast]);
 
-  // Manual actions
+  // CRUD for assignments
   const removeAssignment = (assignmentId: string) => {
     setAssignments(prev => prev.filter(a => a.id !== assignmentId));
   };
 
   const addAssignment = (campId: string, coachId: string, role: "head_coach" | "assistant") => {
-    setAssignments(prev => [...prev, { id: String(Date.now()), camp_id: campId, coach_id: coachId, role }]);
+    const camp = camps.find(c => c.id === campId);
+    if (!camp) return;
+    const campDays = getCampDays(camp).map(d => format(d, "yyyy-MM-dd"));
+    setAssignments(prev => [...prev, { id: String(Date.now()), camp_id: campId, coach_id: coachId, role, days: campDays }]);
+  };
+
+  const addDay1Support = (campId: string, coachId: string) => {
+    const camp = camps.find(c => c.id === campId);
+    if (!camp) return;
+    const campDays = getCampDays(camp).map(d => format(d, "yyyy-MM-dd"));
+    if (campDays.length === 0) return;
+    setAssignments(prev => [...prev, {
+      id: String(Date.now()), camp_id: campId, coach_id: coachId,
+      role: "assistant", days: [campDays[0]], is_day1_support: true,
+    }]);
   };
 
   const changeRole = (assignmentId: string, role: "head_coach" | "assistant") => {
     setAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, role } : a));
+  };
+
+  const toggleDay = (assignmentId: string, day: string) => {
+    setAssignments(prev => prev.map(a => {
+      if (a.id !== assignmentId) return a;
+      const days = a.days.includes(day) ? a.days.filter(d => d !== day) : [...a.days, day].sort();
+      return { ...a, days };
+    }));
   };
 
   // Drag and drop
@@ -208,13 +270,15 @@ const RosterPage = () => {
     if (!dragCoach) return;
     const { coachId, fromCampId } = dragCoach;
     if (fromCampId === toCampId) { setDragCoach(null); return; }
-
-    // Already in target camp?
     if (assignments.some(a => a.camp_id === toCampId && a.coach_id === coachId)) { setDragCoach(null); return; }
+
+    const camp = camps.find(c => c.id === toCampId);
+    if (!camp) { setDragCoach(null); return; }
+    const campDays = getCampDays(camp).map(d => format(d, "yyyy-MM-dd"));
 
     setAssignments(prev => {
       let updated = fromCampId ? prev.filter(a => !(a.camp_id === fromCampId && a.coach_id === coachId)) : prev;
-      return [...updated, { id: String(Date.now()), camp_id: toCampId, coach_id: coachId, role: "assistant" as const }];
+      return [...updated, { id: String(Date.now()), camp_id: toCampId, coach_id: coachId, role: "assistant" as const, days: campDays }];
     });
     setDragCoach(null);
   };
@@ -229,7 +293,6 @@ const RosterPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header + Week Selector */}
       <RosterWeekSelector
         selectedDate={selectedDate}
         onDateChange={setSelectedDate}
@@ -239,7 +302,6 @@ const RosterPage = () => {
         onNextWeek={() => setSelectedDate(addWeeks(selectedDate, 1))}
       />
 
-      {/* Stats */}
       <RosterStats
         camps={camps}
         assignments={assignments}
@@ -257,14 +319,12 @@ const RosterPage = () => {
         </Card>
       ) : (
         <>
-          {/* Step 3: Availability Input */}
           <RosterAvailabilityInput
             allCoaches={allCoaches}
             onAvailabilitySet={(ids) => { setAvailableCoachIds(ids); setAvailabilitySet(true); }}
             availabilitySet={availabilitySet}
           />
 
-          {/* Auto-generate button */}
           {availabilitySet && (
             <div className="flex flex-wrap items-center gap-3">
               <Button onClick={autoGenerate} className="gap-2">
@@ -285,45 +345,27 @@ const RosterPage = () => {
             </div>
           )}
 
-          {/* Unassigned coaches pool (drag source) */}
           {availabilitySet && unassignedCoaches.length > 0 && (
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                  Unassigned Available Coaches ({unassignedCoaches.length})
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {unassignedCoaches.map(c => (
-                    <div
-                      key={c.id}
-                      draggable
-                      onDragStart={() => handleDragStart(c.id, null)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-card text-sm cursor-grab active:cursor-grabbing hover:border-primary/40 transition-colors"
-                    >
-                      <span className="font-medium">{c.full_name}</span>
-                      {c.can_drive && <span title="Driver">🚗</span>}
-                      {(c.is_head_coach || c.role_type === "head_coach") && <span title="HC eligible">⭐</span>}
-                      {c.county && <span className="text-muted-foreground text-xs">({c.county})</span>}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <RosterUnassignedPool
+              coaches={unassignedCoaches}
+              onDragStart={handleDragStart}
+            />
           )}
 
-          {/* Camp cards with assignments */}
+          {/* Daily grid per camp */}
           <div className="space-y-4">
             {camps.map(camp => (
-              <RosterCampCard
+              <RosterDailyGrid
                 key={camp.id}
                 camp={camp}
                 assignments={assignments.filter(a => a.camp_id === camp.id)}
                 coaches={availableCoaches}
-                allCoaches={allCoaches}
                 unassignedCoaches={unassignedCoaches}
                 onRemove={removeAssignment}
                 onAdd={addAssignment}
+                onAddDay1Support={addDay1Support}
                 onChangeRole={changeRole}
+                onToggleDay={toggleDay}
                 onDragStart={handleDragStart}
                 onDrop={() => handleDrop(camp.id)}
                 availabilitySet={availabilitySet}
