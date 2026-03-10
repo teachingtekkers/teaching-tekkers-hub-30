@@ -235,6 +235,27 @@ export default function AttendanceParticipantRow({
             </div>
           )}
 
+          {/* Debug: confirm data flow from synced booking */}
+          <div className="border border-dashed border-muted-foreground/30 rounded p-2 space-y-0.5">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">🔍 Debug — Synced Booking Data</p>
+            <div className="grid grid-cols-2 gap-1 text-[11px]">
+              <span className="text-muted-foreground">synced total_amount:</span>
+              <span className="font-mono">{p.total_amount ?? "null"}</span>
+              <span className="text-muted-foreground">synced amount_paid:</span>
+              <span className="font-mono">{p.amount_paid ?? "null"}</span>
+              <span className="text-muted-foreground">synced refund_amount:</span>
+              <span className="font-mono">{p.refund_amount ?? "null"}</span>
+              <span className="text-muted-foreground">synced sibling_discount:</span>
+              <span className="font-mono">{p.sibling_discount ?? "null"}</span>
+              <span className="text-muted-foreground">synced payment_status:</span>
+              <span className="font-mono">{p.payment_status ?? "null"}</span>
+              <span className="text-muted-foreground">synced payment_type:</span>
+              <span className="font-mono">{p.payment_type ?? "null"}</span>
+              <span className="text-muted-foreground">calculated amount_owed:</span>
+              <span className="font-mono">{p.amount_owed ?? "null"}</span>
+            </div>
+          </div>
+
           {/* Payment editing — admin only */}
           {isAdmin && (
             <div className="grid grid-cols-2 gap-2">

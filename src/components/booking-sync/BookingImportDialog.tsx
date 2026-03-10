@@ -92,7 +92,7 @@ const ALIASES: Record<string, string[]> = {
 };
 
 function autoMapColumn(header: string): string {
-  const h = header.toLowerCase().trim();
+  const h = header.replace(/^\uFEFF/, "").toLowerCase().trim();
   for (const [field, aliases] of Object.entries(ALIASES)) {
     if (aliases.includes(h) || h === field) return field;
   }
@@ -100,7 +100,9 @@ function autoMapColumn(header: string): string {
 }
 
 function parseCSV(text: string): { headers: string[]; rows: ParsedRow[] } {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  // Strip BOM and normalise line endings
+  const clean = text.replace(/^\uFEFF/, "");
+  const lines = clean.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length === 0) return { headers: [], rows: [] };
   const firstLine = lines[0];
   const delimiter = firstLine.includes("\t") ? "\t" : ",";
@@ -276,7 +278,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
       f.rows.forEach((row) => {
         const mapped: Record<string, string> = {};
         for (const [csvCol, field] of Object.entries(mapping)) {
-          if (field !== "skip" && row[csvCol]) mapped[field] = row[csvCol];
+          if (field !== "skip" && row[csvCol] !== undefined && row[csvCol] !== "") mapped[field] = row[csvCol];
         }
         // Inject metadata from filename if not mapped from columns
         if (!hasCampCol || !mapped.camp_name) mapped.camp_name = f.detectedCampName;
