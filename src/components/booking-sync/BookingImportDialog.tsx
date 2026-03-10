@@ -1,15 +1,22 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo, DragEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Loader2, X, Files } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ParsedRow {
   [key: string]: string;
+}
+
+interface ParsedFile {
+  name: string;
+  headers: string[];
+  rows: ParsedRow[];
+  campNames: string[];
 }
 
 interface ImportResult {
@@ -40,7 +47,6 @@ const BOOKING_FIELDS = [
   { key: "booking_status", label: "Booking Status" },
 ];
 
-// Common aliases for auto-mapping
 const ALIASES: Record<string, string[]> = {
   external_booking_id: ["booking id", "booking_id", "order id", "order_id", "id", "ref", "reference"],
   camp_name: ["camp", "camp name", "camp_name", "event", "event name"],
@@ -72,8 +78,6 @@ function autoMapColumn(header: string): string {
 function parseCSV(text: string): { headers: string[]; rows: ParsedRow[] } {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length === 0) return { headers: [], rows: [] };
-
-  // Detect delimiter
   const firstLine = lines[0];
   const delimiter = firstLine.includes("\t") ? "\t" : ",";
 
@@ -84,18 +88,10 @@ function parseCSV(text: string): { headers: string[]; rows: ParsedRow[] } {
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
       if (ch === '"') {
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"';
-          i++;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (ch === delimiter && !inQuotes) {
-        result.push(current.trim());
-        current = "";
-      } else {
-        current += ch;
-      }
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (ch === delimiter && !inQuotes) { result.push(current.trim()); current = ""; }
+      else current += ch;
     }
     result.push(current.trim());
     return result;
@@ -105,13 +101,18 @@ function parseCSV(text: string): { headers: string[]; rows: ParsedRow[] } {
   const rows = lines.slice(1).map((line) => {
     const vals = parseRow(line);
     const obj: ParsedRow = {};
-    headers.forEach((h, i) => {
-      obj[h] = vals[i] || "";
-    });
+    headers.forEach((h, i) => { obj[h] = vals[i] || ""; });
     return obj;
   });
-
   return { headers, rows };
+}
+
+function detectCampNames(rows: ParsedRow[], headers: string[]): string[] {
+  const campCol = headers.find((h) => autoMapColumn(h) === "camp_name");
+  if (!campCol) return [];
+  const names = new Set<string>();
+  rows.forEach((r) => { if (r[campCol]) names.add(r[campCol]); });
+  return Array.from(names);
 }
 
 interface BookingImportDialogProps {
@@ -122,87 +123,134 @@ interface BookingImportDialogProps {
 
 export default function BookingImportDialog({ open, onOpenChange, onImportComplete }: BookingImportDialogProps) {
   const [step, setStep] = useState<"upload" | "map" | "preview" | "importing" | "done">("upload");
-  const [headers, setHeaders] = useState<string[]>([]);
-  const [rows, setRows] = useState<ParsedRow[]>([]);
+  const [files, setFiles] = useState<ParsedFile[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [result, setResult] = useState<ImportResult | null>(null);
-  const [fileName, setFileName] = useState("");
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // Merged unique headers across all files
+  const allHeaders = useMemo(() => {
+    const set = new Set<string>();
+    files.forEach((f) => f.headers.forEach((h) => set.add(h)));
+    return Array.from(set);
+  }, [files]);
+
+  const totalRows = useMemo(() => files.reduce((s, f) => s + f.rows.length, 0), [files]);
+  const allCampNames = useMemo(() => {
+    const set = new Set<string>();
+    files.forEach((f) => f.campNames.forEach((n) => set.add(n)));
+    return Array.from(set);
+  }, [files]);
+
   const reset = useCallback(() => {
     setStep("upload");
-    setHeaders([]);
-    setRows([]);
+    setFiles([]);
     setMapping({});
     setResult(null);
-    setFileName("");
+    setDragOver(false);
   }, []);
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
+  const processFiles = useCallback((fileList: File[]) => {
+    const validFiles = fileList.filter((f) =>
+      f.name.match(/\.(csv|tsv|txt)$/i)
+    );
+    if (validFiles.length === 0) {
+      toast({ title: "No valid files", description: "Please select CSV, TSV, or TXT files.", variant: "destructive" });
+      return;
+    }
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const { headers: h, rows: r } = parseCSV(text);
-      if (h.length === 0 || r.length === 0) {
-        toast({ title: "Empty file", description: "No data rows found in the file.", variant: "destructive" });
-        return;
-      }
-      setHeaders(h);
-      setRows(r);
-      // Auto-map columns
-      const autoMap: Record<string, string> = {};
-      h.forEach((header) => {
-        autoMap[header] = autoMapColumn(header);
-      });
-      setMapping(autoMap);
-      setStep("map");
-    };
-    reader.readAsText(file);
-  }, [toast]);
+    let loaded = 0;
+    const parsed: ParsedFile[] = [...files];
+
+    validFiles.forEach((file) => {
+      // Skip if already added
+      if (parsed.some((p) => p.name === file.name)) { loaded++; return; }
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        const { headers, rows } = parseCSV(text);
+        if (headers.length > 0 && rows.length > 0) {
+          parsed.push({
+            name: file.name,
+            headers,
+            rows,
+            campNames: detectCampNames(rows, headers),
+          });
+        }
+        loaded++;
+        if (loaded === validFiles.length) {
+          setFiles([...parsed]);
+          // Auto-map from merged headers
+          const mergedHeaders = new Set<string>();
+          parsed.forEach((p) => p.headers.forEach((h) => mergedHeaders.add(h)));
+          const autoMap: Record<string, string> = {};
+          mergedHeaders.forEach((h) => { autoMap[h] = autoMapColumn(h); });
+          setMapping((prev) => ({ ...autoMap, ...prev }));
+          if (parsed.length > 0) setStep("map");
+        }
+      };
+      reader.readAsText(file);
+    });
+  }, [files, toast]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.length) return;
+    processFiles(Array.from(e.target.files));
+    e.target.value = "";
+  }, [processFiles]);
+
+  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files.length) processFiles(Array.from(e.dataTransfer.files));
+  }, [processFiles]);
+
+  const removeFile = useCallback((name: string) => {
+    setFiles((prev) => {
+      const next = prev.filter((f) => f.name !== name);
+      if (next.length === 0) setStep("upload");
+      return next;
+    });
+  }, []);
 
   const mappedFields = Object.values(mapping).filter((v) => v !== "skip");
   const hasRequired = BOOKING_FIELDS.filter((f) => f.required).every((f) => mappedFields.includes(f.key));
 
   const getMappedRows = useCallback(() => {
-    return rows.map((row) => {
+    const allRows: ParsedRow[] = [];
+    files.forEach((f) => allRows.push(...f.rows));
+    return allRows.map((row) => {
       const mapped: Record<string, string> = {};
       for (const [csvCol, field] of Object.entries(mapping)) {
-        if (field !== "skip" && row[csvCol]) {
-          mapped[field] = row[csvCol];
-        }
+        if (field !== "skip" && row[csvCol]) mapped[field] = row[csvCol];
       }
       return mapped;
     }).filter((r) => r.child_first_name && r.child_last_name && r.camp_name);
-  }, [rows, mapping]);
+  }, [files, mapping]);
 
   const handleImport = useCallback(async () => {
     setStep("importing");
     const bookings = getMappedRows();
-
     try {
       const { data, error } = await supabase.functions.invoke("booking-intake", {
         body: { bookings },
       });
-
       if (error) throw error;
-
-      setResult(data.summary as ImportResult);
+      setResult({ ...(data.summary as ImportResult) });
       setStep("done");
       toast({
-        title: "Import complete",
-        description: `${data.summary.created} created, ${data.summary.updated} updated, ${data.summary.failed} failed`,
+        title: "Batch import complete",
+        description: `${files.length} file(s) — ${data.summary.created} created, ${data.summary.updated} updated, ${data.summary.failed} failed`,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
       toast({ title: "Import failed", description: message, variant: "destructive" });
       setStep("preview");
     }
-  }, [getMappedRows, toast]);
+  }, [getMappedRows, toast, files.length]);
 
   const handleClose = useCallback((isOpen: boolean) => {
     if (!isOpen) {
@@ -212,13 +260,19 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
     onOpenChange(isOpen);
   }, [step, onImportComplete, onOpenChange, reset]);
 
+  // First row sample for mapping display
+  const sampleRow = useMemo(() => {
+    for (const f of files) { if (f.rows[0]) return f.rows[0]; }
+    return {} as ParsedRow;
+  }, [files]);
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
-            Import Booking File
+            Import Booking Files
           </DialogTitle>
         </DialogHeader>
 
@@ -226,32 +280,71 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         {step === "upload" && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Upload a CSV or tab-separated file exported from your booking system. The system will auto-detect columns.
+              Upload one or more CSV files exported from your booking system. You can import multiple camp files in one batch.
             </p>
             <div
-              className="border-2 border-dashed rounded-lg p-12 text-center cursor-pointer hover:border-primary/50 hover:bg-accent/30 transition-colors"
+              className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
+                dragOver ? "border-primary bg-accent/50" : "hover:border-primary/50 hover:bg-accent/30"
+              }`}
               onClick={() => fileRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
             >
               <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
-              <p className="font-medium text-sm">Click to select a file</p>
-              <p className="text-xs text-muted-foreground mt-1">CSV, TSV, or TXT • Max 5,000 rows</p>
+              <p className="font-medium text-sm">
+                {dragOver ? "Drop files here" : "Drag & drop files or click to select"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">CSV, TSV, or TXT • Multiple files supported</p>
             </div>
-            <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.xls,.xlsx" className="hidden" onChange={handleFileSelect} />
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv,.tsv,.txt"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+            />
           </div>
         )}
 
         {/* Step 2: Column Mapping */}
         {step === "map" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{fileName}</span> — {rows.length} rows found. Map columns below.
-              </p>
-              <Badge variant="secondary">{mappedFields.length} mapped</Badge>
+            {/* File list */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Files className="h-4 w-4" />
+                  {files.length} file{files.length > 1 ? "s" : ""} • {totalRows} total rows
+                </p>
+                <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+                  <Upload className="h-3 w-3 mr-1.5" /> Add More
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {files.map((f) => (
+                  <Badge key={f.name} variant="secondary" className="gap-1.5 py-1">
+                    <FileSpreadsheet className="h-3 w-3" />
+                    {f.name}
+                    <span className="text-muted-foreground">({f.rows.length})</span>
+                    <button onClick={() => removeFile(f.name)} className="ml-0.5 hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+              {allCampNames.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Camps detected: {allCampNames.slice(0, 5).join(", ")}
+                  {allCampNames.length > 5 && ` +${allCampNames.length - 5} more`}
+                </p>
+              )}
             </div>
 
-            <div className="grid gap-2 max-h-[400px] overflow-y-auto">
-              {headers.map((h) => (
+            {/* Column mapping */}
+            <div className="grid gap-2 max-h-[350px] overflow-y-auto">
+              {allHeaders.map((h) => (
                 <div key={h} className="flex items-center gap-3 py-1">
                   <span className="text-sm font-mono w-48 truncate shrink-0" title={h}>{h}</span>
                   <span className="text-muted-foreground text-xs">→</span>
@@ -268,7 +361,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
                       ))}
                     </SelectContent>
                   </Select>
-                  <span className="text-xs text-muted-foreground truncate">{rows[0]?.[h] || ""}</span>
+                  <span className="text-xs text-muted-foreground truncate">{sampleRow[h] || ""}</span>
                 </div>
               ))}
             </div>
@@ -288,15 +381,22 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
                 Preview {getMappedRows().length} Rows
               </Button>
             </div>
+            <input ref={fileRef} type="file" accept=".csv,.tsv,.txt" multiple className="hidden" onChange={handleFileSelect} />
           </div>
         )}
 
         {/* Step 3: Preview */}
         {step === "preview" && (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Preview of <span className="font-medium text-foreground">{getMappedRows().length}</span> valid rows ready to import.
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{getMappedRows().length}</span> valid rows from{" "}
+                <span className="font-medium text-foreground">{files.length}</span> file{files.length > 1 ? "s" : ""} ready to import.
+              </p>
+              {allCampNames.length > 0 && (
+                <Badge variant="outline">{allCampNames.length} camp{allCampNames.length > 1 ? "s" : ""}</Badge>
+              )}
+            </div>
             <div className="rounded-lg border overflow-auto max-h-[400px]">
               <Table>
                 <TableHeader>
@@ -309,7 +409,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {getMappedRows().slice(0, 50).map((r, i) => (
+                  {getMappedRows().slice(0, 100).map((r, i) => (
                     <TableRow key={i}>
                       <TableCell className="text-muted-foreground text-xs">{i + 1}</TableCell>
                       <TableCell className="font-medium text-sm">{r.child_first_name} {r.child_last_name}</TableCell>
@@ -321,8 +421,8 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
                 </TableBody>
               </Table>
             </div>
-            {getMappedRows().length > 50 && (
-              <p className="text-xs text-muted-foreground">Showing first 50 of {getMappedRows().length} rows</p>
+            {getMappedRows().length > 100 && (
+              <p className="text-xs text-muted-foreground">Showing first 100 of {getMappedRows().length} rows</p>
             )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setStep("map")}>Back</Button>
@@ -337,7 +437,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         {step === "importing" && (
           <div className="py-12 text-center space-y-3">
             <Loader2 className="h-10 w-10 mx-auto animate-spin text-primary" />
-            <p className="font-medium">Importing bookings…</p>
+            <p className="font-medium">Importing {files.length} file{files.length > 1 ? "s" : ""}…</p>
             <p className="text-sm text-muted-foreground">Matching camps, checking duplicates, creating records</p>
           </div>
         )}
@@ -347,7 +447,10 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
           <div className="space-y-4">
             <div className="py-6 text-center">
               <CheckCircle className="h-12 w-12 mx-auto mb-3 text-emerald-600" />
-              <p className="text-lg font-semibold">Import Complete</p>
+              <p className="text-lg font-semibold">Batch Import Complete</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {files.length} file{files.length > 1 ? "s" : ""} processed
+              </p>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-muted rounded-lg p-3 text-center">
@@ -372,6 +475,17 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
                 {result.camps_created} new camp(s) auto-created from booking data
               </p>
             )}
+            {/* Per-file breakdown */}
+            <div className="space-y-1">
+              {files.map((f) => (
+                <div key={f.name} className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <FileSpreadsheet className="h-3 w-3" />
+                  <span>{f.name}</span>
+                  <span>— {f.rows.length} rows</span>
+                  {f.campNames.length > 0 && <span>({f.campNames.join(", ")})</span>}
+                </div>
+              ))}
+            </div>
             <div className="flex justify-end">
               <Button onClick={() => handleClose(false)}>Done</Button>
             </div>
