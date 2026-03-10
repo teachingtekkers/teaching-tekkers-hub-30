@@ -116,6 +116,30 @@ function detectCampNames(rows: ParsedRow[], headers: string[]): string[] {
   return Array.from(names);
 }
 
+// Extract camp name from filename like:
+// "TeachingTekkers -Easter Camps (...)-Dublin-Portmarnock AFC-Portmarnock AFC Easter Camp 2026 WK1.csv"
+// Strategy: take the last segment after the final hyphen, strip extension
+function extractCampNameFromFilename(filename: string): string {
+  // Remove extension
+  const noExt = filename.replace(/\.(csv|tsv|txt)$/i, "").trim();
+
+  // Split by " - " or "-" (with surrounding spaces preferred)
+  const segments = noExt.split(/\s*[-–]\s*/);
+
+  // Take the last segment — this is typically the camp name
+  let campName = segments[segments.length - 1]?.trim() || noExt;
+
+  // If last segment is very short (< 5 chars), try second-to-last
+  if (campName.length < 5 && segments.length > 1) {
+    campName = segments[segments.length - 2]?.trim() || campName;
+  }
+
+  // Clean up: remove parenthetical content like "(additional online charge...)"
+  campName = campName.replace(/\([^)]*\)/g, "").trim();
+
+  return campName || noExt;
+}
+
 interface BookingImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
