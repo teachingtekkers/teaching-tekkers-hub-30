@@ -938,7 +938,7 @@ export type Database = {
       attendance_status: "present" | "absent"
       coach_role: "head_coach" | "assistant"
       fixture_format: "group_stage" | "knockout" | "group_knockout"
-      invoice_status: "draft" | "sent" | "paid"
+      invoice_status: "draft" | "ready" | "sent" | "paid"
       payment_status: "paid" | "pending" | "refunded"
       proposal_status: "draft" | "sent" | "accepted" | "rejected"
       roster_status: "draft" | "finalised"
@@ -1073,7 +1073,7 @@ export const Constants = {
       attendance_status: ["present", "absent"],
       coach_role: ["head_coach", "assistant"],
       fixture_format: ["group_stage", "knockout", "group_knockout"],
-      invoice_status: ["draft", "sent", "paid"],
+      invoice_status: ["draft", "ready", "sent", "paid"],
       payment_status: ["paid", "pending", "refunded"],
       proposal_status: ["draft", "sent", "accepted", "rejected"],
       roster_status: ["draft", "finalised"],
