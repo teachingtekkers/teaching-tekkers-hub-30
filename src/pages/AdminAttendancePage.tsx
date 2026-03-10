@@ -9,13 +9,16 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, CheckCircle, XCircle, Calendar, BarChart3, Loader2, Check } from "lucide-react";
+import { Users, CheckCircle, XCircle, Calendar, BarChart3, Loader2, Check, Banknote, Shirt, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import AttendanceParticipantRow, { type ParticipantData } from "@/components/attendance/AttendanceParticipantRow";
 import AttendanceSortControl, { type SortField } from "@/components/attendance/AttendanceSortControl";
 import AttendanceMetricsSummary from "@/components/attendance/AttendanceMetricsSummary";
 import AttendanceFilters, { type AttendanceFilterState } from "@/components/attendance/AttendanceFilters";
 import AttendanceExport from "@/components/attendance/AttendanceExport";
+import AttendanceFinancialSummary from "@/components/attendance/AttendanceFinancialSummary";
+import AttendanceKitSummary from "@/components/attendance/AttendanceKitSummary";
+import AttendanceFamilyGroups from "@/components/attendance/AttendanceFamilyGroups";
 
 interface CampOption { id: string; name: string; club_name: string; start_date: string; end_date: string; }
 interface AttendanceRow { id?: string; synced_booking_id: string; status: "present" | "absent"; note: string | null; }
@@ -36,6 +39,7 @@ export default function AdminAttendancePage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [filters, setFilters] = useState<AttendanceFilterState>({ search: "", paymentFilter: "all", statusFilter: "all" });
+  const [kitGivenMap, setKitGivenMap] = useState<Map<string, boolean>>(new Map());
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
   const attendanceRef = useRef(attendance);
 
@@ -58,7 +62,7 @@ export default function AdminAttendancePage() {
     if (!selectedCamp) return;
     const [pRes, aRes] = await Promise.all([
       supabase.from("synced_bookings")
-        .select("id, child_first_name, child_last_name, age, date_of_birth, kit_size, medical_condition, medical_notes, photo_permission, payment_status, amount_paid, amount_owed, total_amount, sibling_discount, refund_amount, payment_type, staff_notes, parent_name, parent_email, parent_phone, emergency_contact, alternate_phone, booking_date")
+        .select("id, child_first_name, child_last_name, age, date_of_birth, kit_size, medical_condition, medical_notes, photo_permission, payment_status, amount_paid, amount_owed, total_amount, sibling_discount, refund_amount, payment_type, staff_notes, parent_name, parent_email, parent_phone, emergency_contact, alternate_phone, booking_date, kit_given")
         .eq("matched_camp_id", selectedCamp)
         .order("child_last_name"),
       supabase.from("attendance")
@@ -66,7 +70,13 @@ export default function AdminAttendancePage() {
         .eq("camp_id", selectedCamp)
         .eq("date", selectedDate),
     ]);
-    setParticipants((pRes.data as ParticipantData[]) || []);
+    const pData = (pRes.data || []) as any[];
+    setParticipants(pData as ParticipantData[]);
+    // Build kit given map
+    const kMap = new Map<string, boolean>();
+    for (const p of pData) kMap.set(p.id, p.kit_given ?? false);
+    setKitGivenMap(kMap);
+
     const map = new Map<string, AttendanceRow>();
     for (const r of (aRes.data || []) as any[]) {
       if (r.synced_booking_id) map.set(r.synced_booking_id, { id: r.id, synced_booking_id: r.synced_booking_id, status: r.status, note: r.note });
@@ -142,17 +152,17 @@ export default function AdminAttendancePage() {
     else toast.success("Payment updated");
   }, []);
 
+  const handleToggleKitGiven = useCallback(async (id: string, given: boolean) => {
+    setKitGivenMap((prev) => { const n = new Map(prev); n.set(id, given); return n; });
+    await supabase.from("synced_bookings").update({ kit_given: given }).eq("id", id);
+  }, []);
+
   const getStatus = (id: string): "present" | "absent" => attendance.get(id)?.status || "absent";
 
-  // Apply filters and sorting
   const filtered = useMemo(() => {
     let list = [...participants];
     const q = filters.search.toLowerCase().trim();
-    if (q) {
-      list = list.filter((p) =>
-        `${p.child_first_name} ${p.child_last_name}`.toLowerCase().includes(q)
-      );
-    }
+    if (q) list = list.filter((p) => `${p.child_first_name} ${p.child_last_name}`.toLowerCase().includes(q));
     if (filters.paymentFilter === "unpaid") {
       list = list.filter((p) => {
         const owed = p.amount_owed ?? Math.max(0, calcTotalCost(p) - (p.amount_paid ?? 0) - (p.refund_amount ?? 0));
@@ -164,11 +174,8 @@ export default function AdminAttendancePage() {
         return owed <= 0;
       });
     }
-    if (filters.statusFilter === "present") {
-      list = list.filter((p) => getStatus(p.id) === "present");
-    } else if (filters.statusFilter === "absent") {
-      list = list.filter((p) => getStatus(p.id) !== "present");
-    }
+    if (filters.statusFilter === "present") list = list.filter((p) => getStatus(p.id) === "present");
+    else if (filters.statusFilter === "absent") list = list.filter((p) => getStatus(p.id) !== "present");
     return list;
   }, [participants, filters, attendance]);
 
@@ -180,28 +187,26 @@ export default function AdminAttendancePage() {
     });
   }, [filtered, sortField]);
 
-  const dateSummary = (() => {
+  const dateSummary = useMemo(() => {
     const map = new Map<string, { present: number; absent: number }>();
     for (const r of allAttendance) {
-      const d = r.date;
-      if (!map.has(d)) map.set(d, { present: 0, absent: 0 });
-      const s = map.get(d)!;
+      if (!map.has(r.date)) map.set(r.date, { present: 0, absent: 0 });
+      const s = map.get(r.date)!;
       if (r.status === "present") s.present++; else s.absent++;
     }
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  })();
+  }, [allAttendance]);
 
-  const participantSummary = (() => {
+  const participantSummary = useMemo(() => {
     const map = new Map<string, { present: number; absent: number }>();
     for (const r of allAttendance) {
-      const id = r.synced_booking_id;
-      if (!id) continue;
-      if (!map.has(id)) map.set(id, { present: 0, absent: 0 });
-      const s = map.get(id)!;
+      if (!r.synced_booking_id) continue;
+      if (!map.has(r.synced_booking_id)) map.set(r.synced_booking_id, { present: 0, absent: 0 });
+      const s = map.get(r.synced_booking_id)!;
       if (r.status === "present") s.present++; else s.absent++;
     }
     return participants.map((p) => ({ ...p, ...(map.get(p.id) || { present: 0, absent: 0 }) }));
-  })();
+  }, [allAttendance, participants]);
 
   const camp = camps.find((c) => c.id === selectedCamp);
   if (loading) return <div className="p-8 text-muted-foreground">Loading…</div>;
@@ -243,55 +248,41 @@ export default function AdminAttendancePage() {
           />
 
           <Tabs defaultValue="mark">
-            <TabsList>
+            <TabsList className="flex-wrap h-auto gap-1">
               <TabsTrigger value="mark" className="gap-1.5"><CheckCircle className="h-3.5 w-3.5" />Mark</TabsTrigger>
               <TabsTrigger value="by-date" className="gap-1.5"><Calendar className="h-3.5 w-3.5" />By Date</TabsTrigger>
               <TabsTrigger value="by-child" className="gap-1.5"><Users className="h-3.5 w-3.5" />By Child</TabsTrigger>
+              <TabsTrigger value="finance" className="gap-1.5"><Banknote className="h-3.5 w-3.5" />Finance</TabsTrigger>
+              <TabsTrigger value="kit" className="gap-1.5"><Shirt className="h-3.5 w-3.5" />Kit</TabsTrigger>
+              <TabsTrigger value="families" className="gap-1.5"><UsersRound className="h-3.5 w-3.5" />Families</TabsTrigger>
             </TabsList>
 
             <TabsContent value="mark" className="space-y-3 mt-4">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-between">
                 <AttendanceFilters filters={filters} onChange={setFilters} />
                 <div className="flex items-center gap-2">
-                  <AttendanceExport
-                    participants={sorted}
-                    getStatus={getStatus}
-                    campName={camp.name}
-                    selectedDate={selectedDate}
-                  />
+                  <AttendanceExport participants={sorted} getStatus={getStatus} campName={camp.name} selectedDate={selectedDate} />
                   <AttendanceSortControl value={sortField} onChange={setSortField} />
                   {autoSaveStatus !== "idle" && (
                     <span className="flex items-center gap-1 text-xs text-muted-foreground animate-in fade-in duration-200">
-                      {autoSaveStatus === "saving" ? (
-                        <><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>
-                      ) : (
-                        <><Check className="h-3 w-3 text-emerald-600" /> Saved</>
-                      )}
+                      {autoSaveStatus === "saving" ? <><Loader2 className="h-3 w-3 animate-spin" /> Saving…</> : <><Check className="h-3 w-3 text-emerald-600" /> Saved</>}
                     </span>
                   )}
                 </div>
               </div>
-
               {sorted.length === 0 ? (
                 <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">
                   {participants.length === 0 ? "No participants for this camp." : "No participants match your filters."}
                 </CardContent></Card>
               ) : (
                 <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground px-1">
-                    Showing {sorted.length} of {participants.length} participants
-                  </div>
+                  <div className="text-xs text-muted-foreground px-1">Showing {sorted.length} of {participants.length} participants</div>
                   {sorted.map((p) => (
                     <AttendanceParticipantRow
-                      key={p.id}
-                      participant={p}
-                      isPresent={getStatus(p.id) === "present"}
-                      onToggle={() => toggleStatus(p.id)}
-                      isAdmin={true}
-                      onFieldUpdate={handleFieldUpdate}
-                      onPaymentUpdate={handlePaymentUpdate}
-                      expandedId={expandedId}
-                      onExpand={setExpandedId}
+                      key={p.id} participant={p} isPresent={getStatus(p.id) === "present"}
+                      onToggle={() => toggleStatus(p.id)} isAdmin={true}
+                      onFieldUpdate={handleFieldUpdate} onPaymentUpdate={handlePaymentUpdate}
+                      expandedId={expandedId} onExpand={setExpandedId}
                     />
                   ))}
                 </div>
@@ -306,14 +297,10 @@ export default function AdminAttendancePage() {
                     <div className="py-8 text-center text-sm text-muted-foreground">No attendance recorded yet.</div>
                   ) : (
                     <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead className="text-center">Present</TableHead>
-                          <TableHead className="text-center">Absent</TableHead>
-                          <TableHead className="text-center">Rate</TableHead>
-                        </TableRow>
-                      </TableHeader>
+                      <TableHeader><TableRow>
+                        <TableHead>Date</TableHead><TableHead className="text-center">Present</TableHead>
+                        <TableHead className="text-center">Absent</TableHead><TableHead className="text-center">Rate</TableHead>
+                      </TableRow></TableHeader>
                       <TableBody>
                         {dateSummary.map(([date, s]) => (
                           <TableRow key={date} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedDate(date)}>
@@ -338,14 +325,10 @@ export default function AdminAttendancePage() {
                     <div className="py-8 text-center text-sm text-muted-foreground">No participants.</div>
                   ) : (
                     <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Child</TableHead>
-                          <TableHead className="text-center">Present</TableHead>
-                          <TableHead className="text-center">Absent</TableHead>
-                          <TableHead className="text-center">Rate</TableHead>
-                        </TableRow>
-                      </TableHeader>
+                      <TableHeader><TableRow>
+                        <TableHead>Child</TableHead><TableHead className="text-center">Present</TableHead>
+                        <TableHead className="text-center">Absent</TableHead><TableHead className="text-center">Rate</TableHead>
+                      </TableRow></TableHeader>
                       <TableBody>
                         {participantSummary.map((p) => (
                           <TableRow key={p.id}>
@@ -360,6 +343,18 @@ export default function AdminAttendancePage() {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="finance" className="mt-4">
+              <AttendanceFinancialSummary participants={participants} />
+            </TabsContent>
+
+            <TabsContent value="kit" className="mt-4">
+              <AttendanceKitSummary participants={participants} kitGivenMap={kitGivenMap} onToggleKitGiven={handleToggleKitGiven} />
+            </TabsContent>
+
+            <TabsContent value="families" className="mt-4">
+              <AttendanceFamilyGroups participants={participants} />
             </TabsContent>
           </Tabs>
         </>
