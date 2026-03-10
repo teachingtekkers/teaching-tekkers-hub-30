@@ -123,7 +123,6 @@ export default function BookingSyncPage() {
           <p className="text-sm text-muted-foreground">
             Import and manage booking data from <span className="font-medium">bookings.teachingtekkers.com</span>
           </p>
-          </p>
         </div>
         <div className="flex gap-2">
           <Button size="sm" onClick={() => setImportOpen(true)}>
