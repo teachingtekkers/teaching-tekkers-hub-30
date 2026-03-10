@@ -124,8 +124,10 @@ export default function CampDetailPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Child Name</TableHead>
+                  <TableHead>Age / DOB</TableHead>
                   <TableHead>Parent</TableHead>
-                  <TableHead className="hidden md:table-cell">Phone</TableHead>
+                  <TableHead className="hidden md:table-cell">Contact</TableHead>
+                  <TableHead className="hidden lg:table-cell">Emergency</TableHead>
                   <TableHead className="hidden lg:table-cell">Medical</TableHead>
                   <TableHead>Kit</TableHead>
                   <TableHead>Payment</TableHead>
@@ -136,10 +138,22 @@ export default function CampDetailPage() {
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">
                       {p.child_first_name} {p.child_last_name}
-                      {p.age && <span className="ml-1 text-xs text-muted-foreground">({p.age})</span>}
                     </TableCell>
-                    <TableCell className="text-sm">{p.parent_name || "—"}</TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{p.parent_phone || "—"}</TableCell>
+                    <TableCell className="text-sm">
+                      {p.age && <span>{p.age} yrs</span>}
+                      {p.date_of_birth && <span className="block text-xs text-muted-foreground">{p.date_of_birth}</span>}
+                      {!p.age && !p.date_of_birth && "—"}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {p.parent_name || "—"}
+                      {p.parent_email && <span className="block text-xs text-muted-foreground">{p.parent_email}</span>}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                      {p.parent_phone || "—"}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                      {p.emergency_contact || "—"}
+                    </TableCell>
                     <TableCell className="hidden lg:table-cell text-sm">
                       {p.medical_notes ? (
                         <span className="flex items-center gap-1 text-destructive">
