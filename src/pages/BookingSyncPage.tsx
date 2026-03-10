@@ -57,6 +57,7 @@ export default function BookingSyncPage() {
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
   const { toast } = useToast();
 
   const loadData = useCallback(async () => {
