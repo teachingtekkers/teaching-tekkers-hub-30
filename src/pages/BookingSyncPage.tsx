@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink } from "lucide-react";
+import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import BookingImportDialog from "@/components/booking-sync/BookingImportDialog";
 
 interface SyncedBooking {
   id: string;
@@ -56,6 +57,7 @@ export default function BookingSyncPage() {
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
   const { toast } = useToast();
 
   const loadData = useCallback(async () => {
@@ -119,10 +121,13 @@ export default function BookingSyncPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Booking Sync / Intake</h1>
           <p className="text-sm text-muted-foreground">
-            Receives booking data from <span className="font-medium">bookings.teachingtekkers.com</span> via automation
+            Import and manage booking data from <span className="font-medium">bookings.teachingtekkers.com</span>
           </p>
         </div>
         <div className="flex gap-2">
+          <Button size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-1.5" /> Import Booking File
+          </Button>
           <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
@@ -310,6 +315,8 @@ export default function BookingSyncPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <BookingImportDialog open={importOpen} onOpenChange={setImportOpen} onImportComplete={loadData} />
     </div>
   );
 }
