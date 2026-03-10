@@ -8,13 +8,15 @@ import { RosterWeekSelector } from "@/components/roster/RosterWeekSelector";
 import { RosterStats } from "@/components/roster/RosterStats";
 import { RosterAvailabilityInput } from "@/components/roster/RosterAvailabilityInput";
 import { RosterDailyGrid } from "@/components/roster/RosterDailyGrid";
+import { RosterCoachView } from "@/components/roster/RosterCoachView";
 import { RosterExport } from "@/components/roster/RosterExport";
 import { RosterUnassignedPool } from "@/components/roster/RosterUnassignedPool";
 import { RosterHistory } from "@/components/roster/RosterHistory";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Wand2, Save, CheckCircle, FileEdit, History } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Users, Wand2, Save, CheckCircle, FileEdit, History, AlertTriangle } from "lucide-react";
 
 export type ExperienceLevel = "lead" | "senior" | "standard" | "junior";
 
