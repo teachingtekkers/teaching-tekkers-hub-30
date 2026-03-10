@@ -17,6 +17,7 @@ interface ParsedFile {
   headers: string[];
   rows: ParsedRow[];
   campNames: string[];
+  detectedCampName: string;
 }
 
 interface ImportResult {
