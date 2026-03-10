@@ -1,0 +1,1 @@
+ALTER TABLE public.synced_bookings ADD COLUMN IF NOT EXISTS kit_given boolean NOT NULL DEFAULT false;

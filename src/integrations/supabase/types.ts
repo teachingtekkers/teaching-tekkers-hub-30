@@ -937,6 +937,7 @@ export type Database = {
           external_booking_id: string | null
           id: string
           imported_at: string
+          kit_given: boolean
           kit_size: string | null
           last_synced_at: string
           match_status: string
@@ -979,6 +980,7 @@ export type Database = {
           external_booking_id?: string | null
           id?: string
           imported_at?: string
+          kit_given?: boolean
           kit_size?: string | null
           last_synced_at?: string
           match_status?: string
@@ -1021,6 +1023,7 @@ export type Database = {
           external_booking_id?: string | null
           id?: string
           imported_at?: string
+          kit_given?: boolean
           kit_size?: string | null
           last_synced_at?: string
           match_status?: string

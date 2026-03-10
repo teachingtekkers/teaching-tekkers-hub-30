@@ -1,98 +1,129 @@
-import { Tent, Users, UserCog, ArrowRight, AlertTriangle, CheckCircle, ClipboardCheck, DollarSign } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Tent, Users, Banknote, AlertTriangle, ArrowRight, CheckCircle, ClipboardCheck, DollarSign, UserCog, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StatCard } from "@/components/StatCard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { mockCamps, mockBookings, mockCoaches, mockCampCoaches, mockAttendance, mockPayrollRecords, getCoachesRequired } from "@/data/mock";
+
+interface CampRow { id: string; name: string; club_name: string; venue: string; start_date: string; end_date: string; }
+interface BookingRow { id: string; matched_camp_id: string | null; amount_paid: number | null; amount_owed: number | null; total_amount: number | null; sibling_discount: number | null; refund_amount: number | null; }
 
 const DashboardPage = () => {
-  const thisWeekCamps = mockCamps.filter(c => c.start_date <= '2026-03-13' && c.end_date >= '2026-03-09');
-  const thisWeekPlayerCount = mockBookings.filter(b => thisWeekCamps.some(c => c.id === b.camp_id)).length;
+  const [camps, setCamps] = useState<CampRow[]>([]);
+  const [todayCamps, setTodayCamps] = useState<CampRow[]>([]);
+  const [bookings, setBookings] = useState<BookingRow[]>([]);
+  const [attendanceCounts, setAttendanceCounts] = useState<Map<string, number>>(new Map());
+  const [coachCounts, setCoachCounts] = useState<Map<string, number>>(new Map());
+  const [loading, setLoading] = useState(true);
 
-  // Coaches assigned this week
-  const thisWeekAssignments = mockCampCoaches.filter(a => thisWeekCamps.some(c => c.id === a.camp_id));
-  const uniqueCoachesThisWeek = new Set(thisWeekAssignments.map(a => a.coach_id)).size;
+  const today = new Date().toISOString().slice(0, 10);
 
-  // Coaches required
-  const totalRequired = thisWeekCamps.reduce((sum, camp) => {
-    const players = mockBookings.filter(b => b.camp_id === camp.id).length;
-    return sum + getCoachesRequired(players);
-  }, 0);
+  useEffect(() => {
+    (async () => {
+      const [campsRes, bookingsRes, attendanceRes, coachRes] = await Promise.all([
+        supabase.from("camps").select("id, name, club_name, venue, start_date, end_date").order("start_date", { ascending: false }),
+        supabase.from("synced_bookings").select("id, matched_camp_id, amount_paid, amount_owed, total_amount, sibling_discount, refund_amount"),
+        supabase.from("attendance").select("camp_id, status").eq("date", today).eq("status", "present"),
+        supabase.from("camp_coach_assignments").select("camp_id, coach_id"),
+      ]);
 
-  // Attendance completion
-  const totalAttendanceExpected = thisWeekCamps.reduce((sum, camp) => {
-    return sum + mockBookings.filter(b => b.camp_id === camp.id).length;
-  }, 0);
-  const attendanceMarked = mockAttendance.filter(a =>
-    thisWeekCamps.some(c => c.id === a.camp_id) && a.date === '2026-03-09'
-  ).length;
+      const allCamps = (campsRes.data || []) as CampRow[];
+      setCamps(allCamps);
+      setTodayCamps(allCamps.filter((c) => c.start_date <= today && c.end_date >= today));
+      setBookings((bookingsRes.data || []) as BookingRow[]);
 
-  // Estimated payroll
-  const weekPayroll = mockPayrollRecords
-    .filter(p => p.week_start === '2026-03-09')
-    .reduce((sum, p) => sum + p.total_amount, 0);
+      const aMap = new Map<string, number>();
+      for (const r of (attendanceRes.data || []) as any[]) {
+        aMap.set(r.camp_id, (aMap.get(r.camp_id) || 0) + 1);
+      }
+      setAttendanceCounts(aMap);
 
-  // Camps needing action
-  const campsNeedingAction = thisWeekCamps.filter(camp => {
-    const players = mockBookings.filter(b => b.camp_id === camp.id).length;
-    const required = getCoachesRequired(players);
-    const assigned = mockCampCoaches.filter(a => a.camp_id === camp.id);
-    const hasHead = assigned.some(a => a.role === 'head_coach');
-    return assigned.length < required || !hasHead;
-  });
+      const cMap = new Map<string, number>();
+      for (const r of (coachRes.data || []) as any[]) {
+        cMap.set(r.camp_id, (cMap.get(r.camp_id) || 0) + 1);
+      }
+      setCoachCounts(cMap);
+
+      setLoading(false);
+    })();
+  }, [today]);
+
+  const metrics = useMemo(() => {
+    const todayCampIds = new Set(todayCamps.map((c) => c.id));
+    const todayBookings = bookings.filter((b) => b.matched_camp_id && todayCampIds.has(b.matched_camp_id));
+
+    const totalChildren = todayBookings.length;
+    const presentToday = Array.from(attendanceCounts.entries())
+      .filter(([id]) => todayCampIds.has(id))
+      .reduce((s, [, c]) => s + c, 0);
+
+    const totalRevenue = todayBookings.reduce((s, b) => {
+      return s + Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0));
+    }, 0);
+    const totalOutstanding = todayBookings.reduce((s, b) => {
+      const owed = b.amount_owed ?? Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0) - (b.amount_paid ?? 0) - (b.refund_amount ?? 0));
+      return s + Math.max(0, owed);
+    }, 0);
+
+    return { totalChildren, presentToday, totalRevenue, totalOutstanding };
+  }, [todayCamps, bookings, attendanceCounts]);
+
+  // Weekly summary: camps active this week (Mon-Sun)
+  const weekMetrics = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() + mondayOffset);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    const ws = weekStart.toISOString().slice(0, 10);
+    const we = weekEnd.toISOString().slice(0, 10);
+
+    const weekCamps = camps.filter((c) => c.start_date <= we && c.end_date >= ws);
+    const weekCampIds = new Set(weekCamps.map((c) => c.id));
+    const weekBookings = bookings.filter((b) => b.matched_camp_id && weekCampIds.has(b.matched_camp_id));
+
+    const totalRevenue = weekBookings.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0)), 0);
+    const totalPaid = weekBookings.reduce((s, b) => s + (b.amount_paid ?? 0), 0);
+
+    return {
+      weekLabel: `${weekStart.toLocaleDateString("en-IE", { day: "numeric", month: "short" })} – ${weekEnd.toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })}`,
+      campCount: weekCamps.length,
+      childrenCount: weekBookings.length,
+      totalRevenue,
+      totalPaid,
+    };
+  }, [camps, bookings]);
+
+  if (loading) return <div className="p-8 text-muted-foreground">Loading…</div>;
 
   return (
     <div className="space-y-8">
       <div className="page-header">
         <h1>Dashboard</h1>
-        <p>Week of 9 – 13 March 2026</p>
+        <p>Week of {weekMetrics.weekLabel}</p>
       </div>
 
       <div className="stat-grid">
-        <StatCard title="Camps This Week" value={thisWeekCamps.length} icon={Tent} description={`${thisWeekCamps.length} active`} />
-        <StatCard title="Players Booked" value={thisWeekPlayerCount} icon={Users} description="Across all camps" />
+        <StatCard title="Active Camps Today" value={todayCamps.length} icon={Tent} description={`${weekMetrics.campCount} this week`} />
+        <StatCard title="Children Today" value={metrics.totalChildren} icon={Users} description={`${metrics.presentToday} present`} />
+        <StatCard title="Revenue (Week)" value={`€${weekMetrics.totalRevenue.toLocaleString()}`} icon={Banknote} description={`€${weekMetrics.totalPaid.toLocaleString()} paid`} />
         <StatCard
-          title="Coaches"
-          value={`${uniqueCoachesThisWeek} / ${totalRequired}`}
-          icon={UserCog}
-          description="Assigned / Required"
-          variant={uniqueCoachesThisWeek < totalRequired ? "warning" : "success"}
-        />
-        <StatCard
-          title="Est. Payroll"
-          value={`€${weekPayroll.toLocaleString()}`}
-          icon={DollarSign}
-          description="This week"
+          title="Outstanding"
+          value={`€${metrics.totalOutstanding.toLocaleString()}`}
+          icon={AlertTriangle}
+          variant={metrics.totalOutstanding > 0 ? "warning" : "success"}
+          description="Across today's camps"
         />
       </div>
 
-      {/* Alerts */}
-      {campsNeedingAction.length > 0 && (
-        <Card className="border-[hsl(var(--warning)/0.3)] bg-[hsl(var(--warning)/0.04)]">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-[hsl(var(--warning))] shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold">Attention Required</p>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {campsNeedingAction.length} camp{campsNeedingAction.length > 1 ? 's' : ''} need staffing attention:{" "}
-                  {campsNeedingAction.map(c => c.name).join(", ")}
-                </p>
-                <Link to="/roster" className="text-sm text-primary font-medium hover:underline mt-1 inline-block">
-                  Open Roster →
-                </Link>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* This Week's Camps - takes 2 columns */}
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
-            <p className="section-label !mb-0">This Week's Camps</p>
+            <p className="section-label !mb-0">Today's Camps</p>
             <Link to="/control-centre" className="text-xs text-primary hover:underline flex items-center gap-1 font-medium">
               Control Centre <ArrowRight className="h-3 w-3" />
             </Link>
@@ -104,26 +135,21 @@ const DashboardPage = () => {
                   <TableRow>
                     <TableHead>Camp</TableHead>
                     <TableHead>Club</TableHead>
-                    <TableHead className="text-center">Players</TableHead>
+                    <TableHead className="text-center">Children</TableHead>
+                    <TableHead className="text-center">Present</TableHead>
                     <TableHead className="text-center">Coaches</TableHead>
-                    <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {thisWeekCamps.length === 0 ? (
+                  {todayCamps.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                        No camps scheduled this week.
-                      </TableCell>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">No camps running today.</TableCell>
                     </TableRow>
                   ) : (
-                    thisWeekCamps.map(camp => {
-                      const players = mockBookings.filter(b => b.camp_id === camp.id).length;
-                      const required = getCoachesRequired(players);
-                      const assigned = mockCampCoaches.filter(a => a.camp_id === camp.id);
-                      const hasHead = assigned.some(a => a.role === 'head_coach');
-                      const isReady = assigned.length >= required && hasHead;
-
+                    todayCamps.map((camp) => {
+                      const children = bookings.filter((b) => b.matched_camp_id === camp.id).length;
+                      const present = attendanceCounts.get(camp.id) || 0;
+                      const coaches = coachCounts.get(camp.id) || 0;
                       return (
                         <TableRow key={camp.id}>
                           <TableCell>
@@ -131,23 +157,13 @@ const DashboardPage = () => {
                             <p className="text-xs text-muted-foreground">{camp.venue}</p>
                           </TableCell>
                           <TableCell className="text-sm">{camp.club_name}</TableCell>
-                          <TableCell className="text-center text-sm font-medium">{players}</TableCell>
-                          <TableCell className="text-center text-sm">
-                            <span className={assigned.length < required ? "text-destructive font-medium" : ""}>
-                              {assigned.length}/{required}
-                            </span>
+                          <TableCell className="text-center text-sm font-medium">{children}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={present > 0 ? "default" : "secondary"} className="text-xs gap-1">
+                              <CheckCircle className="h-3 w-3" />{present}
+                            </Badge>
                           </TableCell>
-                          <TableCell>
-                            {isReady ? (
-                              <Badge className="bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))] text-xs">
-                                <CheckCircle className="mr-1 h-3 w-3" />Ready
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-[hsl(var(--warning))] text-[hsl(var(--warning-foreground))] text-xs">
-                                <AlertTriangle className="mr-1 h-3 w-3" />Review
-                              </Badge>
-                            )}
-                          </TableCell>
+                          <TableCell className="text-center text-sm">{coaches}</TableCell>
                         </TableRow>
                       );
                     })
@@ -158,17 +174,17 @@ const DashboardPage = () => {
           </Card>
         </div>
 
-        {/* Right column */}
         <div className="space-y-6">
           <div>
             <p className="section-label">Quick Actions</p>
             <div className="space-y-2">
               {[
                 { label: "Control Centre", to: "/control-centre", icon: ClipboardCheck, desc: "Weekly overview" },
+                { label: "Attendance", to: "/admin-attendance", icon: Calendar, desc: "Mark attendance" },
                 { label: "Manage Roster", to: "/roster", icon: UserCog, desc: "Coach assignments" },
                 { label: "View Payroll", to: "/payroll", icon: DollarSign, desc: "This week's payroll" },
                 { label: "Manage Camps", to: "/camps", icon: Tent, desc: "All camps" },
-              ].map(link => (
+              ].map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}
@@ -188,31 +204,13 @@ const DashboardPage = () => {
           </div>
 
           <div>
-            <p className="section-label">Attendance Today</p>
+            <p className="section-label">Weekly Summary</p>
             <Card>
-              <CardContent className="p-4 space-y-3">
-                {thisWeekCamps.map(camp => {
-                  const players = mockBookings.filter(b => b.camp_id === camp.id).length;
-                  const marked = mockAttendance.filter(a => a.camp_id === camp.id && a.date === '2026-03-09').length;
-                  const pct = players > 0 ? Math.round((marked / players) * 100) : 0;
-                  return (
-                    <div key={camp.id} className="space-y-1.5">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium">{camp.name}</span>
-                        <span className="text-muted-foreground">{marked}/{players}</span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-                {thisWeekCamps.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-2">No camps today</p>
-                )}
+              <CardContent className="p-4 space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Camps</span><span className="font-medium">{weekMetrics.campCount}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Children</span><span className="font-medium">{weekMetrics.childrenCount}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Revenue</span><span className="font-medium">€{weekMetrics.totalRevenue.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Collected</span><span className="font-medium text-emerald-600">€{weekMetrics.totalPaid.toLocaleString()}</span></div>
               </CardContent>
             </Card>
           </div>
