@@ -258,6 +258,17 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
           parsed.forEach((p) => p.headers.forEach((h) => mergedHeaders.add(h)));
           const autoMap: Record<string, string> = {};
           mergedHeaders.forEach((h) => { autoMap[h] = autoMapColumn(h); });
+          console.log("[BookingImport] Auto-mapping result:", JSON.stringify(autoMap, null, 2));
+          // Log first row raw data for finance debugging
+          if (parsed[0]?.rows[0]) {
+            const r = parsed[0].rows[0];
+            const financeHeaders = ["Total Amount", "Siblings Discount", "Amount Paid", "Status", "Payment Type", "Refund Amount"];
+            console.log("[BookingImport] First row ALL keys:", Object.keys(r));
+            console.log("[BookingImport] First row ALL values:", JSON.stringify(r));
+            for (const fh of financeHeaders) {
+              console.log(`[BookingImport] row["${fh}"] =`, JSON.stringify(r[fh]), "| exists:", fh in r);
+            }
+          }
           setMapping((prev) => ({ ...autoMap, ...prev }));
           if (parsed.length > 0) setStep("map");
         }

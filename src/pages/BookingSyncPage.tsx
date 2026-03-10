@@ -37,6 +37,12 @@ interface SyncedBooking {
   match_status: string;
   duplicate_warning: boolean;
   notes: string | null;
+  total_amount: number | null;
+  amount_paid: number | null;
+  amount_owed: number | null;
+  sibling_discount: number | null;
+  refund_amount: number | null;
+  payment_type: string | null;
 }
 
 interface SyncLog {
