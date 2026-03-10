@@ -862,6 +862,173 @@ export type Database = {
           },
         ]
       }
+      sync_logs: {
+        Row: {
+          created_at: string
+          error_notes: string | null
+          id: string
+          records_created: number
+          records_failed: number
+          records_processed: number
+          records_updated: number
+          source_system: string
+          status: string
+          sync_completed_at: string | null
+          sync_started_at: string
+        }
+        Insert: {
+          created_at?: string
+          error_notes?: string | null
+          id?: string
+          records_created?: number
+          records_failed?: number
+          records_processed?: number
+          records_updated?: number
+          source_system?: string
+          status?: string
+          sync_completed_at?: string | null
+          sync_started_at?: string
+        }
+        Update: {
+          created_at?: string
+          error_notes?: string | null
+          id?: string
+          records_created?: number
+          records_failed?: number
+          records_processed?: number
+          records_updated?: number
+          source_system?: string
+          status?: string
+          sync_completed_at?: string | null
+          sync_started_at?: string
+        }
+        Relationships: []
+      }
+      synced_bookings: {
+        Row: {
+          age: number | null
+          booking_status: string | null
+          camp_date: string | null
+          camp_name: string
+          child_first_name: string
+          child_last_name: string
+          county: string | null
+          created_at: string
+          date_of_birth: string | null
+          duplicate_warning: boolean
+          emergency_contact: string | null
+          external_booking_id: string | null
+          id: string
+          imported_at: string
+          kit_size: string | null
+          last_synced_at: string
+          match_status: string
+          matched_booking_id: string | null
+          matched_camp_id: string | null
+          matched_player_id: string | null
+          medical_notes: string | null
+          notes: string | null
+          parent_email: string | null
+          parent_name: string | null
+          parent_phone: string | null
+          payment_status: string | null
+          source_system: string
+          sync_log_id: string | null
+          venue: string | null
+        }
+        Insert: {
+          age?: number | null
+          booking_status?: string | null
+          camp_date?: string | null
+          camp_name: string
+          child_first_name: string
+          child_last_name: string
+          county?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          duplicate_warning?: boolean
+          emergency_contact?: string | null
+          external_booking_id?: string | null
+          id?: string
+          imported_at?: string
+          kit_size?: string | null
+          last_synced_at?: string
+          match_status?: string
+          matched_booking_id?: string | null
+          matched_camp_id?: string | null
+          matched_player_id?: string | null
+          medical_notes?: string | null
+          notes?: string | null
+          parent_email?: string | null
+          parent_name?: string | null
+          parent_phone?: string | null
+          payment_status?: string | null
+          source_system?: string
+          sync_log_id?: string | null
+          venue?: string | null
+        }
+        Update: {
+          age?: number | null
+          booking_status?: string | null
+          camp_date?: string | null
+          camp_name?: string
+          child_first_name?: string
+          child_last_name?: string
+          county?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          duplicate_warning?: boolean
+          emergency_contact?: string | null
+          external_booking_id?: string | null
+          id?: string
+          imported_at?: string
+          kit_size?: string | null
+          last_synced_at?: string
+          match_status?: string
+          matched_booking_id?: string | null
+          matched_camp_id?: string | null
+          matched_player_id?: string | null
+          medical_notes?: string | null
+          notes?: string | null
+          parent_email?: string | null
+          parent_name?: string | null
+          parent_phone?: string | null
+          payment_status?: string | null
+          source_system?: string
+          sync_log_id?: string | null
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "synced_bookings_matched_booking_id_fkey"
+            columns: ["matched_booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "synced_bookings_matched_camp_id_fkey"
+            columns: ["matched_camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "synced_bookings_matched_player_id_fkey"
+            columns: ["matched_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "synced_bookings_sync_log_id_fkey"
+            columns: ["sync_log_id"]
+            isOneToOne: false
+            referencedRelation: "sync_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
