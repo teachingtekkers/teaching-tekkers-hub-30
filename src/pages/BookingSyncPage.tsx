@@ -126,6 +126,9 @@ export default function BookingSyncPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-1.5" /> Import Booking File
+          </Button>
           <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
