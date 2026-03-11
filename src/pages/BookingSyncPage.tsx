@@ -127,6 +127,29 @@ export default function BookingSyncPage() {
     }
   }, [bookings, toast, loadData]);
 
+  const handleRepairLinks = useCallback(async () => {
+    setRepairing(true);
+    setRepairResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("repair-camp-links", {
+        body: { mode: "all" },
+      });
+      if (error) throw error;
+      setRepairResult(data);
+      const s = data?.summary;
+      toast({
+        title: "Repair complete",
+        description: `${s?.repaired || 0} repaired, ${s?.already_correct || 0} already correct, ${s?.still_unmatched || 0} still unmatched, ${s?.duplicates_found || 0} duplicates found`,
+      });
+      await loadData();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Repair failed";
+      toast({ title: "Repair failed", description: message, variant: "destructive" });
+    } finally {
+      setRepairing(false);
+    }
+  }, [toast, loadData]);
+
   const lastSync = syncLogs[0];
   const totalSynced = bookings.length;
   const unmatched = bookings.filter(b => b.match_status === "unmatched").length;
