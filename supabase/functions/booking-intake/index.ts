@@ -98,9 +98,8 @@ function normalizeForMatching(s: string): string {
 }
 
 function tokenize(s: string): Set<string> {
-  const stopWords = new Set(["camp", "the", "a", "an", "and", "of", "in", "at", "for"]);
   return new Set(
-    normalize(s).split(" ").filter((w) => w.length > 1 && !stopWords.has(w))
+    normalizeForMatching(s).split(" ").filter((w) => w.length > 1)
   );
 }
 
