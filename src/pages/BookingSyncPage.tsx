@@ -262,6 +262,56 @@ export default function BookingSyncPage() {
         </Card>
       </div>
 
+      {/* Repair Diagnostics */}
+      {repairResult?.summary && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Repair Diagnostics</CardTitle>
+            <CardDescription>Last repair pass results</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+              <div>
+                <p className="text-muted-foreground">Processed</p>
+                <p className="font-semibold text-foreground">{repairResult.summary.total_processed}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Repaired</p>
+                <p className="font-semibold text-emerald-600">{repairResult.summary.repaired}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Already Correct</p>
+                <p className="font-semibold text-foreground">{repairResult.summary.already_correct}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Still Unmatched</p>
+                <p className="font-semibold text-amber-600">{repairResult.summary.still_unmatched}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Duplicates Found</p>
+                <p className="font-semibold text-destructive">{repairResult.summary.duplicates_found}</p>
+              </div>
+            </div>
+            {repairResult.summary.unmatched_camp_names?.length > 0 && (
+              <div className="mt-3 pt-3 border-t">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Unmatched Camp Names:</p>
+                <div className="flex flex-wrap gap-1">
+                  {repairResult.summary.unmatched_camp_names.map((name: string) => (
+                    <Badge key={name} variant="outline" className="text-xs">{name}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            {repairResult.errors && (
+              <div className="mt-3 pt-3 border-t">
+                <p className="text-xs font-medium text-destructive mb-1">Errors:</p>
+                <p className="text-xs text-muted-foreground">{repairResult.errors.join("; ")}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="bookings">
         <TabsList>
           <TabsTrigger value="bookings">Synced Bookings</TabsTrigger>
