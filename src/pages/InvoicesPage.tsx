@@ -55,6 +55,8 @@ const InvoicesPage = () => {
   const [camps, setCamps] = useState<CampRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterCamp, setFilterCamp] = useState<string>("all");
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
@@ -195,18 +197,26 @@ const InvoicesPage = () => {
     });
   }, [invoices, weekStart, weekEnd]);
 
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(inv => {
+      if (filterStatus !== "all" && inv.status !== filterStatus) return false;
+      if (filterCamp !== "all" && inv.camp_id !== filterCamp) return false;
+      return true;
+    });
+  }, [invoices, filterStatus, filterCamp]);
+
   const clubGroups = useMemo(() => {
     const map = new Map<string, InvoiceRow[]>();
-    invoices.forEach(inv => {
+    filteredInvoices.forEach(inv => {
       if (!map.has(inv.club_name)) map.set(inv.club_name, []);
       map.get(inv.club_name)!.push(inv);
     });
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [invoices]);
+  }, [filteredInvoices]);
 
-  const totalAll = invoices.reduce((s, i) => s + getEffective(i), 0);
-  const totalPaid = invoices.filter(i => i.status === "paid").reduce((s, i) => s + getEffective(i), 0);
-  const totalOutstanding = invoices.filter(i => i.status !== "paid").reduce((s, i) => s + getEffective(i), 0);
+  const totalAll = filteredInvoices.reduce((s, i) => s + getEffective(i), 0);
+  const totalPaid = filteredInvoices.filter(i => i.status === "paid").reduce((s, i) => s + getEffective(i), 0);
+  const totalOutstanding = filteredInvoices.filter(i => i.status !== "paid").reduce((s, i) => s + getEffective(i), 0);
   const weekTotal = weekInvoices.reduce((s, i) => s + getEffective(i), 0);
 
   const statusBadge = (status: string) => {
@@ -240,6 +250,19 @@ const InvoicesPage = () => {
     status: inv.status,
   }));
 
+  // Unique camps list for the camp filter
+  const campOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return invoices.reduce<CampRow[]>((acc, inv) => {
+      if (!seen.has(inv.camp_id)) {
+        seen.add(inv.camp_id);
+        const camp = camps.find(c => c.id === inv.camp_id);
+        if (camp) acc.push(camp);
+      }
+      return acc;
+    }, []);
+  }, [invoices, camps]);
+
   if (loading) {
     return <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
   }
@@ -260,6 +283,34 @@ const InvoicesPage = () => {
         <StatCard label="Paid" value={`€${totalPaid.toLocaleString()}`} icon={FileText} />
         <StatCard label="Outstanding" value={`€${totalOutstanding.toLocaleString()}`} icon={AlertCircle} />
         <StatCard label="This Week" value={`€${weekTotal.toLocaleString()}`} icon={Tent} />
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
+            <SelectItem value="ready">Ready</SelectItem>
+            <SelectItem value="sent">Sent</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterCamp} onValueChange={setFilterCamp}>
+          <SelectTrigger className="w-[220px] h-9"><SelectValue placeholder="Camp" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Camps</SelectItem>
+            {campOptions.map(c => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(filterStatus !== "all" || filterCamp !== "all") && (
+          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus("all"); setFilterCamp("all"); }}>
+            Clear filters
+          </Button>
+        )}
       </div>
 
       <Tabs defaultValue="weekly">
@@ -401,7 +452,7 @@ const InvoicesPage = () => {
           })}
           {clubGroups.length > 0 && (
             <ClubPaymentExport
-              payments={exportRows(invoices)}
+              payments={exportRows(filteredInvoices)}
               title="Club Payments — All Clubs"
               totalAmount={totalAll}
             />
@@ -445,8 +496,8 @@ const InvoicesPage = () => {
                 {clubGroups.length > 0 && (
                   <TableRow className="bg-muted/30">
                     <TableCell className="font-semibold">Totals</TableCell>
-                    <TableCell className="text-center font-semibold">{invoices.length}</TableCell>
-                    <TableCell className="text-center font-semibold">{invoices.reduce((s, i) => s + i.attendance_count, 0)}</TableCell>
+                    <TableCell className="text-center font-semibold">{filteredInvoices.length}</TableCell>
+                    <TableCell className="text-center font-semibold">{filteredInvoices.reduce((s, i) => s + i.attendance_count, 0)}</TableCell>
                     <TableCell className="text-right font-mono font-bold">€{totalAll.toFixed(2)}</TableCell>
                     <TableCell className="text-right font-mono font-bold text-emerald-600">€{totalPaid.toFixed(2)}</TableCell>
                     <TableCell className="text-right font-mono font-bold">€{totalOutstanding.toFixed(2)}</TableCell>
@@ -458,9 +509,9 @@ const InvoicesPage = () => {
               </TableBody>
             </Table>
           </Card>
-          {invoices.length > 0 && (
+          {filteredInvoices.length > 0 && (
             <ClubPaymentExport
-              payments={exportRows(invoices)}
+              payments={exportRows(filteredInvoices)}
               title="Club Payments — Season Summary"
               totalAmount={totalAll}
             />
