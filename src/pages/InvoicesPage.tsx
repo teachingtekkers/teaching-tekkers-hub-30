@@ -55,6 +55,8 @@ const InvoicesPage = () => {
   const [camps, setCamps] = useState<CampRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterCamp, setFilterCamp] = useState<string>("all");
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
