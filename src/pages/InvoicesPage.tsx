@@ -197,18 +197,26 @@ const InvoicesPage = () => {
     });
   }, [invoices, weekStart, weekEnd]);
 
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(inv => {
+      if (filterStatus !== "all" && inv.status !== filterStatus) return false;
+      if (filterCamp !== "all" && inv.camp_id !== filterCamp) return false;
+      return true;
+    });
+  }, [invoices, filterStatus, filterCamp]);
+
   const clubGroups = useMemo(() => {
     const map = new Map<string, InvoiceRow[]>();
-    invoices.forEach(inv => {
+    filteredInvoices.forEach(inv => {
       if (!map.has(inv.club_name)) map.set(inv.club_name, []);
       map.get(inv.club_name)!.push(inv);
     });
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [invoices]);
+  }, [filteredInvoices]);
 
-  const totalAll = invoices.reduce((s, i) => s + getEffective(i), 0);
-  const totalPaid = invoices.filter(i => i.status === "paid").reduce((s, i) => s + getEffective(i), 0);
-  const totalOutstanding = invoices.filter(i => i.status !== "paid").reduce((s, i) => s + getEffective(i), 0);
+  const totalAll = filteredInvoices.reduce((s, i) => s + getEffective(i), 0);
+  const totalPaid = filteredInvoices.filter(i => i.status === "paid").reduce((s, i) => s + getEffective(i), 0);
+  const totalOutstanding = filteredInvoices.filter(i => i.status !== "paid").reduce((s, i) => s + getEffective(i), 0);
   const weekTotal = weekInvoices.reduce((s, i) => s + getEffective(i), 0);
 
   const statusBadge = (status: string) => {
