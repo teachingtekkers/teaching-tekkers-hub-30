@@ -509,9 +509,9 @@ const InvoicesPage = () => {
               </TableBody>
             </Table>
           </Card>
-          {invoices.length > 0 && (
+          {filteredInvoices.length > 0 && (
             <ClubPaymentExport
-              payments={exportRows(invoices)}
+              payments={exportRows(filteredInvoices)}
               title="Club Payments — Season Summary"
               totalAmount={totalAll}
             />
