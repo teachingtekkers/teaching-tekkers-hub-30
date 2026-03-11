@@ -272,6 +272,34 @@ const InvoicesPage = () => {
         <StatCard label="This Week" value={`€${weekTotal.toLocaleString()}`} icon={Tent} />
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
+            <SelectItem value="ready">Ready</SelectItem>
+            <SelectItem value="sent">Sent</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterCamp} onValueChange={setFilterCamp}>
+          <SelectTrigger className="w-[220px] h-9"><SelectValue placeholder="Camp" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Camps</SelectItem>
+            {camps.map(c => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(filterStatus !== "all" || filterCamp !== "all") && (
+          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus("all"); setFilterCamp("all"); }}>
+            Clear filters
+          </Button>
+        )}
+      </div>
+
       <Tabs defaultValue="weekly">
         <TabsList>
           <TabsTrigger value="weekly">Weekly</TabsTrigger>
