@@ -159,6 +159,47 @@ export type Database = {
           },
         ]
       }
+      camp_financial_overrides: {
+        Row: {
+          camp_id: string
+          id: string
+          notes: string | null
+          override_club_payment: number | null
+          override_club_rate: number | null
+          override_payroll: number | null
+          override_revenue: number | null
+          updated_at: string
+        }
+        Insert: {
+          camp_id: string
+          id?: string
+          notes?: string | null
+          override_club_payment?: number | null
+          override_club_rate?: number | null
+          override_payroll?: number | null
+          override_revenue?: number | null
+          updated_at?: string
+        }
+        Update: {
+          camp_id?: string
+          id?: string
+          notes?: string | null
+          override_club_payment?: number | null
+          override_club_rate?: number | null
+          override_payroll?: number | null
+          override_revenue?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camp_financial_overrides_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: true
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       camp_messages: {
         Row: {
           camp_id: string
