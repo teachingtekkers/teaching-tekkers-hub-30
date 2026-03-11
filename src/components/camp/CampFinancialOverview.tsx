@@ -22,6 +22,7 @@ interface BookingFinance {
 
 interface RosterAssignment {
   coach_id: string;
+  camp_id: string;
   role: string;
   days: string[];
 }

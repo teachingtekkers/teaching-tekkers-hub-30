@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Users, MapPin, Calendar, Heart, Phone, Mail, AlertCircle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Users, MapPin, Calendar, Heart, Banknote } from "lucide-react";
+import CampFinancialOverview from "@/components/camp/CampFinancialOverview";
 
 interface CampData {
   id: string;
@@ -128,94 +130,107 @@ export default function CampDetailPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Participants (Synced Bookings)</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {participants.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Users className="h-8 w-8 mx-auto mb-2 opacity-40" />
-              No synced bookings matched to this camp yet
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Child Name</TableHead>
-                  <TableHead>Age / DOB</TableHead>
-                  <TableHead>Parent</TableHead>
-                  <TableHead className="hidden md:table-cell">Contact</TableHead>
-                  <TableHead className="hidden lg:table-cell">Emergency</TableHead>
-                  <TableHead className="hidden lg:table-cell">Medical</TableHead>
-                  <TableHead>Kit</TableHead>
-                  <TableHead>Payment</TableHead>
-                  <TableHead className="hidden md:table-cell">Owed</TableHead>
-                  <TableHead className="hidden lg:table-cell">Indicators</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {participants.map((p) => {
-                  const hasMedical = !!(p.medical_condition || p.medical_notes);
-                  const medText = [p.medical_condition, p.medical_notes].filter(Boolean).join(" — ");
-                  return (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium">
-                        {p.child_first_name} {p.child_last_name}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {p.age && <span>{p.age} yrs</span>}
-                        {p.date_of_birth && <span className="block text-xs text-muted-foreground">{p.date_of_birth}</span>}
-                        {!p.age && !p.date_of_birth && "—"}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {p.parent_name || "—"}
-                        {p.parent_email && <span className="block text-xs text-muted-foreground">{p.parent_email}</span>}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                        {p.parent_phone || "—"}
-                        {p.alternate_phone && <span className="block text-xs">Alt: {p.alternate_phone}</span>}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                        {p.emergency_contact || "—"}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-sm">
-                        {hasMedical ? (
-                          <span className="flex items-center gap-1 text-destructive">
-                            <Heart className="h-3 w-3" /> {medText}
-                          </span>
-                        ) : "—"}
-                      </TableCell>
-                      <TableCell><Badge variant="outline" className="text-xs">{p.kit_size || "M"}</Badge></TableCell>
-                      <TableCell>
-                        {payBadge(p.payment_status)}
-                        {p.payment_type && <span className="block text-[10px] text-muted-foreground">{p.payment_type}</span>}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-sm">
-                        {(() => {
-                          const totalCost = Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
-                          const owed = (p.amount_owed ?? 0) > 0 ? p.amount_owed : Math.max(0, totalCost - (p.amount_paid ?? 0) - (p.refund_amount ?? 0));
-                          return (owed ?? 0) > 0 ? (
-                            <span className="text-amber-600 font-medium">€{owed}</span>
-                          ) : (
-                            <span className="text-muted-foreground">€0</span>
-                          );
-                        })()}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        <div className="flex gap-1">
-                          {hasMedical && <span title={medText}>🏥</span>}
-                          {p.photo_permission === false && <span title="No photo permission">📷🚫</span>}
-                        </div>
-                      </TableCell>
+      <Tabs defaultValue="financial">
+        <TabsList>
+          <TabsTrigger value="financial" className="gap-1.5"><Banknote className="h-3.5 w-3.5" />Financial Overview</TabsTrigger>
+          <TabsTrigger value="participants" className="gap-1.5"><Users className="h-3.5 w-3.5" />Participants</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="financial" className="mt-4">
+          <CampFinancialOverview campId={camp.id} campName={camp.name} clubName={camp.club_name} />
+        </TabsContent>
+
+        <TabsContent value="participants" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Participants (Synced Bookings)</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {participants.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Users className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  No synced bookings matched to this camp yet
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Child Name</TableHead>
+                      <TableHead>Age / DOB</TableHead>
+                      <TableHead>Parent</TableHead>
+                      <TableHead className="hidden md:table-cell">Contact</TableHead>
+                      <TableHead className="hidden lg:table-cell">Emergency</TableHead>
+                      <TableHead className="hidden lg:table-cell">Medical</TableHead>
+                      <TableHead>Kit</TableHead>
+                      <TableHead>Payment</TableHead>
+                      <TableHead className="hidden md:table-cell">Owed</TableHead>
+                      <TableHead className="hidden lg:table-cell">Indicators</TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {participants.map((p) => {
+                      const hasMedical = !!(p.medical_condition || p.medical_notes);
+                      const medText = [p.medical_condition, p.medical_notes].filter(Boolean).join(" — ");
+                      return (
+                        <TableRow key={p.id}>
+                          <TableCell className="font-medium">
+                            {p.child_first_name} {p.child_last_name}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {p.age && <span>{p.age} yrs</span>}
+                            {p.date_of_birth && <span className="block text-xs text-muted-foreground">{p.date_of_birth}</span>}
+                            {!p.age && !p.date_of_birth && "—"}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {p.parent_name || "—"}
+                            {p.parent_email && <span className="block text-xs text-muted-foreground">{p.parent_email}</span>}
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                            {p.parent_phone || "—"}
+                            {p.alternate_phone && <span className="block text-xs">Alt: {p.alternate_phone}</span>}
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                            {p.emergency_contact || "—"}
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell text-sm">
+                            {hasMedical ? (
+                              <span className="flex items-center gap-1 text-destructive">
+                                <Heart className="h-3 w-3" /> {medText}
+                              </span>
+                            ) : "—"}
+                          </TableCell>
+                          <TableCell><Badge variant="outline" className="text-xs">{p.kit_size || "M"}</Badge></TableCell>
+                          <TableCell>
+                            {payBadge(p.payment_status)}
+                            {p.payment_type && <span className="block text-[10px] text-muted-foreground">{p.payment_type}</span>}
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-sm">
+                            {(() => {
+                              const totalCost = Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+                              const owed = (p.amount_owed ?? 0) > 0 ? p.amount_owed : Math.max(0, totalCost - (p.amount_paid ?? 0) - (p.refund_amount ?? 0));
+                              return (owed ?? 0) > 0 ? (
+                                <span className="text-amber-600 font-medium">€{owed}</span>
+                              ) : (
+                                <span className="text-muted-foreground">€0</span>
+                              );
+                            })()}
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            <div className="flex gap-1">
+                              {hasMedical && <span title={medText}>🏥</span>}
+                              {p.photo_permission === false && <span title="No photo permission">📷🚫</span>}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
