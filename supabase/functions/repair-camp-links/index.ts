@@ -15,10 +15,7 @@ function normalize(s: string): string {
 /** Strip week indicators, "girls only", fee/price phrases, county mentions */
 function stripNoise(s: string): string {
   return normalize(s)
-    .replace(/\b(wk\s*\d+|week\s*\d+)\b/gi, "")
-    .replace(/\bgirls?\s*(only|camp)?\b/gi, "")
-    .replace(/\b(easter|summer|halloween|mid[\s-]?term|christmas)\b/gi, (m) => m) // keep season
-    .replace(/\b\d{4}\b/g, "") // remove year numbers
+    .replace(/\b\d{4}\b/g, "")
     .replace(/€\s*\d+/g, "")
     .replace(/\b(camp|the|a|an|and|of|in|at|for)\b/g, "")
     .replace(/\s+/g, " ")

@@ -88,8 +88,6 @@ function normalize(s: string): string {
 
 function normalizeForMatching(s: string): string {
   return normalize(s)
-    .replace(/\b(wk\s*\d+|week\s*\d+)\b/gi, "")
-    .replace(/\bgirls?\s*(only|camp)?\b/gi, "")
     .replace(/\b\d{4}\b/g, "")
     .replace(/€\s*\d+/g, "")
     .replace(/\b(camp|the|a|an|and|of|in|at|for)\b/g, "")
