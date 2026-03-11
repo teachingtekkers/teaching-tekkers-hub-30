@@ -452,7 +452,7 @@ const InvoicesPage = () => {
           })}
           {clubGroups.length > 0 && (
             <ClubPaymentExport
-              payments={exportRows(invoices)}
+              payments={exportRows(filteredInvoices)}
               title="Club Payments — All Clubs"
               totalAmount={totalAll}
             />
