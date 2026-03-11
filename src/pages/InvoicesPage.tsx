@@ -301,7 +301,7 @@ const InvoicesPage = () => {
           <SelectTrigger className="w-[220px] h-9"><SelectValue placeholder="Camp" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Camps</SelectItem>
-            {camps.map(c => (
+            {campOptions.map(c => (
               <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
             ))}
           </SelectContent>
