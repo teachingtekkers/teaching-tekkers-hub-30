@@ -396,6 +396,84 @@ export default function BookingSyncPage() {
           </div>
         </TabsContent>
 
+        {/* Diagnostics Tab */}
+        <TabsContent value="diagnostics" className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="pt-4 pb-3 px-4">
+                <p className="text-xs text-muted-foreground">Matched</p>
+                <p className="text-lg font-semibold text-foreground">{bookings.filter(b => b.match_status === "matched").length}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3 px-4">
+                <p className="text-xs text-muted-foreground">Unmatched</p>
+                <p className="text-lg font-semibold text-amber-600">{unmatched}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3 px-4">
+                <p className="text-xs text-muted-foreground">Duplicates</p>
+                <p className="text-lg font-semibold text-destructive">{duplicates}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3 px-4">
+                <p className="text-xs text-muted-foreground">Total Records</p>
+                <p className="text-lg font-semibold text-foreground">{totalSynced}</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {unmatched > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Unmatched Camp Names</CardTitle>
+                <CardDescription>These imported camp names could not be linked to an existing camp record</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1">
+                  {[...new Set(bookings.filter(b => b.match_status === "unmatched").map(b => b.camp_name))].map(name => {
+                    const count = bookings.filter(b => b.match_status === "unmatched" && b.camp_name === name).length;
+                    return (
+                      <div key={name} className="flex items-center justify-between text-sm py-1 border-b last:border-0">
+                        <span className="text-foreground">{name}</span>
+                        <Badge variant="secondary">{count} bookings</Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {duplicates > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Duplicate Warnings</CardTitle>
+                <CardDescription>Children appearing multiple times for the same camp</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1">
+                  {bookings.filter(b => b.duplicate_warning).map(b => (
+                    <div key={b.id} className="flex items-center justify-between text-sm py-1 border-b last:border-0">
+                      <span className="text-foreground">{b.child_first_name} {b.child_last_name}</span>
+                      <span className="text-muted-foreground text-xs">{b.camp_name}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={handleRepairLinks} disabled={repairing}>
+              <Wrench className={`h-4 w-4 mr-1.5 ${repairing ? "animate-spin" : ""}`} />
+              {repairing ? "Running Repair…" : "Run Full Repair Pass"}
+            </Button>
+          </div>
+        </TabsContent>
+
         {/* Sync Logs Tab */}
         <TabsContent value="logs">
           <div className="rounded-lg border overflow-auto">
