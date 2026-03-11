@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload, Zap } from "lucide-react";
+import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload, Zap, Wrench } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import BookingImportDialog from "@/components/booking-sync/BookingImportDialog";
@@ -65,6 +65,8 @@ export default function BookingSyncPage() {
   const [search, setSearch] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [rematching, setRematching] = useState(false);
+  const [repairing, setRepairing] = useState(false);
+  const [repairResult, setRepairResult] = useState<any>(null);
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -124,6 +126,29 @@ export default function BookingSyncPage() {
       setRematching(false);
     }
   }, [bookings, toast, loadData]);
+
+  const handleRepairLinks = useCallback(async () => {
+    setRepairing(true);
+    setRepairResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("repair-camp-links", {
+        body: { mode: "all" },
+      });
+      if (error) throw error;
+      setRepairResult(data);
+      const s = data?.summary;
+      toast({
+        title: "Repair complete",
+        description: `${s?.repaired || 0} repaired, ${s?.already_correct || 0} already correct, ${s?.still_unmatched || 0} still unmatched, ${s?.duplicates_found || 0} duplicates found`,
+      });
+      await loadData();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Repair failed";
+      toast({ title: "Repair failed", description: message, variant: "destructive" });
+    } finally {
+      setRepairing(false);
+    }
+  }, [toast, loadData]);
 
   const lastSync = syncLogs[0];
   const totalSynced = bookings.length;
@@ -186,6 +211,10 @@ export default function BookingSyncPage() {
               {rematching ? "Re-matching…" : `Re-match ${unmatched} Unmatched`}
             </Button>
           )}
+          <Button size="sm" variant="secondary" onClick={handleRepairLinks} disabled={repairing}>
+            <Wrench className={`h-4 w-4 mr-1.5 ${repairing ? "animate-spin" : ""}`} />
+            {repairing ? "Repairing…" : "Repair All Links"}
+          </Button>
           <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
@@ -234,9 +263,60 @@ export default function BookingSyncPage() {
         </Card>
       </div>
 
+      {/* Repair Diagnostics */}
+      {repairResult?.summary && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Repair Diagnostics</CardTitle>
+            <CardDescription>Last repair pass results</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+              <div>
+                <p className="text-muted-foreground">Processed</p>
+                <p className="font-semibold text-foreground">{repairResult.summary.total_processed}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Repaired</p>
+                <p className="font-semibold text-emerald-600">{repairResult.summary.repaired}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Already Correct</p>
+                <p className="font-semibold text-foreground">{repairResult.summary.already_correct}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Still Unmatched</p>
+                <p className="font-semibold text-amber-600">{repairResult.summary.still_unmatched}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Duplicates Found</p>
+                <p className="font-semibold text-destructive">{repairResult.summary.duplicates_found}</p>
+              </div>
+            </div>
+            {repairResult.summary.unmatched_camp_names?.length > 0 && (
+              <div className="mt-3 pt-3 border-t">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Unmatched Camp Names:</p>
+                <div className="flex flex-wrap gap-1">
+                  {repairResult.summary.unmatched_camp_names.map((name: string) => (
+                    <Badge key={name} variant="outline" className="text-xs">{name}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            {repairResult.errors && (
+              <div className="mt-3 pt-3 border-t">
+                <p className="text-xs font-medium text-destructive mb-1">Errors:</p>
+                <p className="text-xs text-muted-foreground">{repairResult.errors.join("; ")}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="bookings">
         <TabsList>
           <TabsTrigger value="bookings">Synced Bookings</TabsTrigger>
+          <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
           <TabsTrigger value="logs">Sync Logs</TabsTrigger>
           <TabsTrigger value="endpoint">Endpoint Info</TabsTrigger>
         </TabsList>
@@ -313,6 +393,84 @@ export default function BookingSyncPage() {
                 ))}
               </TableBody>
             </Table>
+          </div>
+        </TabsContent>
+
+        {/* Diagnostics Tab */}
+        <TabsContent value="diagnostics" className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="pt-4 pb-3 px-4">
+                <p className="text-xs text-muted-foreground">Matched</p>
+                <p className="text-lg font-semibold text-foreground">{bookings.filter(b => b.match_status === "matched").length}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3 px-4">
+                <p className="text-xs text-muted-foreground">Unmatched</p>
+                <p className="text-lg font-semibold text-amber-600">{unmatched}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3 px-4">
+                <p className="text-xs text-muted-foreground">Duplicates</p>
+                <p className="text-lg font-semibold text-destructive">{duplicates}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3 px-4">
+                <p className="text-xs text-muted-foreground">Total Records</p>
+                <p className="text-lg font-semibold text-foreground">{totalSynced}</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {unmatched > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Unmatched Camp Names</CardTitle>
+                <CardDescription>These imported camp names could not be linked to an existing camp record</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1">
+                  {[...new Set(bookings.filter(b => b.match_status === "unmatched").map(b => b.camp_name))].map(name => {
+                    const count = bookings.filter(b => b.match_status === "unmatched" && b.camp_name === name).length;
+                    return (
+                      <div key={name} className="flex items-center justify-between text-sm py-1 border-b last:border-0">
+                        <span className="text-foreground">{name}</span>
+                        <Badge variant="secondary">{count} bookings</Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {duplicates > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Duplicate Warnings</CardTitle>
+                <CardDescription>Children appearing multiple times for the same camp</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1">
+                  {bookings.filter(b => b.duplicate_warning).map(b => (
+                    <div key={b.id} className="flex items-center justify-between text-sm py-1 border-b last:border-0">
+                      <span className="text-foreground">{b.child_first_name} {b.child_last_name}</span>
+                      <span className="text-muted-foreground text-xs">{b.camp_name}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={handleRepairLinks} disabled={repairing}>
+              <Wrench className={`h-4 w-4 mr-1.5 ${repairing ? "animate-spin" : ""}`} />
+              {repairing ? "Running Repair…" : "Run Full Repair Pass"}
+            </Button>
           </div>
         </TabsContent>
 

@@ -89,14 +89,17 @@ function normalize(s: string): string {
 function normalizeForMatching(s: string): string {
   return normalize(s)
     .replace(/\b(wk\s*\d+|week\s*\d+)\b/gi, "")
+    .replace(/\bgirls?\s*(only|camp)?\b/gi, "")
+    .replace(/\b\d{4}\b/g, "")
+    .replace(/€\s*\d+/g, "")
+    .replace(/\b(camp|the|a|an|and|of|in|at|for)\b/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 function tokenize(s: string): Set<string> {
-  const stopWords = new Set(["camp", "the", "a", "an", "and", "of", "in", "at", "for"]);
   return new Set(
-    normalize(s).split(" ").filter((w) => w.length > 1 && !stopWords.has(w))
+    normalizeForMatching(s).split(" ").filter((w) => w.length > 1)
   );
 }
 
@@ -146,12 +149,19 @@ function findBestCamp(booking: IncomingBooking, camps: CampRow[]): CampRow | nul
   type Scored = { camp: CampRow; score: number };
   const scored: Scored[] = camps.map((camp) => {
     let score = 0;
-    score += tokenSimilarity(booking.camp_name, camp.name) * 60;
+    score += tokenSimilarity(booking.camp_name, camp.name) * 55;
+    // Also check against club_name
+    const clubSim = tokenSimilarity(booking.camp_name, camp.club_name);
+    if (clubSim > 0.4) score += clubSim * 20;
     if (booking.camp_date && dateOverlaps(booking.camp_date, camp.start_date, camp.end_date)) {
-      score += 25;
+      score += 20;
     }
     if (booking.venue && camp.venue) {
-      score += tokenSimilarity(booking.venue, camp.venue) * 10;
+      const bv = normalize(booking.venue);
+      const cv = normalize(camp.venue);
+      if (bv === cv) score += 10;
+      else if (bv.includes(cv) || cv.includes(bv)) score += 7;
+      else score += tokenSimilarity(booking.venue, camp.venue) * 5;
     }
     if (booking.county && camp.county && normalize(booking.county) === normalize(camp.county)) {
       score += 5;
@@ -161,7 +171,7 @@ function findBestCamp(booking: IncomingBooking, camps: CampRow[]): CampRow | nul
 
   scored.sort((a, b) => b.score - a.score);
   const best = scored[0];
-  if (best.score >= 25) return best.camp;
+  if (best.score >= 20) return best.camp;
   return null;
 }
 
