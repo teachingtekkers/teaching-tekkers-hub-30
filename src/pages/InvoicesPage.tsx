@@ -250,6 +250,19 @@ const InvoicesPage = () => {
     status: inv.status,
   }));
 
+  // Unique camps list for the camp filter
+  const campOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return invoices.reduce<CampRow[]>((acc, inv) => {
+      if (!seen.has(inv.camp_id)) {
+        seen.add(inv.camp_id);
+        const camp = camps.find(c => c.id === inv.camp_id);
+        if (camp) acc.push(camp);
+      }
+      return acc;
+    }, []);
+  }, [invoices, camps]);
+
   if (loading) {
     return <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
   }
