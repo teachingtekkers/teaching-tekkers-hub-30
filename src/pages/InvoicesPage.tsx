@@ -496,8 +496,8 @@ const InvoicesPage = () => {
                 {clubGroups.length > 0 && (
                   <TableRow className="bg-muted/30">
                     <TableCell className="font-semibold">Totals</TableCell>
-                    <TableCell className="text-center font-semibold">{invoices.length}</TableCell>
-                    <TableCell className="text-center font-semibold">{invoices.reduce((s, i) => s + i.attendance_count, 0)}</TableCell>
+                    <TableCell className="text-center font-semibold">{filteredInvoices.length}</TableCell>
+                    <TableCell className="text-center font-semibold">{filteredInvoices.reduce((s, i) => s + i.attendance_count, 0)}</TableCell>
                     <TableCell className="text-right font-mono font-bold">€{totalAll.toFixed(2)}</TableCell>
                     <TableCell className="text-right font-mono font-bold text-emerald-600">€{totalPaid.toFixed(2)}</TableCell>
                     <TableCell className="text-right font-mono font-bold">€{totalOutstanding.toFixed(2)}</TableCell>
