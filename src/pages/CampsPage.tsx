@@ -13,7 +13,11 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, MapPin, Calendar, Tent, Users, CheckCircle, AlertTriangle } from "lucide-react";
+import {
+  ToggleGroup, ToggleGroupItem,
+} from "@/components/ui/toggle-group";
+import { Plus, MapPin, Calendar, Tent, Users, FileText, Check } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface CampRow {
   id: string;
@@ -27,13 +31,18 @@ interface CampRow {
   capacity: number;
   price_per_child: number;
   participant_count?: number;
+  status?: string;
+  is_auto_created?: boolean;
 }
 
 const CampsPage = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [camps, setCamps] = useState<CampRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("published");
+  const [publishing, setPublishing] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "", club_name: "", venue: "", county: "",
     start_date: "", end_date: "", daily_start_time: "10:00", daily_end_time: "15:00",
@@ -44,27 +53,22 @@ const CampsPage = () => {
     setLoading(true);
     const { data: campsData, error: campsErr } = await supabase
       .from("camps")
-      .select("id, name, club_name, venue, county, start_date, end_date, age_group, capacity, price_per_child")
+      .select("id, name, club_name, venue, county, start_date, end_date, age_group, capacity, price_per_child, status, is_auto_created")
       .order("start_date", { ascending: false });
 
     if (campsErr) console.error("[Camps] Camps fetch error:", campsErr);
 
     if (campsData) {
-      // Count synced participants per camp
-      const { data: counts, error: countsErr } = await supabase
+      const { data: counts } = await supabase
         .from("synced_bookings")
         .select("matched_camp_id")
         .not("matched_camp_id", "is", null);
-
-      if (countsErr) console.error("[Camps] Participant counts error:", countsErr);
-      console.log("[Camps] Total matched synced bookings:", counts?.length ?? 0);
 
       const countMap: Record<string, number> = {};
       (counts || []).forEach((r: { matched_camp_id: string | null }) => {
         if (r.matched_camp_id) countMap[r.matched_camp_id] = (countMap[r.matched_camp_id] || 0) + 1;
       });
 
-      console.log("[Camps] Participant count map:", countMap);
       setCamps(campsData.map(c => ({ ...c, participant_count: countMap[c.id] || 0 })) as CampRow[]);
     }
     setLoading(false);
@@ -86,6 +90,32 @@ const CampsPage = () => {
       loadCamps();
     }
   };
+
+  const handlePublish = async (campId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPublishing(campId);
+    const { error } = await supabase
+      .from("camps")
+      .update({ status: "published", is_auto_created: false } as any)
+      .eq("id", campId);
+    if (error) {
+      toast({ title: "Publish failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Camp published" });
+      loadCamps();
+    }
+    setPublishing(null);
+  };
+
+  const draftCount = camps.filter(c => c.status === "draft").length;
+  const publishedCount = camps.filter(c => c.status !== "draft").length;
+  const totalParticipants = camps.reduce((s, c) => s + (c.participant_count || 0), 0);
+
+  const filtered = camps.filter(c => {
+    if (statusFilter === "all") return true;
+    if (statusFilter === "draft") return c.status === "draft";
+    return c.status !== "draft";
+  });
 
   return (
     <div className="space-y-8">
@@ -122,20 +152,44 @@ const CampsPage = () => {
 
       <div className="stat-grid">
         <StatCard title="Total Camps" value={camps.length} icon={Tent} />
-        <StatCard title="Total Participants" value={camps.reduce((s, c) => s + (c.participant_count || 0), 0)} icon={Users} />
+        <StatCard title="Published" value={publishedCount} icon={Tent} />
+        {draftCount > 0 && (
+          <StatCard title="Draft Camps" value={draftCount} icon={FileText} />
+        )}
+        <StatCard title="Total Participants" value={totalParticipants} icon={Users} />
+      </div>
+
+      {/* Status filter */}
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-muted-foreground">Filter:</span>
+        <ToggleGroup type="single" value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)} size="sm">
+          <ToggleGroupItem value="published">Published ({publishedCount})</ToggleGroupItem>
+          {draftCount > 0 && <ToggleGroupItem value="draft">Drafts ({draftCount})</ToggleGroupItem>}
+          <ToggleGroupItem value="all">All ({camps.length})</ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       {/* Mobile Cards */}
       <div className="grid gap-3 sm:hidden">
-        {camps.map(camp => (
+        {filtered.map(camp => (
           <Card key={camp.id} className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => navigate(`/camps/${camp.id}`)}>
             <CardContent className="p-4 space-y-3">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="font-semibold text-sm">{camp.name}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-semibold text-sm">{camp.name}</p>
+                    {camp.status === "draft" && <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700">Draft</Badge>}
+                  </div>
                   <p className="text-xs text-muted-foreground">{camp.club_name}</p>
                 </div>
-                <Badge variant="secondary" className="text-xs">{camp.age_group}</Badge>
+                <div className="flex items-center gap-1">
+                  <Badge variant="secondary" className="text-xs">{camp.age_group}</Badge>
+                  {camp.status === "draft" && (
+                    <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={(e) => handlePublish(camp.id, e)} disabled={publishing === camp.id}>
+                      <Check className="h-3 w-3 mr-0.5" /> Publish
+                    </Button>
+                  )}
+                </div>
               </div>
               <div className="text-xs text-muted-foreground space-y-1">
                 <p className="flex items-center gap-1"><MapPin className="h-3 w-3" />{camp.venue}, {camp.county}</p>
@@ -163,18 +217,26 @@ const CampsPage = () => {
                 <TableHead>Age</TableHead>
                 <TableHead className="text-center">Participants</TableHead>
                 <TableHead className="text-right">Price</TableHead>
+                <TableHead className="w-[100px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
-              ) : camps.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No camps yet</TableCell></TableRow>
-              ) : camps.map(camp => (
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No camps found</TableCell></TableRow>
+              ) : filtered.map(camp => (
                 <TableRow key={camp.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/camps/${camp.id}`)}>
                   <TableCell>
-                    <p className="font-medium text-sm">{camp.name}</p>
-                    <p className="text-xs text-muted-foreground">{camp.venue}</p>
+                    <div className="flex items-center gap-1.5">
+                      <div>
+                        <p className="font-medium text-sm">{camp.name}</p>
+                        <p className="text-xs text-muted-foreground">{camp.venue}</p>
+                      </div>
+                      {camp.status === "draft" && (
+                        <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 shrink-0">Draft</Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm">{camp.club_name}</TableCell>
                   <TableCell className="text-sm">{camp.county}</TableCell>
@@ -182,6 +244,20 @@ const CampsPage = () => {
                   <TableCell><Badge variant="secondary" className="text-xs">{camp.age_group}</Badge></TableCell>
                   <TableCell className="text-center text-sm">{camp.participant_count || 0}/{camp.capacity}</TableCell>
                   <TableCell className="text-right text-sm font-medium">€{camp.price_per_child}</TableCell>
+                  <TableCell className="text-right">
+                    {camp.status === "draft" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={(e) => handlePublish(camp.id, e)}
+                        disabled={publishing === camp.id}
+                      >
+                        <Check className="h-3 w-3 mr-1" />
+                        {publishing === camp.id ? "…" : "Publish"}
+                      </Button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
