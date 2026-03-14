@@ -143,7 +143,7 @@ export default function CampDetailPage() {
             This camp was auto-created from a booking import and is in <strong>draft</strong> status. Review the details and publish when ready.
           </p>
         </div>
-      )
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
