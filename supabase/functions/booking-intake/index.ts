@@ -36,6 +36,8 @@ interface IncomingBooking {
   photo_permission?: string | boolean;
 }
 
+// ── Parsing helpers ──
+
 function parseMoney(val: unknown): number {
   if (val == null || val === "") return 0;
   if (typeof val === "number") return val;
@@ -65,11 +67,15 @@ function parseDateOfBirth(val: unknown): string | null {
   return null;
 }
 
-function parseBool(val: unknown): boolean {
-  if (val == null) return true;
+/** Returns true, false, or null when unknown/blank */
+function parsePhotoPermission(val: unknown): boolean | null {
+  if (val == null || val === "") return null;
   if (typeof val === "boolean") return val;
   const s = String(val).toLowerCase().trim();
-  return s !== "no" && s !== "false" && s !== "0" && s !== "n";
+  if (s === "") return null;
+  if (s === "yes" || s === "true" || s === "1" || s === "y") return true;
+  if (s === "no" || s === "false" || s === "0" || s === "n") return false;
+  return null;
 }
 
 function normalizePaymentStatus(val: unknown): string {
@@ -81,6 +87,8 @@ function normalizePaymentStatus(val: unknown): string {
   if (s === "unpaid" || s === "pending" || s === "awaiting") return "pending";
   return s || "pending";
 }
+
+// ── Matching helpers ──
 
 function normalize(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
@@ -127,50 +135,95 @@ interface CampRow {
   club_name: string;
 }
 
-function findBestCamp(booking: IncomingBooking, camps: CampRow[]): CampRow | null {
+interface MatchResult {
+  camp: CampRow;
+  score: number;
+  reason: string;
+}
+
+function findBestCamp(booking: IncomingBooking, camps: CampRow[]): MatchResult | null {
   if (!camps.length) return null;
 
   const bookingNameNorm = normalize(booking.camp_name);
   const bookingNameMatch = normalizeForMatching(booking.camp_name);
 
+  // Exact match
   for (const camp of camps) {
-    if (normalize(camp.name) === bookingNameNorm) return camp;
+    if (normalize(camp.name) === bookingNameNorm) {
+      return { camp, score: 100, reason: "Exact name match" };
+    }
   }
+  // Exact match after noise strip
   for (const camp of camps) {
-    if (normalizeForMatching(camp.name) === bookingNameMatch) return camp;
+    if (normalizeForMatching(camp.name) === bookingNameMatch) {
+      return { camp, score: 90, reason: "Exact match after normalization" };
+    }
   }
+  // Substring match
   for (const camp of camps) {
     const campNorm = normalize(camp.name);
-    if (campNorm.includes(bookingNameNorm) || bookingNameNorm.includes(campNorm)) return camp;
+    if (campNorm.includes(bookingNameNorm) || bookingNameNorm.includes(campNorm)) {
+      return { camp, score: 80, reason: "Substring name match" };
+    }
   }
 
-  type Scored = { camp: CampRow; score: number };
+  // Scored matching
+  type Scored = { camp: CampRow; score: number; reasons: string[] };
   const scored: Scored[] = camps.map((camp) => {
     let score = 0;
-    score += tokenSimilarity(booking.camp_name, camp.name) * 55;
-    // Also check against club_name
+    const reasons: string[] = [];
+
+    const nameSim = tokenSimilarity(booking.camp_name, camp.name);
+    score += nameSim * 55;
+    if (nameSim > 0) reasons.push(`name_sim=${(nameSim * 100).toFixed(0)}%`);
+
     const clubSim = tokenSimilarity(booking.camp_name, camp.club_name);
-    if (clubSim > 0.4) score += clubSim * 20;
+    if (clubSim > 0.4) {
+      score += clubSim * 20;
+      reasons.push(`club_sim=${(clubSim * 100).toFixed(0)}%`);
+    }
+
     if (booking.camp_date && dateOverlaps(booking.camp_date, camp.start_date, camp.end_date)) {
       score += 20;
+      reasons.push("date_overlap");
     }
+
     if (booking.venue && camp.venue) {
       const bv = normalize(booking.venue);
       const cv = normalize(camp.venue);
-      if (bv === cv) score += 10;
-      else if (bv.includes(cv) || cv.includes(bv)) score += 7;
-      else score += tokenSimilarity(booking.venue, camp.venue) * 5;
+      if (bv === cv) { score += 10; reasons.push("venue_exact"); }
+      else if (bv.includes(cv) || cv.includes(bv)) { score += 7; reasons.push("venue_partial"); }
+      else {
+        const vs = tokenSimilarity(booking.venue, camp.venue) * 5;
+        if (vs > 0) { score += vs; reasons.push("venue_token"); }
+      }
     }
+
     if (booking.county && camp.county && normalize(booking.county) === normalize(camp.county)) {
       score += 5;
+      reasons.push("county_match");
     }
-    return { camp, score };
+
+    return { camp, score, reasons };
   });
 
   scored.sort((a, b) => b.score - a.score);
   const best = scored[0];
-  if (best.score >= 20) return best.camp;
+  if (best.score >= 20) {
+    return {
+      camp: best.camp,
+      score: Math.round(best.score),
+      reason: best.reasons.join(", "),
+    };
+  }
   return null;
+}
+
+/** 3-tier match status from score */
+function matchTier(score: number): string {
+  if (score >= 60) return "matched";
+  if (score >= 45) return "needs_review";
+  return "unmatched";
 }
 
 Deno.serve(async (req) => {
@@ -218,7 +271,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    let created = 0, updated = 0, failed = 0, campsCreated = 0;
+    let created = 0, updated = 0, failed = 0, needsReview = 0;
     const errors: string[] = [];
 
     const BATCH_SIZE = 10;
@@ -229,33 +282,27 @@ Deno.serve(async (req) => {
 
       for (const b of batch) {
         try {
-          let matched_camp_id: string | null = null;
-          const bestCamp = findBestCamp(b, campsList);
+          // Find best camp match
+          const matchResult = findBestCamp(b, campsList);
 
-          if (bestCamp) {
-            matched_camp_id = bestCamp.id;
-          } else if (b.camp_name) {
-            const campDate = b.camp_date || b.booking_date || new Date().toISOString().split("T")[0];
-            const newCamp = {
-              name: b.camp_name,
-              club_name: b.camp_name.split(/[-–]/)[0].trim() || b.camp_name,
-              venue: b.venue || "TBC",
-              county: b.county || "TBC",
-              start_date: campDate,
-              end_date: campDate,
-              age_group: "U8-U12",
-            };
-            const { data: createdCamp, error: campErr } = await supabase
-              .from("camps")
-              .insert(newCamp)
-              .select("id, name, venue, county, start_date, end_date, club_name")
-              .single();
-            if (campErr) {
-              errors.push(`Auto-create camp "${b.camp_name}": ${campErr.message}`);
-            } else if (createdCamp) {
-              matched_camp_id = createdCamp.id;
-              campsList.push(createdCamp as CampRow);
-              campsCreated++;
+          let matched_camp_id: string | null = null;
+          let match_status = "unmatched";
+          let match_score: number | null = null;
+          let match_reason: string | null = null;
+
+          if (matchResult) {
+            match_score = matchResult.score;
+            match_reason = matchResult.reason;
+            match_status = matchTier(matchResult.score);
+
+            // Only auto-link when fully matched (score >= 60)
+            if (match_status === "matched") {
+              matched_camp_id = matchResult.camp.id;
+            }
+            if (match_status === "needs_review") {
+              needsReview++;
+              // Store suggested camp id in match_reason for review
+              match_reason = `suggested_camp=${matchResult.camp.id}; ${match_reason}`;
             }
           }
 
@@ -264,13 +311,11 @@ Deno.serve(async (req) => {
           const amountPaidRaw = parseMoney(b.amount_paid);
           const siblingDiscount = parseMoney(b.sibling_discount);
           const refundAmount = parseMoney(b.refund_amount);
-          // Total Cost = Total Amount - Siblings Discount
           const totalCost = Math.max(0, totalAmount - siblingDiscount);
-          // Amount Owed = Total Cost - Amount Paid - Refund Amount
           const amountOwed = Math.max(0, totalCost - amountPaidRaw - refundAmount);
           const paymentStatus = normalizePaymentStatus(b.payment_status);
 
-          // Combine medical_condition + medical_notes into medical_notes
+          // Combine medical fields
           const medCondition = b.medical_condition?.trim() || "";
           const medNotes = b.medical_notes?.trim() || "";
           const combinedMedical = [medCondition, medNotes].filter(Boolean).join(" — ") || null;
@@ -300,7 +345,9 @@ Deno.serve(async (req) => {
             last_synced_at: new Date().toISOString(),
             sync_log_id: syncLog.id,
             matched_camp_id,
-            match_status: matched_camp_id ? "matched" : "unmatched",
+            match_status,
+            match_score,
+            match_reason,
             duplicate_warning: false,
             // Finance fields
             total_amount: totalAmount,
@@ -309,7 +356,7 @@ Deno.serve(async (req) => {
             refund_amount: refundAmount,
             amount_owed: amountOwed,
             payment_type: b.payment_type || null,
-            photo_permission: parseBool(b.photo_permission),
+            photo_permission: parsePhotoPermission(b.photo_permission),
           };
 
           const existingId = b.external_booking_id ? existingByExtId[b.external_booking_id] : null;
@@ -382,7 +429,7 @@ Deno.serve(async (req) => {
           created,
           updated,
           failed,
-          camps_created: campsCreated,
+          needs_review: needsReview,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
