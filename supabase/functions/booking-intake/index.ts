@@ -259,15 +259,15 @@ Deno.serve(async (req) => {
       .map((b) => b.external_booking_id)
       .filter(Boolean) as string[];
 
-    const existingByExtId: Record<string, string> = {};
+    const existingByExtId: Record<string, { id: string; manual_override: boolean }> = {};
     if (externalIds.length > 0) {
       const { data: existingRows } = await supabase
         .from("synced_bookings")
-        .select("id, external_booking_id")
+        .select("id, external_booking_id, manual_override")
         .in("external_booking_id", externalIds)
         .eq("source_system", "bookings.teachingtekkers.com");
-      (existingRows || []).forEach((r: { id: string; external_booking_id: string }) => {
-        existingByExtId[r.external_booking_id] = r.id;
+      (existingRows || []).forEach((r: { id: string; external_booking_id: string; manual_override: boolean }) => {
+        existingByExtId[r.external_booking_id] = { id: r.id, manual_override: r.manual_override };
       });
     }
 
