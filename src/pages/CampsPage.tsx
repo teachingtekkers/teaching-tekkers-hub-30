@@ -59,15 +59,21 @@ const CampsPage = () => {
     if (campsErr) console.error("[Camps] Camps fetch error:", campsErr);
 
     if (campsData) {
-      const { data: counts } = await supabase
-        .from("synced_bookings")
-        .select("matched_camp_id")
-        .not("matched_camp_id", "is", null);
-
+      const campIds = campsData.map((c: any) => c.id);
       const countMap: Record<string, number> = {};
-      (counts || []).forEach((r: { matched_camp_id: string | null }) => {
-        if (r.matched_camp_id) countMap[r.matched_camp_id] = (countMap[r.matched_camp_id] || 0) + 1;
-      });
+
+      // Query in batches of 100 camp IDs to avoid overly large IN clauses
+      const BATCH = 100;
+      for (let i = 0; i < campIds.length; i += BATCH) {
+        const batch = campIds.slice(i, i + BATCH);
+        const { data: counts } = await supabase
+          .from("synced_bookings")
+          .select("matched_camp_id")
+          .in("matched_camp_id", batch);
+        (counts || []).forEach((r: { matched_camp_id: string | null }) => {
+          if (r.matched_camp_id) countMap[r.matched_camp_id] = (countMap[r.matched_camp_id] || 0) + 1;
+        });
+      }
 
       setCamps(campsData.map(c => ({ ...c, participant_count: countMap[c.id] || 0 })) as CampRow[]);
     }
