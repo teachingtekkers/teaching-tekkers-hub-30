@@ -129,7 +129,7 @@ export default function UnmatchedQueue({ bookings, onRefresh }: UnmatchedQueuePr
       const ids = group.bookings.map((b) => b.id);
       const { error } = await supabase
         .from("synced_bookings")
-        .update({ matched_camp_id: campId, match_status: "matched" } as any)
+        .update({ matched_camp_id: campId, match_status: "matched", manual_override: true } as any)
         .in("id", ids);
       if (error) throw error;
       toast({ title: "Linked", description: `${ids.length} bookings linked to camp` });
@@ -157,7 +157,7 @@ export default function UnmatchedQueue({ bookings, onRefresh }: UnmatchedQueuePr
       const ids = Array.from(selected);
       const { error } = await supabase
         .from("synced_bookings")
-        .update({ matched_camp_id: campId, match_status: "matched" } as any)
+        .update({ matched_camp_id: campId, match_status: "matched", manual_override: true } as any)
         .in("id", ids);
       if (error) throw error;
       toast({ title: "Linked", description: `${ids.length} selected bookings linked` });
@@ -201,7 +201,7 @@ export default function UnmatchedQueue({ bookings, onRefresh }: UnmatchedQueuePr
       const ids = group.bookings.map((b) => b.id);
       const { error: linkErr } = await supabase
         .from("synced_bookings")
-        .update({ matched_camp_id: newCamp.id, match_status: "matched" } as any)
+        .update({ matched_camp_id: newCamp.id, match_status: "matched", manual_override: true } as any)
         .in("id", ids);
 
       if (linkErr) throw linkErr;

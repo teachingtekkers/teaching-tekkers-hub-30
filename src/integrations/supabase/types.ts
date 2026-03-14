@@ -987,6 +987,7 @@ export type Database = {
           kit_given: boolean
           kit_size: string | null
           last_synced_at: string
+          manual_override: boolean
           match_reason: string | null
           match_score: number | null
           match_status: string
@@ -1032,6 +1033,7 @@ export type Database = {
           kit_given?: boolean
           kit_size?: string | null
           last_synced_at?: string
+          manual_override?: boolean
           match_reason?: string | null
           match_score?: number | null
           match_status?: string
@@ -1077,6 +1079,7 @@ export type Database = {
           kit_given?: boolean
           kit_size?: string | null
           last_synced_at?: string
+          manual_override?: boolean
           match_reason?: string | null
           match_score?: number | null
           match_status?: string
