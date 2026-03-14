@@ -405,6 +405,11 @@ export default function BookingSyncPage() {
           </div>
         </TabsContent>
 
+        {/* Unmatched Queue Tab */}
+        <TabsContent value="queue" className="space-y-4">
+          <UnmatchedQueue bookings={bookings as any} onRefresh={loadData} />
+        </TabsContent>
+
         {/* Diagnostics Tab */}
         <TabsContent value="diagnostics" className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
