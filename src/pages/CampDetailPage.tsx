@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Users, MapPin, Calendar, Heart, Banknote } from "lucide-react";
+import { ArrowLeft, Users, MapPin, Calendar, Heart, Banknote, Check, AlertTriangle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import CampFinancialOverview from "@/components/camp/CampFinancialOverview";
 
 interface CampData {
@@ -19,6 +20,8 @@ interface CampData {
   end_date: string;
   age_group: string;
   capacity: number;
+  status?: string;
+  is_auto_created?: boolean;
 }
 
 interface Participant {
@@ -54,6 +57,8 @@ export default function CampDetailPage() {
   const [camp, setCamp] = useState<CampData | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [publishing, setPublishing] = useState(false);
+  const { toast } = useToast();
 
   const load = useCallback(async () => {
     if (!id) { console.error("[CampDetail] No camp id in URL"); return; }
@@ -97,11 +102,48 @@ export default function CampDetailPage() {
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{camp.name}</h1>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground">{camp.name}</h1>
+            {camp.status === "draft" && (
+              <Badge variant="outline" className="border-amber-300 text-amber-700">Draft</Badge>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">{camp.club_name}</p>
         </div>
+        {camp.status === "draft" && (
+          <Button
+            size="sm"
+            disabled={publishing}
+            onClick={async () => {
+              setPublishing(true);
+              const { error } = await supabase
+                .from("camps")
+                .update({ status: "published", is_auto_created: false } as any)
+                .eq("id", camp.id);
+              if (error) {
+                toast({ title: "Publish failed", description: error.message, variant: "destructive" });
+              } else {
+                toast({ title: "Camp published" });
+                load();
+              }
+              setPublishing(false);
+            }}
+          >
+            <Check className="h-4 w-4 mr-1.5" />
+            {publishing ? "Publishing…" : "Publish Camp"}
+          </Button>
+        )}
       </div>
+
+      {camp.status === "draft" && (
+        <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3">
+          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            This camp was auto-created from a booking import and is in <strong>draft</strong> status. Review the details and publish when ready.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
