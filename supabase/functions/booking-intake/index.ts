@@ -359,10 +359,17 @@ Deno.serve(async (req) => {
             photo_permission: parsePhotoPermission(b.photo_permission),
           };
 
-          const existingId = b.external_booking_id ? existingByExtId[b.external_booking_id] : null;
+          const existing = b.external_booking_id ? existingByExtId[b.external_booking_id] : null;
 
-          if (existingId) {
-            updates.push({ id: existingId, record });
+          if (existing) {
+            // If manually overridden, preserve match fields
+            if (existing.manual_override) {
+              delete record.matched_camp_id;
+              delete record.match_status;
+              delete record.match_score;
+              delete record.match_reason;
+            }
+            updates.push({ id: existing.id, record });
             updated++;
           } else {
             inserts.push(record);
