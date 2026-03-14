@@ -12,7 +12,6 @@ function normalize(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-/** Strip week indicators, "girls only", fee/price phrases, county mentions */
 function stripNoise(s: string): string {
   return normalize(s)
     .replace(/\b\d{4}\b/g, "")
@@ -62,59 +61,93 @@ interface BookingRow {
   match_status: string;
 }
 
-function findBestCamp(booking: BookingRow, camps: CampRow[]): { camp: CampRow; score: number } | null {
+interface MatchResult {
+  camp: CampRow;
+  score: number;
+  reason: string;
+}
+
+function findBestCamp(booking: BookingRow, camps: CampRow[]): MatchResult | null {
   if (!camps.length) return null;
 
+  const bNameNorm = normalize(booking.camp_name);
   const bNameStripped = stripNoise(booking.camp_name);
   const bTokens = tokenize(booking.camp_name);
 
-  type Scored = { camp: CampRow; score: number };
+  // Exact match
+  for (const camp of camps) {
+    if (normalize(camp.name) === bNameNorm) {
+      return { camp, score: 100, reason: "Exact name match" };
+    }
+  }
+  for (const camp of camps) {
+    if (stripNoise(camp.name) === bNameStripped) {
+      return { camp, score: 90, reason: "Exact match after normalization" };
+    }
+  }
+  for (const camp of camps) {
+    const cNorm = normalize(camp.name);
+    if (cNorm.includes(bNameNorm) || bNameNorm.includes(cNorm)) {
+      return { camp, score: 80, reason: "Substring name match" };
+    }
+  }
+
+  type Scored = { camp: CampRow; score: number; reasons: string[] };
   const scored: Scored[] = [];
 
   for (const camp of camps) {
     let score = 0;
+    const reasons: string[] = [];
 
-    // Exact normalized match
-    const cNameStripped = stripNoise(camp.name);
-    if (cNameStripped === bNameStripped) {
-      score += 80;
-    } else if (cNameStripped.includes(bNameStripped) || bNameStripped.includes(cNameStripped)) {
-      score += 65;
-    } else {
-      // Token similarity (club name included in matching)
-      const cTokens = tokenize(camp.name);
-      score += jaccardSimilarity(bTokens, cTokens) * 55;
+    const cTokens = tokenize(camp.name);
+    const nameSim = jaccardSimilarity(bTokens, cTokens);
+    score += nameSim * 55;
+    if (nameSim > 0) reasons.push(`name_sim=${(nameSim * 100).toFixed(0)}%`);
 
-      // Also check against club_name
-      const clubTokens = tokenize(camp.club_name);
-      const clubSim = jaccardSimilarity(bTokens, clubTokens);
-      if (clubSim > 0.4) score += clubSim * 20;
+    const clubTokens = tokenize(camp.club_name);
+    const clubSim = jaccardSimilarity(bTokens, clubTokens);
+    if (clubSim > 0.4) {
+      score += clubSim * 20;
+      reasons.push(`club_sim=${(clubSim * 100).toFixed(0)}%`);
     }
 
-    // Date overlap bonus
     if (booking.camp_date && dateOverlaps(booking.camp_date, camp.start_date, camp.end_date)) {
       score += 20;
+      reasons.push("date_overlap");
     }
 
-    // Venue match bonus
     if (booking.venue && camp.venue) {
       const bv = normalize(booking.venue);
       const cv = normalize(camp.venue);
-      if (bv === cv) score += 10;
-      else if (bv.includes(cv) || cv.includes(bv)) score += 7;
+      if (bv === cv) { score += 10; reasons.push("venue_exact"); }
+      else if (bv.includes(cv) || cv.includes(bv)) { score += 7; reasons.push("venue_partial"); }
     }
 
-    // County match bonus
     if (booking.county && camp.county && normalize(booking.county) === normalize(camp.county)) {
       score += 5;
+      reasons.push("county_match");
     }
 
-    scored.push({ camp, score });
+    scored.push({ camp, score, reasons });
   }
 
   scored.sort((a, b) => b.score - a.score);
   const best = scored[0];
-  return best.score >= 20 ? best : null;
+  if (best.score >= 20) {
+    return {
+      camp: best.camp,
+      score: Math.round(best.score),
+      reason: best.reasons.join(", "),
+    };
+  }
+  return null;
+}
+
+/** 3-tier match status from score */
+function matchTier(score: number): string {
+  if (score >= 60) return "matched";
+  if (score >= 45) return "needs_review";
+  return "unmatched";
 }
 
 Deno.serve(async (req) => {
@@ -129,9 +162,8 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json().catch(() => ({}));
-    const mode = body.mode || "all"; // "all" | "unmatched_only"
+    const mode = body.mode || "all";
 
-    // Load all camps
     const { data: allCamps } = await supabase
       .from("camps")
       .select("id, name, venue, county, club_name, start_date, end_date");
@@ -144,13 +176,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Load bookings to repair
     let query = supabase
       .from("synced_bookings")
       .select("id, camp_name, camp_date, venue, county, matched_camp_id, match_status");
 
     if (mode === "unmatched_only") {
-      query = query.or("match_status.eq.unmatched,matched_camp_id.is.null");
+      query = query.or("match_status.eq.unmatched,match_status.eq.needs_review,matched_camp_id.is.null");
     }
 
     const { data: bookingsData } = await query;
@@ -159,11 +190,11 @@ Deno.serve(async (req) => {
     let repaired = 0;
     let alreadyCorrect = 0;
     let stillUnmatched = 0;
+    let markedForReview = 0;
     let failed = 0;
     const unmatchedCamps: string[] = [];
     const errors: string[] = [];
 
-    // Batch updates
     const BATCH = 50;
     for (let i = 0; i < bookingsToProcess.length; i += BATCH) {
       const batch = bookingsToProcess.slice(i, i + BATCH);
@@ -177,42 +208,52 @@ Deno.serve(async (req) => {
             if (!unmatchedCamps.includes(booking.camp_name)) {
               unmatchedCamps.push(booking.camp_name);
             }
-            // Ensure status is unmatched
             if (booking.match_status !== "unmatched" || booking.matched_camp_id !== null) {
               await supabase
                 .from("synced_bookings")
-                .update({ matched_camp_id: null, match_status: "unmatched" })
+                .update({ matched_camp_id: null, match_status: "unmatched", match_score: null, match_reason: null })
                 .eq("id", booking.id);
             }
             continue;
           }
 
-          if (booking.matched_camp_id === result.camp.id) {
+          const tier = matchTier(result.score);
+
+          if (tier === "matched" && booking.matched_camp_id === result.camp.id && booking.match_status === "matched") {
             alreadyCorrect++;
-            // Ensure match_status is correct
-            if (booking.match_status !== "matched") {
-              await supabase
-                .from("synced_bookings")
-                .update({ match_status: "matched" })
-                .eq("id", booking.id);
-            }
+            // Still update score/reason
+            await supabase
+              .from("synced_bookings")
+              .update({ match_score: result.score, match_reason: result.reason })
+              .eq("id", booking.id);
             continue;
           }
 
-          // Update to correct camp
+          const updateData: Record<string, unknown> = {
+            match_status: tier,
+            match_score: result.score,
+            match_reason: tier === "needs_review"
+              ? `suggested_camp=${result.camp.id}; ${result.reason}`
+              : result.reason,
+          };
+
+          if (tier === "matched") {
+            updateData.matched_camp_id = result.camp.id;
+            repaired++;
+          } else {
+            // needs_review: don't auto-link
+            updateData.matched_camp_id = null;
+            markedForReview++;
+          }
+
           const { error: updateErr } = await supabase
             .from("synced_bookings")
-            .update({
-              matched_camp_id: result.camp.id,
-              match_status: "matched",
-            })
+            .update(updateData)
             .eq("id", booking.id);
 
           if (updateErr) {
             failed++;
             errors.push(`${booking.id}: ${updateErr.message}`);
-          } else {
-            repaired++;
           }
         } catch (e) {
           failed++;
@@ -221,7 +262,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Detect duplicates: same child name + same camp
+    // Detect duplicates
     const { data: allBookings } = await supabase
       .from("synced_bookings")
       .select("id, child_first_name, child_last_name, matched_camp_id, duplicate_warning");
@@ -238,7 +279,6 @@ Deno.serve(async (req) => {
     for (const [, ids] of dupeMap) {
       if (ids.length > 1) {
         duplicatesFound += ids.length;
-        // Mark duplicates
         for (const id of ids) {
           await supabase
             .from("synced_bookings")
@@ -256,6 +296,7 @@ Deno.serve(async (req) => {
           repaired,
           already_correct: alreadyCorrect,
           still_unmatched: stillUnmatched,
+          needs_review: markedForReview,
           failed,
           duplicates_found: duplicatesFound,
           unmatched_camp_names: unmatchedCamps,

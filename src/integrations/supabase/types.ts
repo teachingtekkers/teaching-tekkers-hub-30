@@ -981,6 +981,8 @@ export type Database = {
           kit_given: boolean
           kit_size: string | null
           last_synced_at: string
+          match_reason: string | null
+          match_score: number | null
           match_status: string
           matched_booking_id: string | null
           matched_camp_id: string | null
@@ -1024,6 +1026,8 @@ export type Database = {
           kit_given?: boolean
           kit_size?: string | null
           last_synced_at?: string
+          match_reason?: string | null
+          match_score?: number | null
           match_status?: string
           matched_booking_id?: string | null
           matched_camp_id?: string | null
@@ -1067,6 +1071,8 @@ export type Database = {
           kit_given?: boolean
           kit_size?: string | null
           last_synced_at?: string
+          match_reason?: string | null
+          match_score?: number | null
           match_status?: string
           matched_booking_id?: string | null
           matched_camp_id?: string | null
