@@ -44,6 +44,8 @@ interface SyncedBooking {
   sibling_discount: number | null;
   refund_amount: number | null;
   payment_type: string | null;
+  match_score: number | null;
+  match_reason: string | null;
 }
 
 interface SyncLog {
