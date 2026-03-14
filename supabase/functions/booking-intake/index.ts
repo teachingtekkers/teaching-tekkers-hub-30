@@ -271,8 +271,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    let created = 0, updated = 0, failed = 0, needsReview = 0;
+    let created = 0, updated = 0, failed = 0, needsReview = 0, draftsCreated = 0;
     const errors: string[] = [];
+    // Track draft camps created in this run to avoid duplicates within the same import
+    const draftCampCache: Record<string, string> = {}; // normalized name -> camp id
 
     const BATCH_SIZE = 10;
     for (let i = 0; i < bookings.length; i += BATCH_SIZE) {
@@ -295,14 +297,85 @@ Deno.serve(async (req) => {
             match_reason = matchResult.reason;
             match_status = matchTier(matchResult.score);
 
-            // Only auto-link when fully matched (score >= 60)
             if (match_status === "matched") {
               matched_camp_id = matchResult.camp.id;
             }
             if (match_status === "needs_review") {
               needsReview++;
-              // Store suggested camp id in match_reason for review
               match_reason = `suggested_camp=${matchResult.camp.id}; ${match_reason}`;
+            }
+          }
+
+          // Auto-create draft camp when unmatched
+          if (!matched_camp_id && match_status === "unmatched" && b.camp_name) {
+            const normName = normalize(b.camp_name);
+            const campDate = b.camp_date || b.booking_date || new Date().toISOString().split("T")[0];
+
+            // Check in-memory cache first (same import batch)
+            if (draftCampCache[normName]) {
+              matched_camp_id = draftCampCache[normName];
+              match_status = "matched";
+              match_score = 100;
+              match_reason = "Reused draft camp from this import";
+            } else {
+              // Check if a draft camp with the same normalized name already exists
+              const { data: existingDrafts } = await supabase
+                .from("camps")
+                .select("id, name, start_date, end_date")
+                .eq("status", "draft")
+                .eq("is_auto_created", true);
+
+              const reusable = (existingDrafts || []).find((dc: any) => {
+                if (normalize(dc.name) !== normName) return false;
+                // Check date overlap: camp_date within ±7 days of draft range
+                const s = new Date(dc.start_date).getTime();
+                const e = new Date(dc.end_date).getTime();
+                const d = new Date(campDate).getTime();
+                return d >= s - 7 * 86400000 && d <= e + 7 * 86400000;
+              });
+
+              if (reusable) {
+                matched_camp_id = reusable.id;
+                draftCampCache[normName] = reusable.id;
+                match_status = "matched";
+                match_score = 95;
+                match_reason = "Reused existing draft camp";
+              } else {
+                // Create new draft camp
+                const startDate = campDate;
+                const endDateObj = new Date(startDate);
+                endDateObj.setDate(endDateObj.getDate() + 3);
+                const endDate = endDateObj.toISOString().split("T")[0];
+                const clubName = b.camp_name.split(/[-–]/)[0].trim() || b.camp_name;
+
+                const { data: newCamp, error: campErr } = await supabase
+                  .from("camps")
+                  .insert({
+                    name: b.camp_name,
+                    club_name: clubName,
+                    venue: b.venue || "TBC",
+                    county: b.county || "TBC",
+                    start_date: startDate,
+                    end_date: endDate,
+                    age_group: "U8-U12",
+                    status: "draft",
+                    is_auto_created: true,
+                  } as any)
+                  .select("id, name, venue, county, start_date, end_date, club_name")
+                  .single();
+
+                if (campErr) {
+                  errors.push(`Draft camp "${b.camp_name}": ${campErr.message}`);
+                } else if (newCamp) {
+                  matched_camp_id = newCamp.id;
+                  campsList.push(newCamp as CampRow);
+                  draftCampCache[normName] = newCamp.id;
+                  draftsCreated++;
+                  match_status = "matched";
+                  match_score = 100;
+                  match_reason = "Auto-created draft camp";
+                }
+              }
             }
           }
 
@@ -437,6 +510,7 @@ Deno.serve(async (req) => {
           updated,
           failed,
           needs_review: needsReview,
+          drafts_created: draftsCreated,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
