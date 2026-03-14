@@ -250,9 +250,11 @@ export type Database = {
           daily_start_time: string
           end_date: string
           id: string
+          is_auto_created: boolean
           name: string
           price_per_child: number
           start_date: string
+          status: string
           venue: string
         }
         Insert: {
@@ -265,9 +267,11 @@ export type Database = {
           daily_start_time?: string
           end_date: string
           id?: string
+          is_auto_created?: boolean
           name: string
           price_per_child?: number
           start_date: string
+          status?: string
           venue: string
         }
         Update: {
@@ -280,9 +284,11 @@ export type Database = {
           daily_start_time?: string
           end_date?: string
           id?: string
+          is_auto_created?: boolean
           name?: string
           price_per_child?: number
           start_date?: string
+          status?: string
           venue?: string
         }
         Relationships: []

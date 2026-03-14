@@ -10,6 +10,7 @@ import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, Ex
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import BookingImportDialog from "@/components/booking-sync/BookingImportDialog";
+import UnmatchedQueue from "@/components/booking-sync/UnmatchedQueue";
 
 interface SyncedBooking {
   id: string;
@@ -43,6 +44,8 @@ interface SyncedBooking {
   sibling_discount: number | null;
   refund_amount: number | null;
   payment_type: string | null;
+  match_score: number | null;
+  match_reason: string | null;
 }
 
 interface SyncLog {
@@ -152,7 +155,7 @@ export default function BookingSyncPage() {
 
   const lastSync = syncLogs[0];
   const totalSynced = bookings.length;
-  const unmatched = bookings.filter(b => b.match_status === "unmatched").length;
+  const unmatched = bookings.filter(b => b.match_status === "unmatched" || b.match_status === "needs_review").length;
   const duplicates = bookings.filter(b => b.duplicate_warning).length;
 
   const filtered = useMemo(() => {
@@ -181,6 +184,8 @@ export default function BookingSyncPage() {
     <div className="flex gap-1">
       {status === "matched"
         ? <Badge className="bg-emerald-100 text-emerald-800 border-0">Matched</Badge>
+        : status === "needs_review"
+        ? <Badge className="bg-blue-100 text-blue-800 border-0">Review</Badge>
         : <Badge className="bg-amber-100 text-amber-800 border-0">Unmatched</Badge>}
       {dup && <Badge variant="destructive" className="text-xs">Dup</Badge>}
     </div>
@@ -316,6 +321,10 @@ export default function BookingSyncPage() {
       <Tabs defaultValue="bookings">
         <TabsList>
           <TabsTrigger value="bookings">Synced Bookings</TabsTrigger>
+          <TabsTrigger value="queue">
+            Unmatched Queue
+            {unmatched > 0 && <Badge variant="secondary" className="ml-1.5 text-xs">{unmatched}</Badge>}
+          </TabsTrigger>
           <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
           <TabsTrigger value="logs">Sync Logs</TabsTrigger>
           <TabsTrigger value="endpoint">Endpoint Info</TabsTrigger>
@@ -394,6 +403,11 @@ export default function BookingSyncPage() {
               </TableBody>
             </Table>
           </div>
+        </TabsContent>
+
+        {/* Unmatched Queue Tab */}
+        <TabsContent value="queue" className="space-y-4">
+          <UnmatchedQueue bookings={bookings as any} onRefresh={loadData} />
         </TabsContent>
 
         {/* Diagnostics Tab */}
