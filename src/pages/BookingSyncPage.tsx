@@ -184,6 +184,8 @@ export default function BookingSyncPage() {
     <div className="flex gap-1">
       {status === "matched"
         ? <Badge className="bg-emerald-100 text-emerald-800 border-0">Matched</Badge>
+        : status === "needs_review"
+        ? <Badge className="bg-blue-100 text-blue-800 border-0">Review</Badge>
         : <Badge className="bg-amber-100 text-amber-800 border-0">Unmatched</Badge>}
       {dup && <Badge variant="destructive" className="text-xs">Dup</Badge>}
     </div>
