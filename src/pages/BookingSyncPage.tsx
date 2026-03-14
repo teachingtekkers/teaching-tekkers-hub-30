@@ -321,6 +321,10 @@ export default function BookingSyncPage() {
       <Tabs defaultValue="bookings">
         <TabsList>
           <TabsTrigger value="bookings">Synced Bookings</TabsTrigger>
+          <TabsTrigger value="queue">
+            Unmatched Queue
+            {unmatched > 0 && <Badge variant="secondary" className="ml-1.5 text-xs">{unmatched}</Badge>}
+          </TabsTrigger>
           <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
           <TabsTrigger value="logs">Sync Logs</TabsTrigger>
           <TabsTrigger value="endpoint">Endpoint Info</TabsTrigger>
