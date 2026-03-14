@@ -510,6 +510,7 @@ Deno.serve(async (req) => {
           updated,
           failed,
           needs_review: needsReview,
+          drafts_created: draftsCreated,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
