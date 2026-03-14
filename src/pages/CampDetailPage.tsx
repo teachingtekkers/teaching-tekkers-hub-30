@@ -20,6 +20,8 @@ interface CampData {
   end_date: string;
   age_group: string;
   capacity: number;
+  status?: string;
+  is_auto_created?: boolean;
 }
 
 interface Participant {
