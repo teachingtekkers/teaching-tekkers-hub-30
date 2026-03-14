@@ -10,6 +10,7 @@ import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, Ex
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import BookingImportDialog from "@/components/booking-sync/BookingImportDialog";
+import UnmatchedQueue from "@/components/booking-sync/UnmatchedQueue";
 
 interface SyncedBooking {
   id: string;
