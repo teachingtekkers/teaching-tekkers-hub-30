@@ -57,6 +57,8 @@ export default function CampDetailPage() {
   const [camp, setCamp] = useState<CampData | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [publishing, setPublishing] = useState(false);
+  const { toast } = useToast();
 
   const load = useCallback(async () => {
     if (!id) { console.error("[CampDetail] No camp id in URL"); return; }
