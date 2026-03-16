@@ -99,15 +99,19 @@ const CampsPage = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    const clubId = form.club_id || null;
+    const clubName = clubId
+      ? clubOptions.find(c => c.id === clubId)?.name || form.club_name
+      : form.club_name;
     const { error } = await supabase.from("camps").insert({
-      name: form.name, club_name: form.club_name, venue: form.venue, county: form.county,
+      name: form.name, club_name: clubName, club_id: clubId, venue: form.venue, county: form.county,
       start_date: form.start_date, end_date: form.end_date,
       daily_start_time: form.daily_start_time, daily_end_time: form.daily_end_time,
       age_group: form.age_group, capacity: Number(form.capacity), price_per_child: Number(form.price_per_child),
-    });
+    } as any);
     if (!error) {
       setOpen(false);
-      setForm({ name: "", club_name: "", venue: "", county: "", start_date: "", end_date: "", daily_start_time: "10:00", daily_end_time: "15:00", age_group: "", capacity: "", price_per_child: "" });
+      setForm({ name: "", club_name: "", club_id: "", venue: "", county: "", start_date: "", end_date: "", daily_start_time: "10:00", daily_end_time: "15:00", age_group: "", capacity: "", price_per_child: "" });
       loadCamps();
     }
   };
