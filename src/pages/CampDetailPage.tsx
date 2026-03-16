@@ -6,7 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Users, MapPin, Calendar, Heart, Banknote, Check, AlertTriangle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, Users, MapPin, Calendar, Heart, Banknote, Check, AlertTriangle, Settings, Archive, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CampFinancialOverview from "@/components/camp/CampFinancialOverview";
 
@@ -58,12 +61,26 @@ export default function CampDetailPage() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const { toast } = useToast();
 
+  // Manage Data modal state
+  const [manageOpen, setManageOpen] = useState(false);
+  const [purgeScope, setPurgeScope] = useState<"this" | "multi" | "daterange">("this");
+  const [selectedCampIds, setSelectedCampIds] = useState<string[]>([]);
+  const [allCamps, setAllCamps] = useState<{ id: string; name: string; start_date: string; end_date: string }[]>([]);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [purgeBookings, setPurgeBookings] = useState(true);
+  const [purgeAttendance, setPurgeAttendance] = useState(true);
+  const [purgeRosters, setPurgeRosters] = useState(false);
+  const [purgeCamps, setPurgeCamps] = useState(false);
+  const [purgeConfirm, setPurgeConfirm] = useState("");
+  const [purging, setPurging] = useState(false);
+
   const load = useCallback(async () => {
-    if (!id) { console.error("[CampDetail] No camp id in URL"); return; }
+    if (!id) return;
     setLoading(true);
-    
     const [cRes, pRes] = await Promise.all([
       supabase.from("camps").select("*").eq("id", id).single(),
       supabase
@@ -72,18 +89,108 @@ export default function CampDetailPage() {
         .eq("matched_camp_id", id)
         .order("child_last_name"),
     ]);
-    
-    if (cRes.error) console.error("[CampDetail] Camp fetch error:", cRes.error);
-    if (pRes.error) console.error("[CampDetail] Participants fetch error:", pRes.error);
-    
-    console.log("[CampDetail] Camp:", cRes.data?.name, "| Participants returned:", pRes.data?.length ?? 0);
-    
     if (cRes.data) setCamp(cRes.data as unknown as CampData);
     setParticipants((pRes.data as unknown as Participant[]) || []);
     setLoading(false);
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleArchive = useCallback(async () => {
+    if (!camp) return;
+    setArchiving(true);
+    const { error } = await supabase
+      .from("camps")
+      .update({ status: "archived" } as any)
+      .eq("id", camp.id);
+    if (error) {
+      toast({ title: "Archive failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Camp archived" });
+      load();
+    }
+    setArchiving(false);
+  }, [camp, toast, load]);
+
+  const openManageData = useCallback(async () => {
+    if (!camp) return;
+    setSelectedCampIds([camp.id]);
+    setPurgeScope("this");
+    setPurgeBookings(true);
+    setPurgeAttendance(true);
+    setPurgeRosters(false);
+    setPurgeCamps(false);
+    setPurgeConfirm("");
+    setDateFrom("");
+    setDateTo("");
+
+    // Load all camps for multi-select / date-range
+    const { data } = await supabase
+      .from("camps")
+      .select("id, name, start_date, end_date")
+      .order("start_date", { ascending: false });
+    setAllCamps(data || []);
+    setManageOpen(true);
+  }, [camp]);
+
+  const getTargetCampIds = useCallback((): string[] => {
+    if (purgeScope === "this" && camp) return [camp.id];
+    if (purgeScope === "multi") return selectedCampIds;
+    if (purgeScope === "daterange" && dateFrom && dateTo) {
+      return allCamps
+        .filter(c => c.start_date >= dateFrom && c.start_date <= dateTo)
+        .map(c => c.id);
+    }
+    return [];
+  }, [purgeScope, camp, selectedCampIds, allCamps, dateFrom, dateTo]);
+
+  const handlePurge = useCallback(async () => {
+    const campIds = getTargetCampIds();
+    if (campIds.length === 0) {
+      toast({ title: "No camps selected", variant: "destructive" });
+      return;
+    }
+    setPurging(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("purge-camp-data", {
+        body: {
+          camp_ids: campIds,
+          delete_synced_bookings: purgeBookings,
+          delete_attendance: purgeAttendance,
+          delete_rosters: purgeRosters,
+          delete_camp_records: purgeCamps,
+        },
+      });
+      if (error) throw error;
+      const s = data?.summary || {};
+      const parts: string[] = [];
+      if (s.synced_bookings) parts.push(`${s.synced_bookings} bookings`);
+      if (s.attendance) parts.push(`${s.attendance} attendance`);
+      if (s.roster_assignments) parts.push(`${s.roster_assignments} roster assignments`);
+      if (s.camps_deleted) parts.push(`${s.camps_deleted} camps deleted`);
+      toast({
+        title: "Data purge complete",
+        description: parts.length ? `Removed: ${parts.join(", ")}` : "No data found to remove",
+      });
+      setManageOpen(false);
+      if (purgeCamps && campIds.includes(camp?.id || "")) {
+        navigate("/camps");
+      } else {
+        load();
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Purge failed";
+      toast({ title: "Purge failed", description: message, variant: "destructive" });
+    } finally {
+      setPurging(false);
+    }
+  }, [getTargetCampIds, purgeBookings, purgeAttendance, purgeRosters, purgeCamps, camp, toast, load, navigate]);
+
+  const toggleCampSelection = (campId: string) => {
+    setSelectedCampIds(prev =>
+      prev.includes(campId) ? prev.filter(id => id !== campId) : [...prev, campId]
+    );
+  };
 
   if (loading) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (!camp) return <div className="p-8 text-muted-foreground">Camp not found</div>;
@@ -95,6 +202,8 @@ export default function CampDetailPage() {
     if (s === "refunded") return <Badge className="bg-red-100 text-red-800 border-0">Refunded</Badge>;
     return <Badge variant="secondary">{s || "—"}</Badge>;
   };
+
+  const targetCount = getTargetCampIds().length;
 
   return (
     <div className="space-y-6">
@@ -108,32 +217,46 @@ export default function CampDetailPage() {
             {camp.status === "draft" && (
               <Badge variant="outline" className="border-amber-300 text-amber-700">Draft</Badge>
             )}
+            {camp.status === "archived" && (
+              <Badge variant="outline" className="border-muted-foreground text-muted-foreground">Archived</Badge>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">{camp.club_name}</p>
         </div>
-        {camp.status === "draft" && (
-          <Button
-            size="sm"
-            disabled={publishing}
-            onClick={async () => {
-              setPublishing(true);
-              const { error } = await supabase
-                .from("camps")
-                .update({ status: "published", is_auto_created: false } as any)
-                .eq("id", camp.id);
-              if (error) {
-                toast({ title: "Publish failed", description: error.message, variant: "destructive" });
-              } else {
-                toast({ title: "Camp published" });
-                load();
-              }
-              setPublishing(false);
-            }}
-          >
-            <Check className="h-4 w-4 mr-1.5" />
-            {publishing ? "Publishing…" : "Publish Camp"}
+        <div className="flex gap-2">
+          {camp.status === "draft" && (
+            <Button
+              size="sm"
+              disabled={publishing}
+              onClick={async () => {
+                setPublishing(true);
+                const { error } = await supabase
+                  .from("camps")
+                  .update({ status: "published", is_auto_created: false } as any)
+                  .eq("id", camp.id);
+                if (error) {
+                  toast({ title: "Publish failed", description: error.message, variant: "destructive" });
+                } else {
+                  toast({ title: "Camp published" });
+                  load();
+                }
+                setPublishing(false);
+              }}
+            >
+              <Check className="h-4 w-4 mr-1.5" />
+              {publishing ? "Publishing…" : "Publish Camp"}
+            </Button>
+          )}
+          {camp.status !== "archived" && (
+            <Button size="sm" variant="outline" onClick={handleArchive} disabled={archiving}>
+              <Archive className="h-4 w-4 mr-1.5" />
+              {archiving ? "Archiving…" : "Archive"}
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={openManageData}>
+            <Settings className="h-4 w-4 mr-1.5" /> Manage Data
           </Button>
-        )}
+        </div>
       </div>
 
       {camp.status === "draft" && (
@@ -141,6 +264,15 @@ export default function CampDetailPage() {
           <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
           <p className="text-sm text-amber-800 dark:text-amber-200">
             This camp was auto-created from a booking import and is in <strong>draft</strong> status. Review the details and publish when ready.
+          </p>
+        </div>
+      )}
+
+      {camp.status === "archived" && (
+        <div className="flex items-center gap-2 rounded-md border px-4 py-3 bg-muted/50">
+          <Archive className="h-4 w-4 text-muted-foreground shrink-0" />
+          <p className="text-sm text-muted-foreground">
+            This camp has been <strong>archived</strong>. It is hidden from the default Camps view.
           </p>
         </div>
       )}
@@ -273,6 +405,126 @@ export default function CampDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Manage Data Modal */}
+      <Dialog open={manageOpen} onOpenChange={setManageOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" /> Manage Camp Data
+            </DialogTitle>
+            <DialogDescription>
+              Select which data to remove and the scope of camps affected.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            {/* Scope selection */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">Scope</p>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="radio" name="scope" checked={purgeScope === "this"} onChange={() => setPurgeScope("this")} className="accent-primary" />
+                  This camp only — <span className="text-muted-foreground">{camp.name}</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="radio" name="scope" checked={purgeScope === "multi"} onChange={() => setPurgeScope("multi")} className="accent-primary" />
+                  Select multiple camps
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="radio" name="scope" checked={purgeScope === "daterange"} onChange={() => setPurgeScope("daterange")} className="accent-primary" />
+                  Date range
+                </label>
+              </div>
+            </div>
+
+            {/* Multi-select camps */}
+            {purgeScope === "multi" && (
+              <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
+                {allCamps.map(c => (
+                  <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer py-0.5">
+                    <Checkbox
+                      checked={selectedCampIds.includes(c.id)}
+                      onCheckedChange={() => toggleCampSelection(c.id)}
+                    />
+                    <span className="truncate">{c.name}</span>
+                    <span className="text-xs text-muted-foreground ml-auto shrink-0">{c.start_date}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {/* Date range */}
+            {purgeScope === "daterange" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">From</p>
+                  <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">To</p>
+                  <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                </div>
+                {dateFrom && dateTo && (
+                  <p className="col-span-2 text-xs text-muted-foreground">
+                    {allCamps.filter(c => c.start_date >= dateFrom && c.start_date <= dateTo).length} camp(s) in range
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* What to delete */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">Data to remove</p>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={purgeBookings} onCheckedChange={(v) => setPurgeBookings(!!v)} />
+                  Synced Bookings
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={purgeAttendance} onCheckedChange={(v) => setPurgeAttendance(!!v)} />
+                  Attendance Records
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={purgeRosters} onCheckedChange={(v) => setPurgeRosters(!!v)} />
+                  Roster / Coach Assignments
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={purgeCamps} onCheckedChange={(v) => setPurgeCamps(!!v)} />
+                  <span className="text-destructive font-medium">Delete camp record(s)</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Warning */}
+            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-800 dark:text-amber-300">
+                This action is <strong>permanent</strong> and affects <strong>{targetCount} camp(s)</strong>. Type <strong>DELETE</strong> to confirm.
+              </p>
+            </div>
+
+            <Input
+              value={purgeConfirm}
+              onChange={e => setPurgeConfirm(e.target.value)}
+              placeholder="Type DELETE"
+              className="font-mono"
+            />
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setManageOpen(false)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                disabled={purgeConfirm !== "DELETE" || purging || targetCount === 0}
+                onClick={handlePurge}
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                {purging ? "Purging…" : `Purge ${targetCount} camp(s)`}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

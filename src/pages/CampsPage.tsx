@@ -114,13 +114,15 @@ const CampsPage = () => {
   };
 
   const draftCount = camps.filter(c => c.status === "draft").length;
-  const publishedCount = camps.filter(c => c.status !== "draft").length;
+  const archivedCount = camps.filter(c => c.status === "archived").length;
+  const publishedCount = camps.filter(c => c.status !== "draft" && c.status !== "archived").length;
   const totalParticipants = camps.reduce((s, c) => s + (c.participant_count || 0), 0);
 
   const filtered = camps.filter(c => {
     if (statusFilter === "all") return true;
     if (statusFilter === "draft") return c.status === "draft";
-    return c.status !== "draft";
+    if (statusFilter === "archived") return c.status === "archived";
+    return c.status !== "draft" && c.status !== "archived";
   });
 
   return (
@@ -171,6 +173,7 @@ const CampsPage = () => {
         <ToggleGroup type="single" value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)} size="sm">
           <ToggleGroupItem value="published">Published ({publishedCount})</ToggleGroupItem>
           {draftCount > 0 && <ToggleGroupItem value="draft">Drafts ({draftCount})</ToggleGroupItem>}
+          {archivedCount > 0 && <ToggleGroupItem value="archived">Archived ({archivedCount})</ToggleGroupItem>}
           <ToggleGroupItem value="all">All ({camps.length})</ToggleGroupItem>
         </ToggleGroup>
       </div>
@@ -185,6 +188,7 @@ const CampsPage = () => {
                   <div className="flex items-center gap-1.5">
                     <p className="font-semibold text-sm">{camp.name}</p>
                     {camp.status === "draft" && <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700">Draft</Badge>}
+                    {camp.status === "archived" && <Badge variant="outline" className="text-[10px] border-muted-foreground text-muted-foreground">Archived</Badge>}
                   </div>
                   <p className="text-xs text-muted-foreground">{camp.club_name}</p>
                 </div>
@@ -241,6 +245,9 @@ const CampsPage = () => {
                       </div>
                       {camp.status === "draft" && (
                         <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 shrink-0">Draft</Badge>
+                      )}
+                      {camp.status === "archived" && (
+                        <Badge variant="outline" className="text-[10px] border-muted-foreground text-muted-foreground shrink-0">Archived</Badge>
                       )}
                     </div>
                   </TableCell>
