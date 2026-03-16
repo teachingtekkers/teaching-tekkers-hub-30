@@ -66,7 +66,7 @@ interface SyncLog {
 
 type BookingFilter = "all" | "unmatched" | "needs_review" | "failed";
 
-export default function BookingSyncPage() {
+const [errorsExpectedCount, setErrorsExpectedCount] = useState(0);
   const [bookings, setBookings] = useState<SyncedBooking[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [loading, setLoading] = useState(true);
