@@ -178,6 +178,24 @@ export default function BookingSyncPage() {
       setResetting(false);
     }
   }, [toast, loadData]);
+
+  const handleMaterializePlayers = useCallback(async () => {
+    setMaterializing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("materialize-players");
+      if (error) throw error;
+      toast({
+        title: "Players created/updated",
+        description: `Created: ${data.created || 0}, Linked: ${data.linked || 0}, Skipped: ${data.skipped || 0}, Failed: ${data.failed || 0}`,
+      });
+      await loadData();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Materialize failed";
+      toast({ title: "Player creation failed", description: message, variant: "destructive" });
+    } finally {
+      setMaterializing(false);
+    }
+  }, [toast, loadData]);
   const lastSync = syncLogs[0];
 
   const totalSynced = bookings.length;
