@@ -103,9 +103,29 @@ function normalizeHeader(header: string): string {
 
 function autoMapColumn(header: string): string {
   const h = normalizeHeader(header);
+
+  // Disambiguate generic "status" — only map to payment_status if it contains "payment"
+  if (h === "status" || h === "state") {
+    // bare "status"/"state" is ambiguous — leave unmapped
+    console.log(`[BookingImport] Ambiguous header "${header}" — skipping (map manually if needed)`);
+    return "skip";
+  }
+
+  // 1. Exact alias match
   for (const [field, aliases] of Object.entries(ALIASES)) {
     if (aliases.includes(h) || h === field) return field;
   }
+
+  // 2. Partial / contains match — alias is a substring of h, or h is a substring of alias
+  for (const [field, aliases] of Object.entries(ALIASES)) {
+    for (const alias of aliases) {
+      if (alias.length >= 4 && (h.includes(alias) || alias.includes(h))) {
+        // Extra guard: don't let short header match long alias loosely
+        if (h.length >= 3) return field;
+      }
+    }
+  }
+
   console.log(`[BookingImport] Unmapped CSV header: "${header}" → normalized: "${h}"`);
   return "skip";
 }
