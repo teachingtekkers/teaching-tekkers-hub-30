@@ -380,9 +380,7 @@ export default function PlayersPage() {
                                   <Badge variant={paymentVariant(fin.status.toLowerCase())} className="text-[10px]" title={`Paid: €${fin.paid} · Owed: €${fin.owed}`}>
                                     {(booking.matched_camp_id && campMap.get(booking.matched_camp_id)) || booking.camp_name || "Unknown"} • {fin.status}
                                   </Badge>
-                                  {fin.totalCost > 0 && (
-                                    <span className="text-[9px] text-muted-foreground ml-1">€{fin.paid} paid · €{fin.owed} owed</span>
-                                  )}
+                                  <span className="text-[9px] text-muted-foreground ml-1">€{fin.paid} paid · €{fin.owed} owed</span>
                                 </div>
                               );
                             })
