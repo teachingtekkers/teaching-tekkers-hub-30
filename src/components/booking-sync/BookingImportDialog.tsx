@@ -136,7 +136,16 @@ function parseCSV(text: string): { headers: string[]; rows: ParsedRow[] } {
   const lines = clean.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length === 0) return { headers: [], rows: [] };
   const firstLine = lines[0];
-  const delimiter = firstLine.includes("\t") ? "\t" : ",";
+
+  // Detect delimiter by trying each and picking the one that yields the most columns
+  const candidates: Array<{ delim: string; count: number }> = [
+    { delim: ",", count: firstLine.split(",").length },
+    { delim: ";", count: firstLine.split(";").length },
+    { delim: "\t", count: firstLine.split("\t").length },
+  ];
+  candidates.sort((a, b) => b.count - a.count);
+  const delimiter = candidates[0].count > 1 ? candidates[0].delim : ",";
+  console.log(`[BookingImport] Detected delimiter: "${delimiter === "\t" ? "TAB" : delimiter}" (${candidates[0].count} columns)`);
 
   const parseRow = (line: string): string[] => {
     const result: string[] = [];
