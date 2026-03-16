@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload, Zap, Wrench, Trash2, Users } from "lucide-react";
+import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload, Zap, Wrench, Trash2, Users, AlertCircle, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import BookingImportDialog from "@/components/booking-sync/BookingImportDialog";
 import UnmatchedQueue from "@/components/booking-sync/UnmatchedQueue";
+import ImportErrorsDrawer from "@/components/booking-sync/ImportErrorsDrawer";
 
 interface SyncedBooking {
   id: string;
@@ -36,6 +37,7 @@ interface SyncedBooking {
   imported_at: string;
   last_synced_at: string;
   matched_camp_id: string | null;
+  matched_player_id: string | null;
   match_status: string;
   duplicate_warning: boolean;
   notes: string | null;
@@ -62,11 +64,14 @@ interface SyncLog {
   source_system: string;
 }
 
+type BookingFilter = "all" | "unmatched" | "needs_review" | "failed";
+
 export default function BookingSyncPage() {
   const [bookings, setBookings] = useState<SyncedBooking[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [bookingFilter, setBookingFilter] = useState<BookingFilter>("all");
   const [importOpen, setImportOpen] = useState(false);
   const [rematching, setRematching] = useState(false);
   const [repairing, setRepairing] = useState(false);
@@ -76,6 +81,9 @@ export default function BookingSyncPage() {
   const [resetConfirm, setResetConfirm] = useState("");
   const [resetting, setResetting] = useState(false);
   const [materializing, setMaterializing] = useState(false);
+  const [errorsDrawerOpen, setErrorsDrawerOpen] = useState(false);
+  const [errorsSyncLogId, setErrorsSyncLogId] = useState<string | null>(null);
+  const [errorsCode, setErrorsCode] = useState<string | null>(null);
   const { toast } = useToast();
 
   const loadData = useCallback(async () => {
@@ -184,10 +192,17 @@ export default function BookingSyncPage() {
     try {
       const { data, error } = await supabase.functions.invoke("materialize-players");
       if (error) throw error;
+      const failed = data?.failed || 0;
       toast({
         title: "Players created/updated",
-        description: `Created: ${data.created || 0}, Linked: ${data.linked || 0}, Skipped: ${data.skipped || 0}, Failed: ${data.failed || 0}`,
+        description: `Created: ${data?.created || 0}, Linked: ${data?.linked || 0}, Skipped: ${data?.skipped || 0}${failed > 0 ? `, Failed: ${failed}` : ""}`,
       });
+      if (failed > 0) {
+        // Show errors drawer
+        setErrorsSyncLogId(null);
+        setErrorsCode("materialize_players");
+        setErrorsDrawerOpen(true);
+      }
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Materialize failed";
@@ -196,23 +211,30 @@ export default function BookingSyncPage() {
       setMaterializing(false);
     }
   }, [toast, loadData]);
-  const lastSync = syncLogs[0];
 
+  const lastSync = syncLogs[0];
   const totalSynced = bookings.length;
   const unmatched = bookings.filter(b => b.match_status === "unmatched" || b.match_status === "needs_review").length;
   const duplicates = bookings.filter(b => b.duplicate_warning).length;
+  const unmaterialized = bookings.filter(b => !b.matched_player_id).length;
 
   const filtered = useMemo(() => {
-    if (!search) return bookings;
-    const q = search.toLowerCase();
-    return bookings.filter(b =>
-      `${b.child_first_name} ${b.child_last_name}`.toLowerCase().includes(q) ||
-      b.camp_name.toLowerCase().includes(q) ||
-      b.parent_name?.toLowerCase().includes(q) ||
-      b.parent_email?.toLowerCase().includes(q) ||
-      b.venue?.toLowerCase().includes(q)
-    );
-  }, [bookings, search]);
+    let list = bookings;
+    if (bookingFilter === "unmatched") list = list.filter(b => b.match_status === "unmatched");
+    else if (bookingFilter === "needs_review") list = list.filter(b => b.match_status === "needs_review");
+    // "failed" not directly trackable on booking row, but we keep filter option
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(b =>
+        `${b.child_first_name} ${b.child_last_name}`.toLowerCase().includes(q) ||
+        b.camp_name.toLowerCase().includes(q) ||
+        b.parent_name?.toLowerCase().includes(q) ||
+        b.parent_email?.toLowerCase().includes(q) ||
+        b.venue?.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [bookings, search, bookingFilter]);
 
   const statusBadge = (status: string) => {
     switch (status) {
@@ -239,6 +261,12 @@ export default function BookingSyncPage() {
     if (s === "paid") return <Badge className="bg-emerald-100 text-emerald-800 border-0">Paid</Badge>;
     if (s === "pending") return <Badge className="bg-amber-100 text-amber-800 border-0">Pending</Badge>;
     return <Badge variant="secondary">{s || "—"}</Badge>;
+  };
+
+  const openErrorsForLog = (logId: string) => {
+    setErrorsSyncLogId(logId);
+    setErrorsCode(null);
+    setErrorsDrawerOpen(true);
   };
 
   return (
@@ -317,7 +345,7 @@ export default function BookingSyncPage() {
       </Dialog>
 
       {/* Status Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <p className="text-xs text-muted-foreground">Last Sync</p>
@@ -348,6 +376,12 @@ export default function BookingSyncPage() {
           <CardContent className="pt-4 pb-3 px-4">
             <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Duplicates</p>
             <p className={`text-lg font-semibold ${duplicates > 0 ? "text-destructive" : "text-foreground"}`}>{duplicates}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Unmaterialized</p>
+            <p className={`text-lg font-semibold ${unmaterialized > 0 ? "text-amber-600" : "text-foreground"}`}>{unmaterialized}</p>
           </CardContent>
         </Card>
       </div>
@@ -416,9 +450,22 @@ export default function BookingSyncPage() {
 
         {/* Synced Bookings Tab */}
         <TabsContent value="bookings" className="space-y-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search by child, camp, parent, venue…" value={search} onChange={e => setSearch(e.target.value)} className="max-w-sm" />
+            <div className="flex gap-1">
+              {(["all", "unmatched", "needs_review"] as BookingFilter[]).map(f => (
+                <Button
+                  key={f}
+                  size="sm"
+                  variant={bookingFilter === f ? "default" : "outline"}
+                  onClick={() => setBookingFilter(f)}
+                  className="h-7 text-xs"
+                >
+                  {f === "all" ? "All" : f === "unmatched" ? "Unmatched" : "Needs Review"}
+                </Button>
+              ))}
+            </div>
             <Badge variant="secondary">{filtered.length} records</Badge>
           </div>
           <div className="rounded-lg border overflow-auto">
@@ -584,7 +631,7 @@ export default function BookingSyncPage() {
                   <TableHead>Created</TableHead>
                   <TableHead>Updated</TableHead>
                   <TableHead>Failed</TableHead>
-                  <TableHead className="hidden md:table-cell">Errors</TableHead>
+                  <TableHead>Errors</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -601,7 +648,21 @@ export default function BookingSyncPage() {
                     <TableCell className="text-emerald-600 font-medium">{l.records_created}</TableCell>
                     <TableCell className="text-blue-600 font-medium">{l.records_updated}</TableCell>
                     <TableCell className={l.records_failed > 0 ? "text-destructive font-medium" : ""}>{l.records_failed}</TableCell>
-                    <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">{l.error_notes || "—"}</TableCell>
+                    <TableCell>
+                      {l.records_failed > 0 ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-destructive"
+                          onClick={() => openErrorsForLog(l.id)}
+                        >
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                          View Errors
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -662,6 +723,13 @@ export default function BookingSyncPage() {
       </Tabs>
 
       <BookingImportDialog open={importOpen} onOpenChange={setImportOpen} onImportComplete={loadData} />
+      <ImportErrorsDrawer
+        open={errorsDrawerOpen}
+        onOpenChange={setErrorsDrawerOpen}
+        syncLogId={errorsSyncLogId}
+        errorCode={errorsCode}
+        onRefresh={loadData}
+      />
     </div>
   );
 }

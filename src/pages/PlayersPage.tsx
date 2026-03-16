@@ -7,14 +7,15 @@ import { StatCard } from "@/components/StatCard";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Users, AlertCircle, Camera, CameraOff, Heart, RefreshCw } from "lucide-react";
+import { Users, AlertCircle, Camera, CameraOff, Heart, RefreshCw, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import ImportErrorsDrawer from "@/components/booking-sync/ImportErrorsDrawer";
 
 interface PlayerRow {
   id: string;
   first_name: string;
   last_name: string;
-  date_of_birth: string;
+  date_of_birth: string | null;
   medical_notes: string | null;
   kit_size: string;
   photo_permission: boolean;
@@ -43,19 +44,24 @@ const PlayersPage = () => {
   const [camps, setCamps] = useState<CampRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [materializing, setMaterializing] = useState(false);
+  const [unmaterializedCount, setUnmaterializedCount] = useState(0);
+  const [errorsOpen, setErrorsOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
 
-    const { data: playersData } = await supabase
-      .from("players")
-      .select("id, first_name, last_name, date_of_birth, medical_notes, kit_size, photo_permission")
-      .order("last_name");
+    const [playersRes, unmatchedRes] = await Promise.all([
+      supabase.from("players").select("id, first_name, last_name, date_of_birth, medical_notes, kit_size, photo_permission").order("last_name"),
+      supabase.from("synced_bookings").select("id", { count: "exact", head: true }).is("matched_player_id", null),
+    ]);
 
-    const playerIds = (playersData || []).map(p => p.id);
-    setPlayers(playersData || []);
+    const playersData = playersRes.data || [];
+    setPlayers(playersData);
+    setUnmaterializedCount(unmatchedRes.count || 0);
 
-    // Fetch synced bookings only for loaded player IDs
+    const playerIds = playersData.map(p => p.id);
+
+    // Fetch synced bookings for loaded player IDs
     let allBookings: SyncedBookingRow[] = [];
     const BATCH = 100;
     for (let i = 0; i < playerIds.length; i += BATCH) {
@@ -68,15 +74,11 @@ const PlayersPage = () => {
     }
     setBookings(allBookings);
 
-    // Fetch camps for matched_camp_id
     const campIds = [...new Set(allBookings.filter(b => b.matched_camp_id).map(b => b.matched_camp_id!))];
     let allCamps: CampRow[] = [];
     for (let i = 0; i < campIds.length; i += BATCH) {
       const batch = campIds.slice(i, i + BATCH);
-      const { data } = await supabase
-        .from("camps")
-        .select("id, name")
-        .in("id", batch);
+      const { data } = await supabase.from("camps").select("id, name").in("id", batch);
       if (data) allCamps = allCamps.concat(data);
     }
     setCamps(allCamps);
@@ -104,10 +106,14 @@ const PlayersPage = () => {
       return;
     }
 
+    const failed = data?.failed || 0;
     toast({
       title: "Players materialised",
-      description: `Created: ${data.created}, Linked: ${data.linked}, Skipped: ${data.skipped}`,
+      description: `Created: ${data?.created || 0}, Linked: ${data?.linked || 0}, Skipped: ${data?.skipped || 0}${failed > 0 ? `, Failed: ${failed}` : ""}`,
     });
+    if (failed > 0) {
+      setErrorsOpen(true);
+    }
     load();
   };
 
@@ -122,15 +128,21 @@ const PlayersPage = () => {
           <h1>Players & Bookings</h1>
           <p>All registered players and their camp bookings</p>
         </div>
-        <Button onClick={handleMaterialize} disabled={materializing} variant="outline" size="sm">
-          <RefreshCw className={`h-4 w-4 mr-2 ${materializing ? "animate-spin" : ""}`} />
-          {materializing ? "Running…" : "Create/Update Players from Synced Bookings"}
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleMaterialize} disabled={materializing} variant="outline" size="sm">
+            <RefreshCw className={`h-4 w-4 mr-2 ${materializing ? "animate-spin" : ""}`} />
+            {materializing ? "Running…" : "Create/Update Players from Synced Bookings"}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setErrorsOpen(true)}>
+            <Eye className="h-4 w-4 mr-1.5" /> View Player Import Errors
+          </Button>
+        </div>
       </div>
 
       <div className="stat-grid">
         <StatCard title="Total Players" value={players.length} icon={Users} />
         <StatCard title="Total Bookings" value={bookings.length} icon={Users} description="Matched synced bookings" />
+        <StatCard title="Unmaterialized" value={unmaterializedCount} icon={AlertCircle} variant={unmaterializedCount > 0 ? "warning" : "default"} description="Bookings without a player" />
         <StatCard title="Medical Notes" value={medicalCount} icon={Heart} variant={medicalCount > 0 ? "warning" : "default"} />
         <StatCard title="Unpaid" value={unpaidCount} icon={AlertCircle} variant={unpaidCount > 0 ? "destructive" : "success"} />
       </div>
@@ -145,7 +157,7 @@ const PlayersPage = () => {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-semibold text-sm">{player.first_name} {player.last_name}</p>
-                    <p className="text-xs text-muted-foreground">DOB: {player.date_of_birth} • Kit: {player.kit_size}</p>
+                    <p className="text-xs text-muted-foreground">DOB: {player.date_of_birth || "N/A"} • Kit: {player.kit_size}</p>
                   </div>
                   <div className="flex gap-1">
                     {player.medical_notes && (
@@ -199,7 +211,7 @@ const PlayersPage = () => {
                 return (
                   <TableRow key={player.id}>
                     <TableCell className="font-medium text-sm">{player.first_name} {player.last_name}</TableCell>
-                    <TableCell className="text-sm">{player.date_of_birth}</TableCell>
+                    <TableCell className="text-sm">{player.date_of_birth || "N/A"}</TableCell>
                     <TableCell><Badge variant="secondary" className="text-xs">{player.kit_size}</Badge></TableCell>
                     <TableCell className="max-w-48">
                       {player.medical_notes ? (
@@ -252,6 +264,13 @@ const PlayersPage = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <ImportErrorsDrawer
+        open={errorsOpen}
+        onOpenChange={setErrorsOpen}
+        errorCode="materialize_players"
+        onRefresh={load}
+      />
     </div>
   );
 };

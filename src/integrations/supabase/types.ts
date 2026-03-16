@@ -645,6 +645,53 @@ export type Database = {
           },
         ]
       }
+      import_errors: {
+        Row: {
+          camp_name: string | null
+          child_first_name: string | null
+          child_last_name: string | null
+          created_at: string
+          error_code: string | null
+          error_message: string
+          external_booking_id: string | null
+          id: string
+          raw_row_json: Json | null
+          sync_log_id: string | null
+        }
+        Insert: {
+          camp_name?: string | null
+          child_first_name?: string | null
+          child_last_name?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message: string
+          external_booking_id?: string | null
+          id?: string
+          raw_row_json?: Json | null
+          sync_log_id?: string | null
+        }
+        Update: {
+          camp_name?: string | null
+          child_first_name?: string | null
+          child_last_name?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string
+          external_booking_id?: string | null
+          id?: string
+          raw_row_json?: Json | null
+          sync_log_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_errors_sync_log_id_fkey"
+            columns: ["sync_log_id"]
+            isOneToOne: false
+            referencedRelation: "sync_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           category: string

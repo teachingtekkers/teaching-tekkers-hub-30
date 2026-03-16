@@ -36,11 +36,9 @@ Deno.serve(async (req) => {
 
     if (playersErr) throw playersErr;
 
-    // Build lookup maps with multiple strategies
-    // Key strategy 1: first+last+dob
+    // Build lookup maps
     const mapByDob = new Map<string, string>();
-    // Key strategy 2: first+last+email (no map since we don't store email on players, but we track via booking)
-    const mapByName = new Map<string, string>(); // first+last only (weakest)
+    const mapByName = new Map<string, string>();
 
     for (const p of existingPlayers || []) {
       const fn = norm(p.first_name);
@@ -48,14 +46,13 @@ Deno.serve(async (req) => {
       if (p.date_of_birth) {
         mapByDob.set(`${fn}|${ln}|${p.date_of_birth}`, p.id);
       }
-      // Store first match by name (used as fallback)
       const nameKey = `${fn}|${ln}`;
       if (!mapByName.has(nameKey)) {
         mapByName.set(nameKey, p.id);
       }
     }
 
-    // Also build email->player map from previously linked bookings
+    // Build email/phone maps from previously linked bookings
     const mapByEmail = new Map<string, string>();
     const mapByPhone = new Map<string, string>();
     for (const b of bookings || []) {
@@ -76,7 +73,7 @@ Deno.serve(async (req) => {
     let created = 0;
     let linked = 0;
     let skipped = 0;
-    const failedRows: { name: string; reason: string }[] = [];
+    const failedRows: { name: string; reason: string; booking: unknown }[] = [];
 
     for (const b of bookings || []) {
       const firstName = (b.child_first_name || "").trim();
@@ -118,7 +115,7 @@ Deno.serve(async (req) => {
           .insert({
             first_name: firstName,
             last_name: lastName,
-            date_of_birth: dob, // nullable now
+            date_of_birth: dob,
             kit_size: b.kit_size || "M",
             medical_notes: medNotes,
             photo_permission: photoPermission,
@@ -127,12 +124,11 @@ Deno.serve(async (req) => {
           .single();
 
         if (insertErr) {
-          failedRows.push({ name: `${firstName} ${lastName}`, reason: insertErr.message });
+          failedRows.push({ name: `${firstName} ${lastName}`, reason: insertErr.message, booking: b });
           continue;
         }
 
         playerId = newPlayer.id;
-        // Add to maps for subsequent bookings
         if (dob) mapByDob.set(`${fn}|${ln}|${dob}`, playerId);
         mapByName.set(`${fn}|${ln}`, playerId);
         if (b.parent_email) mapByEmail.set(`${fn}|${ln}|${norm(b.parent_email)}`, playerId);
@@ -148,21 +144,36 @@ Deno.serve(async (req) => {
           .eq("id", b.id);
 
         if (updateErr) {
-          failedRows.push({ name: `${firstName} ${lastName}`, reason: `Link: ${updateErr.message}` });
+          failedRows.push({ name: `${firstName} ${lastName}`, reason: `Link: ${updateErr.message}`, booking: b });
         } else {
           linked++;
         }
       }
     }
 
+    // Write failures to import_errors table
+    if (failedRows.length > 0) {
+      const errorInserts = failedRows.map(f => ({
+        error_code: "materialize_players",
+        error_message: f.reason,
+        child_first_name: (f.booking as any)?.child_first_name || null,
+        child_last_name: (f.booking as any)?.child_last_name || null,
+        camp_name: (f.booking as any)?.camp_name || null,
+        external_booking_id: (f.booking as any)?.external_booking_id || null,
+        raw_row_json: f.booking,
+      }));
+      await supabase.from("import_errors").insert(errorInserts);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
+        processed: (bookings || []).length,
         created,
         linked,
         skipped,
         failed: failedRows.length,
-        failed_rows: failedRows.slice(0, 20),
+        failed_rows: failedRows.slice(0, 20).map(f => ({ name: f.name, reason: f.reason })),
         total: (bookings || []).length,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
