@@ -140,6 +140,34 @@ export default function PlayersPage() {
   const campMap = useMemo(() => new Map(camps.map((camp) => [camp.id, camp.name])), [camps]);
   const getPlayerBookings = useCallback((playerId: string) => bookings.filter((booking) => booking.matched_player_id === playerId), [bookings]);
 
+  // Derive finance-based counts from loaded bookings
+  const financeCounts = useMemo(() => {
+    let paid = 0, partial = 0, unpaid = 0;
+    for (const b of bookings) {
+      const s = derivePaymentStatus(b).status;
+      if (s === "Paid") paid++;
+      else if (s === "Partial") partial++;
+      else if (s === "Pending") unpaid++;
+    }
+    return { paid, partial, unpaid };
+  }, [bookings]);
+
+  // Build a set of player IDs per payment category for filtering
+  const playerIdsByPayment = useMemo(() => {
+    const paid = new Set<string>();
+    const partial = new Set<string>();
+    const unpaid = new Set<string>();
+    for (const b of bookings) {
+      const pid = b.matched_player_id;
+      if (!pid) continue;
+      const s = derivePaymentStatus(b).status;
+      if (s === "Paid") paid.add(pid);
+      if (s === "Partial") partial.add(pid);
+      if (s === "Pending") unpaid.add(pid);
+    }
+    return { paid, partial, unpaid };
+  }, [bookings]);
+
   const visiblePlayers = useMemo(() => {
     let list = players;
     if (showOnlyUnmaterialized) return [];
@@ -151,8 +179,11 @@ export default function PlayersPage() {
         player.medical_notes?.toLowerCase().includes(q),
       );
     }
+    if (paymentFilter === "paid") list = list.filter((p) => playerIdsByPayment.paid.has(p.id));
+    else if (paymentFilter === "partial") list = list.filter((p) => playerIdsByPayment.partial.has(p.id));
+    else if (paymentFilter === "unpaid") list = list.filter((p) => playerIdsByPayment.unpaid.has(p.id));
     return list;
-  }, [players, search, showOnlyUnmaterialized]);
+  }, [players, search, showOnlyUnmaterialized, paymentFilter, playerIdsByPayment]);
 
   const runMaterialize = async (failedOnly = false) => {
     setMaterializing(true);
