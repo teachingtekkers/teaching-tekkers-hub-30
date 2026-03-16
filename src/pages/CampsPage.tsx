@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,9 @@ import {
 import {
   ToggleGroup, ToggleGroupItem,
 } from "@/components/ui/toggle-group";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Plus, MapPin, Calendar, Tent, Users, FileText, Check, Trash2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -33,6 +36,12 @@ interface CampRow {
   participant_count?: number;
   status?: string;
   is_auto_created?: boolean;
+  club_id?: string | null;
+}
+
+interface ClubOption {
+  id: string;
+  name: string;
 }
 
 const CampsPage = () => {
@@ -47,25 +56,28 @@ const CampsPage = () => {
   const [deleteDraftsConfirm, setDeleteDraftsConfirm] = useState("");
   const [deletingDrafts, setDeletingDrafts] = useState(false);
   const [form, setForm] = useState({
-    name: "", club_name: "", venue: "", county: "",
+    name: "", club_name: "", club_id: "", venue: "", county: "",
     start_date: "", end_date: "", daily_start_time: "10:00", daily_end_time: "15:00",
     age_group: "", capacity: "", price_per_child: "",
   });
+  const [clubOptions, setClubOptions] = useState<ClubOption[]>([]);
 
   const loadCamps = useCallback(async () => {
     setLoading(true);
-    const { data: campsData, error: campsErr } = await supabase
-      .from("camps")
-      .select("id, name, club_name, venue, county, start_date, end_date, age_group, capacity, price_per_child, status, is_auto_created")
-      .order("start_date", { ascending: false });
+    const [campsResult, clubsResult] = await Promise.all([
+      supabase.from("camps")
+        .select("id, name, club_name, club_id, venue, county, start_date, end_date, age_group, capacity, price_per_child, status, is_auto_created")
+        .order("start_date", { ascending: false }),
+      supabase.from("clubs").select("id, name").order("name"),
+    ]);
 
-    if (campsErr) console.error("[Camps] Camps fetch error:", campsErr);
+    if (campsResult.error) console.error("[Camps] Camps fetch error:", campsResult.error);
+    setClubOptions((clubsResult.data || []) as ClubOption[]);
 
-    if (campsData) {
-      const campIds = campsData.map((c: any) => c.id);
+    if (campsResult.data) {
+      const campIds = campsResult.data.map((c: any) => c.id);
       const countMap: Record<string, number> = {};
 
-      // Query in batches of 100 camp IDs to avoid overly large IN clauses
       const BATCH = 100;
       for (let i = 0; i < campIds.length; i += BATCH) {
         const batch = campIds.slice(i, i + BATCH);
@@ -78,7 +90,7 @@ const CampsPage = () => {
         });
       }
 
-      setCamps(campsData.map(c => ({ ...c, participant_count: countMap[c.id] || 0 })) as CampRow[]);
+      setCamps(campsResult.data.map(c => ({ ...c, participant_count: countMap[c.id] || 0 })) as CampRow[]);
     }
     setLoading(false);
   }, []);
@@ -87,15 +99,19 @@ const CampsPage = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    const clubId = form.club_id || null;
+    const clubName = clubId
+      ? clubOptions.find(c => c.id === clubId)?.name || form.club_name
+      : form.club_name;
     const { error } = await supabase.from("camps").insert({
-      name: form.name, club_name: form.club_name, venue: form.venue, county: form.county,
+      name: form.name, club_name: clubName, club_id: clubId, venue: form.venue, county: form.county,
       start_date: form.start_date, end_date: form.end_date,
       daily_start_time: form.daily_start_time, daily_end_time: form.daily_end_time,
       age_group: form.age_group, capacity: Number(form.capacity), price_per_child: Number(form.price_per_child),
-    });
+    } as any);
     if (!error) {
       setOpen(false);
-      setForm({ name: "", club_name: "", venue: "", county: "", start_date: "", end_date: "", daily_start_time: "10:00", daily_end_time: "15:00", age_group: "", capacity: "", price_per_child: "" });
+      setForm({ name: "", club_name: "", club_id: "", venue: "", county: "", start_date: "", end_date: "", daily_start_time: "10:00", daily_end_time: "15:00", age_group: "", capacity: "", price_per_child: "" });
       loadCamps();
     }
   };
@@ -170,7 +186,19 @@ const CampsPage = () => {
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1"><Label>Camp Name</Label><Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} required /></div>
-                <div className="space-y-1"><Label>Club Name</Label><Input value={form.club_name} onChange={e => setForm({...form, club_name: e.target.value})} required /></div>
+                <div className="space-y-1">
+                  <Label>Club</Label>
+                  <Select value={form.club_id} onValueChange={(v) => {
+                    const club = clubOptions.find(c => c.id === v);
+                    setForm({ ...form, club_id: v, club_name: club?.name || form.club_name });
+                  }}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Select club…" /></SelectTrigger>
+                    <SelectContent>
+                      {clubOptions.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1"><Label>Club Name (legacy)</Label><Input value={form.club_name} onChange={e => setForm({...form, club_name: e.target.value})} placeholder="Or type if no club" /></div>
                 <div className="space-y-1"><Label>Venue</Label><Input value={form.venue} onChange={e => setForm({...form, venue: e.target.value})} required /></div>
                 <div className="space-y-1"><Label>County</Label><Input value={form.county} onChange={e => setForm({...form, county: e.target.value})} required /></div>
                 <div className="space-y-1"><Label>Start Date</Label><Input type="date" value={form.start_date} onChange={e => setForm({...form, start_date: e.target.value})} required /></div>

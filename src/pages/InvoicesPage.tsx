@@ -20,10 +20,15 @@ import { cn } from "@/lib/utils";
 
 // ---- Types ----
 
+interface ClubRef {
+  id: string;
+  name: string;
+}
+
 interface InvoiceRow {
   id: string;
   camp_id: string;
-  club_name: string;
+  club_name: string;       // legacy from club_invoices
   attendance_count: number;
   rate_per_child: number;
   total_amount: number;
@@ -34,12 +39,15 @@ interface InvoiceRow {
   camp_name?: string;
   camp_start?: string;
   camp_end?: string;
+  resolved_club_name?: string;  // from clubs table via camp.club_id
+  resolved_club_id?: string | null;
 }
 
 interface CampRow {
   id: string;
   name: string;
   club_name: string;
+  club_id: string | null;
   start_date: string;
   end_date: string;
 }
@@ -61,12 +69,15 @@ const InvoicesPage = () => {
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
 
-  // Load invoices and camps
+  const [clubs, setClubs] = useState<ClubRef[]>([]);
+
+  // Load invoices, camps, and clubs
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [invoicesRes, campsRes] = await Promise.all([
+    const [invoicesRes, campsRes, clubsRes] = await Promise.all([
       supabase.from("club_invoices").select("*").order("created_at", { ascending: false }),
-      supabase.from("camps").select("id, name, club_name, start_date, end_date").order("start_date", { ascending: false }),
+      supabase.from("camps").select("id, name, club_name, club_id, start_date, end_date").order("start_date", { ascending: false }),
+      supabase.from("clubs").select("id, name").order("name"),
     ]);
 
     if (invoicesRes.error || campsRes.error) {
@@ -75,14 +86,26 @@ const InvoicesPage = () => {
       return;
     }
 
-    const campMap = new Map((campsRes.data || []).map((c: CampRow) => [c.id, c]));
+    const clubsList = (clubsRes.data || []) as ClubRef[];
+    setClubs(clubsList);
+    const clubMap = new Map(clubsList.map(cl => [cl.id, cl.name]));
+    const campMap = new Map((campsRes.data || []).map((c: any) => [c.id, c]));
+
     const enriched = (invoicesRes.data || []).map((inv: any) => {
       const camp = campMap.get(inv.camp_id);
-      return { ...inv, camp_name: camp?.name || "Unknown", camp_start: camp?.start_date, camp_end: camp?.end_date };
+      const resolvedClubName = camp?.club_id ? (clubMap.get(camp.club_id) || camp?.club_name || "Unknown") : (camp?.club_name || "Unassigned");
+      return {
+        ...inv,
+        camp_name: camp?.name || "Unknown",
+        camp_start: camp?.start_date,
+        camp_end: camp?.end_date,
+        resolved_club_name: resolvedClubName,
+        resolved_club_id: camp?.club_id || null,
+      };
     });
 
     setInvoices(enriched);
-    setCamps(campsRes.data || []);
+    setCamps((campsRes.data || []) as CampRow[]);
     setLoading(false);
   }, [toast]);
 
@@ -208,10 +231,14 @@ const InvoicesPage = () => {
   const clubGroups = useMemo(() => {
     const map = new Map<string, InvoiceRow[]>();
     filteredInvoices.forEach(inv => {
-      if (!map.has(inv.club_name)) map.set(inv.club_name, []);
-      map.get(inv.club_name)!.push(inv);
+      const key = inv.resolved_club_id || `legacy_${inv.resolved_club_name || inv.club_name}`;
+      const name = inv.resolved_club_name || inv.club_name;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(inv);
     });
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+    return Array.from(map.entries())
+      .map(([key, invs]) => [invs[0].resolved_club_name || invs[0].club_name, invs] as [string, InvoiceRow[]])
+      .sort(([a], [b]) => a.localeCompare(b));
   }, [filteredInvoices]);
 
   const totalAll = filteredInvoices.reduce((s, i) => s + getEffective(i), 0);
@@ -242,7 +269,7 @@ const InvoicesPage = () => {
   );
 
   const exportRows = (rows: InvoiceRow[]) => rows.map(inv => ({
-    clubName: inv.club_name,
+    clubName: inv.resolved_club_name || inv.club_name,
     campName: inv.camp_name || "",
     attendance: inv.attendance_count,
     rate: inv.rate_per_child,
@@ -378,7 +405,20 @@ const InvoicesPage = () => {
                 <TableBody>
                   {weekInvoices.map(inv => (
                     <TableRow key={inv.id}>
-                      <TableCell className="font-medium">{inv.club_name}</TableCell>
+                      <TableCell className="font-medium">
+                        {inv.resolved_club_name || "Unassigned"}
+                        {!inv.resolved_club_id && (
+                          <Select onValueChange={async (clubId) => {
+                            await supabase.from("camps").update({ club_id: clubId } as any).eq("id", inv.camp_id);
+                            loadData();
+                          }}>
+                            <SelectTrigger className="h-6 w-[130px] text-[10px] mt-0.5"><SelectValue placeholder="Assign club…" /></SelectTrigger>
+                            <SelectContent>
+                              {clubs.map(cl => <SelectItem key={cl.id} value={cl.id}>{cl.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm">{inv.camp_name}</TableCell>
                       <TableCell className="text-center">{inv.attendance_count}</TableCell>
                       <TableCell className="text-right">

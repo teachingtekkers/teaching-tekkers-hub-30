@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Tent, Users, UserCog, ClipboardCheck, Trophy, LogOut,
   CalendarClock, DollarSign, FileText, Swords, BookOpen, BarChart3,
-  Briefcase, CreditCard, Calendar, FileCheck, ShieldCheck, CloudDownload, Database,
+  Briefcase, CreditCard, Calendar, FileCheck, ShieldCheck, CloudDownload, Database, Building2,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -21,6 +21,7 @@ const seasonalCampsItems = [
   { title: "Payroll", url: "/payroll", icon: DollarSign },
   { title: "Club Payments", url: "/invoices", icon: FileText },
   { title: "Reports", url: "/reports", icon: BarChart3 },
+  { title: "Clubs", url: "/clubs", icon: Building2 },
   { title: "Booking Sync", url: "/booking-sync", icon: CloudDownload },
 ];
 
