@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, RotateCcw, AlertCircle } from "lucide-react";
+import { Search, RotateCcw, AlertCircle, Wrench } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ImportError {
@@ -28,6 +28,33 @@ interface ImportErrorsDrawerProps {
   errorCode?: string | null;
   expectedFailedCount?: number;
   onRefresh?: () => void;
+}
+
+/** Fix DD/MM/YYYY → YYYY-MM-DD in date fields of a raw booking object */
+function fixDatesInBooking(raw: Record<string, unknown>): Record<string, unknown> {
+  const fixed = { ...raw };
+  const dateFields = ["date_of_birth", "booking_date", "camp_date"];
+  for (const field of dateFields) {
+    const val = fixed[field];
+    if (val == null || typeof val !== "string") continue;
+    const s = String(val).trim();
+    // DD/MM/YYYY or DD-MM-YYYY → YYYY-MM-DD
+    const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (dmy) {
+      fixed[field] = `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
+    }
+  }
+  return fixed;
+}
+
+function isDateError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return lower.includes("invalid time value") || lower.includes("invalid date") || lower.includes("date");
+}
+
+function isDuplicateError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return lower.includes("duplicate") || lower.includes("unique") || lower.includes("conflict") || lower.includes("already exists");
 }
 
 export default function ImportErrorsDrawer({ open, onOpenChange, syncLogId, errorCode, expectedFailedCount, onRefresh }: ImportErrorsDrawerProps) {
@@ -60,22 +87,28 @@ export default function ImportErrorsDrawer({ open, onOpenChange, syncLogId, erro
     );
   }, [errors, search]);
 
-  const handleRetry = async (err: ImportError) => {
+  const retryBooking = async (rawJson: unknown, fixDates: boolean) => {
+    let booking = rawJson as Record<string, unknown>;
+    if (fixDates) booking = fixDatesInBooking(booking);
+    const { data, error } = await supabase.functions.invoke("booking-intake", {
+      body: { bookings: [booking] },
+    });
+    if (error) throw error;
+    return data;
+  };
+
+  const handleRetry = async (err: ImportError, fixDates = false) => {
     if (!err.raw_row_json) return;
     setRetrying(err.id);
     try {
-      const { data, error } = await supabase.functions.invoke("booking-intake", {
-        body: { bookings: [err.raw_row_json] },
-      });
-      if (error) throw error;
+      const data = await retryBooking(err.raw_row_json, fixDates);
+      const f = data?.summary?.failed || 0;
       toast({
-        title: "Retry complete",
-        description: `Created: ${data?.summary?.created || 0}, Updated: ${data?.summary?.updated || 0}, Failed: ${data?.summary?.failed || 0}`,
+        title: fixDates ? "Fixed dates & retried" : "Retry complete",
+        description: `Created: ${data?.summary?.created || 0}, Failed: ${f}`,
       });
-      // Remove from list on success
-      if (data?.summary?.failed === 0) {
+      if (f === 0) {
         setErrors(prev => prev.filter(e => e.id !== err.id));
-        // Delete the error row
         await supabase.from("import_errors").delete().eq("id", err.id);
       }
       onRefresh?.();
@@ -90,29 +123,74 @@ export default function ImportErrorsDrawer({ open, onOpenChange, syncLogId, erro
     const rowsWithData = errors.filter(e => e.raw_row_json);
     if (rowsWithData.length === 0) return;
     setRetrying("all");
-    try {
-      const { data, error } = await supabase.functions.invoke("booking-intake", {
-        body: { bookings: rowsWithData.map(e => e.raw_row_json) },
-      });
-      if (error) throw error;
-      toast({
-        title: "Retry all complete",
-        description: `Created: ${data?.summary?.created || 0}, Updated: ${data?.summary?.updated || 0}, Failed: ${data?.summary?.failed || 0}`,
-      });
-      // Clear successfully retried errors
-      if (data?.summary?.failed === 0) {
-        const ids = rowsWithData.map(e => e.id);
-        for (let i = 0; i < ids.length; i += 50) {
-          await supabase.from("import_errors").delete().in("id", ids.slice(i, i + 50));
+    let succeeded = 0;
+    let failedCount = 0;
+    const succeededIds: string[] = [];
+
+    // Process each error with appropriate fix
+    for (const err of rowsWithData) {
+      try {
+        const needsDateFix = isDateError(err.error_message);
+        const data = await retryBooking(err.raw_row_json, needsDateFix);
+        if ((data?.summary?.failed || 0) === 0) {
+          succeeded++;
+          succeededIds.push(err.id);
+        } else {
+          failedCount++;
         }
-        setErrors(prev => prev.filter(e => !ids.includes(e.id)));
+      } catch {
+        failedCount++;
       }
-      onRefresh?.();
-    } catch (e: any) {
-      toast({ title: "Retry all failed", description: e.message, variant: "destructive" });
-    } finally {
-      setRetrying(null);
     }
+
+    // Clean up succeeded error rows
+    if (succeededIds.length > 0) {
+      for (let i = 0; i < succeededIds.length; i += 50) {
+        await supabase.from("import_errors").delete().in("id", succeededIds.slice(i, i + 50));
+      }
+      setErrors(prev => prev.filter(e => !succeededIds.includes(e.id)));
+    }
+
+    toast({
+      title: "Retry all complete",
+      description: `Succeeded: ${succeeded}, Remaining: ${failedCount}`,
+    });
+    onRefresh?.();
+    setRetrying(null);
+  };
+
+  const getRowActions = (err: ImportError) => {
+    if (!err.raw_row_json) return null;
+    const hasDateErr = isDateError(err.error_message);
+    const hasDupErr = isDuplicateError(err.error_message);
+
+    return (
+      <div className="flex gap-1">
+        {hasDateErr && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleRetry(err, true)}
+            disabled={retrying === err.id}
+            className="h-7 px-2 text-xs"
+            title="Fix DD/MM/YYYY dates and retry"
+          >
+            <Wrench className={`h-3 w-3 mr-1 ${retrying === err.id ? "animate-spin" : ""}`} />
+            Fix dates
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => handleRetry(err, false)}
+          disabled={retrying === err.id}
+          className="h-7 px-2 text-xs"
+          title={hasDupErr ? "Retry with upsert (should succeed now)" : "Retry this booking"}
+        >
+          <RotateCcw className={`h-3 w-3 ${retrying === err.id ? "animate-spin" : ""}`} />
+        </Button>
+      </div>
+    );
   };
 
   return (
@@ -159,7 +237,7 @@ export default function ImportErrorsDrawer({ open, onOpenChange, syncLogId, erro
                     <TableHead>Child</TableHead>
                     <TableHead>Camp</TableHead>
                     <TableHead>Error</TableHead>
-                    <TableHead className="w-20">Action</TableHead>
+                    <TableHead className="w-28">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -177,17 +255,7 @@ export default function ImportErrorsDrawer({ open, onOpenChange, syncLogId, erro
                         <span className="text-xs text-muted-foreground">{err.error_message}</span>
                       </TableCell>
                       <TableCell>
-                        {err.raw_row_json && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleRetry(err)}
-                            disabled={retrying === err.id}
-                            className="h-7 px-2"
-                          >
-                            <RotateCcw className={`h-3 w-3 ${retrying === err.id ? "animate-spin" : ""}`} />
-                          </Button>
-                        )}
+                        {getRowActions(err)}
                       </TableCell>
                     </TableRow>
                   ))}

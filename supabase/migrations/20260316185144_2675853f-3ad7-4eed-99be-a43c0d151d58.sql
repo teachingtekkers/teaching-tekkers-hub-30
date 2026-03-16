@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS synced_bookings_ext_id_source_uniq ON public.synced_bookings (external_booking_id, source_system) WHERE external_booking_id IS NOT NULL;
