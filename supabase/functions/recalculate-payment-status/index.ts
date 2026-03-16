@@ -17,69 +17,11 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Fetch all synced_bookings with finance fields
-    const PAGE = 1000;
-    let allRows: any[] = [];
-    let offset = 0;
-    while (true) {
-      const { data, error } = await supabase
-        .from("synced_bookings")
-        .select("id, total_amount, sibling_discount, amount_paid, refund_amount, payment_status, amount_owed")
-        .range(offset, offset + PAGE - 1);
-      if (error) throw error;
-      if (!data || data.length === 0) break;
-      allRows = allRows.concat(data);
-      if (data.length < PAGE) break;
-      offset += PAGE;
-    }
+    // Call the DB function that does a single UPDATE across all rows
+    const { data, error } = await supabase.rpc("recalculate_payment_statuses");
+    if (error) throw error;
 
-    const counts = { paid: 0, pending: 0, partial: 0, refunded: 0, total: allRows.length, changed: 0 };
-
-    const BATCH = 50;
-    for (let i = 0; i < allRows.length; i += BATCH) {
-      const batch = allRows.slice(i, i + BATCH);
-      const updates: Promise<any>[] = [];
-
-      for (const row of batch) {
-        const totalAmount = Number(row.total_amount) || 0;
-        const siblingDiscount = Number(row.sibling_discount) || 0;
-        const amountPaid = Number(row.amount_paid) || 0;
-        const refundAmount = Number(row.refund_amount) || 0;
-
-        const totalCost = Math.max(0, totalAmount - siblingDiscount);
-        const owed = Math.max(0, totalCost - amountPaid - refundAmount);
-
-        let newStatus: string;
-        if (refundAmount > 0 && amountPaid <= 0) {
-          newStatus = "refunded";
-        } else if (owed <= 0 && totalCost > 0) {
-          newStatus = "paid";
-        } else if (amountPaid > 0 && owed > 0) {
-          newStatus = "partial";
-        } else {
-          newStatus = "pending";
-        }
-
-        counts[newStatus as keyof typeof counts] = (counts[newStatus as keyof typeof counts] as number) + 1;
-
-        if (row.payment_status !== newStatus || Number(row.amount_owed) !== owed) {
-          counts.changed++;
-          updates.push(
-            supabase
-              .from("synced_bookings")
-              .update({ payment_status: newStatus, amount_owed: owed })
-              .eq("id", row.id)
-              .then(({ error }) => {
-                if (error) console.error(`Failed to update ${row.id}:`, error.message);
-              }),
-          );
-        }
-      }
-
-      await Promise.all(updates);
-    }
-
-    return new Response(JSON.stringify({ success: true, counts }), {
+    return new Response(JSON.stringify({ success: true, counts: data }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
