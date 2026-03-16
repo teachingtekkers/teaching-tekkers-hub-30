@@ -729,7 +729,7 @@ export type Database = {
       players: {
         Row: {
           created_at: string
-          date_of_birth: string
+          date_of_birth: string | null
           first_name: string
           id: string
           kit_size: string
@@ -739,7 +739,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          date_of_birth: string
+          date_of_birth?: string | null
           first_name: string
           id?: string
           kit_size?: string
@@ -749,7 +749,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          date_of_birth?: string
+          date_of_birth?: string | null
           first_name?: string
           id?: string
           kit_size?: string
