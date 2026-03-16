@@ -72,6 +72,9 @@ export default function BookingSyncPage() {
   const [repairing, setRepairing] = useState(false);
   const [repairResult, setRepairResult] = useState<any>(null);
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetting, setResetting] = useState(false);
   const { toast } = useToast();
 
   const loadData = useCallback(async () => {
