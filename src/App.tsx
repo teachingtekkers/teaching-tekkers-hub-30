@@ -23,6 +23,7 @@ import InvoicesPage from "./pages/InvoicesPage";
 import ReportsPage from "./pages/ReportsPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import BookingSyncPage from "./pages/BookingSyncPage";
+import DatabaseDiagnosticsPage from "./pages/DatabaseDiagnosticsPage";
 
 // Admin: Private Coaching
 import PrivateDashboardPage from "./pages/private/PrivateDashboardPage";
@@ -80,6 +81,7 @@ const App = () => (
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/booking-sync" element={<BookingSyncPage />} />
               <Route path="/users" element={<UserManagementPage />} />
+              <Route path="/diagnostics" element={<DatabaseDiagnosticsPage />} />
               <Route path="/private/dashboard" element={<PrivateDashboardPage />} />
               <Route path="/private/sessions" element={<PrivateSessionsPage />} />
               <Route path="/private/bookings" element={<PrivateBookingsPage />} />

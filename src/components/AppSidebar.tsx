@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Tent, Users, UserCog, ClipboardCheck, Trophy, LogOut,
   CalendarClock, DollarSign, FileText, Swords, BookOpen, BarChart3,
-  Briefcase, CreditCard, Calendar, FileCheck, ShieldCheck, CloudDownload,
+  Briefcase, CreditCard, Calendar, FileCheck, ShieldCheck, CloudDownload, Database,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -35,6 +35,7 @@ const privateCoachingItems = [
 /* ── Admin: System ── */
 const systemItems = [
   { title: "User Management", url: "/users", icon: ShieldCheck },
+  { title: "DB Diagnostics", url: "/diagnostics", icon: Database },
 ];
 
 /* ── Head Coach ── */
