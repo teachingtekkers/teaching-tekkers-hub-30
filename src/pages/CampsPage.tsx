@@ -185,7 +185,41 @@ const CampsPage = () => {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      {/* Delete Draft Camps Dialog */}
+      <Dialog open={deleteDraftsOpen} onOpenChange={setDeleteDraftsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> Delete Auto-Created Draft Camps
+            </DialogTitle>
+            <DialogDescription>
+              This will delete all <strong>{draftCount} auto-created draft camps</strong> and unlink their synced bookings. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <p className="text-sm text-muted-foreground">Type <strong>DELETE</strong> to confirm:</p>
+            <Input
+              value={deleteDraftsConfirm}
+              onChange={(e) => setDeleteDraftsConfirm(e.target.value)}
+              placeholder="Type DELETE"
+              className="font-mono"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeleteDraftsOpen(false)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                disabled={deleteDraftsConfirm !== "DELETE" || deletingDrafts}
+                onClick={handleDeleteDrafts}
+              >
+                {deletingDrafts ? "Deleting…" : "Confirm Delete"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="stat-grid">
         <StatCard title="Total Camps" value={camps.length} icon={Tent} />
