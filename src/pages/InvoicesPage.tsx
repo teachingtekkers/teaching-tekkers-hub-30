@@ -231,10 +231,14 @@ const InvoicesPage = () => {
   const clubGroups = useMemo(() => {
     const map = new Map<string, InvoiceRow[]>();
     filteredInvoices.forEach(inv => {
-      if (!map.has(inv.club_name)) map.set(inv.club_name, []);
-      map.get(inv.club_name)!.push(inv);
+      const key = inv.resolved_club_id || `legacy_${inv.resolved_club_name || inv.club_name}`;
+      const name = inv.resolved_club_name || inv.club_name;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(inv);
     });
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+    return Array.from(map.entries())
+      .map(([key, invs]) => [invs[0].resolved_club_name || invs[0].club_name, invs] as [string, InvoiceRow[]])
+      .sort(([a], [b]) => a.localeCompare(b));
   }, [filteredInvoices]);
 
   const totalAll = filteredInvoices.reduce((s, i) => s + getEffective(i), 0);
