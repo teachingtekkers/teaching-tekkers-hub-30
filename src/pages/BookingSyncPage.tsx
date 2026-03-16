@@ -239,10 +239,11 @@ export default function BookingSyncPage() {
   }, [toast, loadData]);
 
   const lastSync = syncLogs[0];
-  const totalSynced = bookings.length;
-  const unmatched = bookings.filter(b => b.match_status === "unmatched" || b.match_status === "needs_review").length;
-  const duplicates = bookings.filter(b => b.duplicate_warning).length;
-  const unmaterialized = bookings.filter(b => !b.matched_player_id).length;
+  const totalSynced = dbCounts.total;
+  const unmatched = dbCounts.unmatched;
+  const duplicates = dbCounts.duplicates;
+  const unmaterialized = dbCounts.unmaterialized;
+  const hasMore = bookings.length < totalSynced;
 
   const filtered = useMemo(() => {
     let list = bookings;
