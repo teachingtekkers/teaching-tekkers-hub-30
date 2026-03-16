@@ -36,6 +36,12 @@ interface CampRow {
   participant_count?: number;
   status?: string;
   is_auto_created?: boolean;
+  club_id?: string | null;
+}
+
+interface ClubOption {
+  id: string;
+  name: string;
 }
 
 const CampsPage = () => {
