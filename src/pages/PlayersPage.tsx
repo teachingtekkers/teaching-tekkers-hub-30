@@ -326,11 +326,19 @@ export default function PlayersPage() {
                           {playerBookings.length === 0 ? (
                             <span className="text-xs text-muted-foreground">—</span>
                           ) : (
-                            playerBookings.map((booking) => (
-                              <Badge key={booking.id} variant={paymentVariant(booking.payment_status)} className="text-[10px]">
-                                {(booking.matched_camp_id && campMap.get(booking.matched_camp_id)) || booking.camp_name || "Unknown"} • {booking.payment_status || "pending"}
-                              </Badge>
-                            ))
+                            playerBookings.map((booking) => {
+                              const fin = derivePaymentStatus(booking);
+                              return (
+                                <div key={booking.id} className="inline-flex flex-col items-start">
+                                  <Badge variant={paymentVariant(fin.status.toLowerCase())} className="text-[10px]" title={`Paid: €${fin.paid} · Owed: €${fin.owed}`}>
+                                    {(booking.matched_camp_id && campMap.get(booking.matched_camp_id)) || booking.camp_name || "Unknown"} • {fin.status}
+                                  </Badge>
+                                  {fin.totalCost > 0 && (
+                                    <span className="text-[9px] text-muted-foreground ml-1">€{fin.paid} paid · €{fin.owed} owed</span>
+                                  )}
+                                </div>
+                              );
+                            })
                           )}
                         </div>
                       </TableCell>
