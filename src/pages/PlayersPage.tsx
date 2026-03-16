@@ -179,10 +179,10 @@ export default function PlayersPage() {
     try {
       const { data, error } = await supabase.functions.invoke("recalculate-payment-status");
       if (error) throw error;
-      const c = data?.counts || data;
+      const c = data?.counts;
       toast({
         title: "Payment status recalculated",
-        description: `${c?.changed || 0} updated — Paid: ${c?.paid || 0}, Pending: ${c?.pending || 0}, Partial: ${c?.partial || 0}, Refunded: ${c?.refunded || 0}`,
+        description: `${c?.updated || 0} rows updated — Paid: ${c?.paid || 0}, Pending: ${c?.pending || 0}, Partial: ${c?.partial || 0}, Refunded: ${c?.refunded || 0}`,
       });
       await load();
     } catch (err: unknown) {

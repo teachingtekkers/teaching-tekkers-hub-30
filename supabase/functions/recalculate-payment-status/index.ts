@@ -17,11 +17,13 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Call the DB function that does a single UPDATE across all rows
-    const { data, error } = await supabase.rpc("recalculate_payment_statuses");
+    const { data, error } = await supabase.rpc("recalculate_payment_status");
     if (error) throw error;
 
-    return new Response(JSON.stringify({ success: true, counts: data }), {
+    // RPC returns an array with one row
+    const row = Array.isArray(data) ? data[0] : data;
+
+    return new Response(JSON.stringify({ success: true, counts: row }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

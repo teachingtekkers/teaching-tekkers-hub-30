@@ -1266,7 +1266,16 @@ export type Database = {
         }
         Returns: boolean
       }
-      recalculate_payment_statuses: { Args: never; Returns: Json }
+      recalculate_payment_status: {
+        Args: never
+        Returns: {
+          paid: number
+          partial: number
+          pending: number
+          refunded: number
+          updated: number
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "head_coach"
