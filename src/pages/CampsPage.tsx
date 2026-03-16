@@ -64,18 +64,20 @@ const CampsPage = () => {
 
   const loadCamps = useCallback(async () => {
     setLoading(true);
-    const { data: campsData, error: campsErr } = await supabase
-      .from("camps")
-      .select("id, name, club_name, venue, county, start_date, end_date, age_group, capacity, price_per_child, status, is_auto_created")
-      .order("start_date", { ascending: false });
+    const [campsResult, clubsResult] = await Promise.all([
+      supabase.from("camps")
+        .select("id, name, club_name, club_id, venue, county, start_date, end_date, age_group, capacity, price_per_child, status, is_auto_created")
+        .order("start_date", { ascending: false }),
+      supabase.from("clubs").select("id, name").order("name"),
+    ]);
 
-    if (campsErr) console.error("[Camps] Camps fetch error:", campsErr);
+    if (campsResult.error) console.error("[Camps] Camps fetch error:", campsResult.error);
+    setClubOptions((clubsResult.data || []) as ClubOption[]);
 
-    if (campsData) {
-      const campIds = campsData.map((c: any) => c.id);
+    if (campsResult.data) {
+      const campIds = campsResult.data.map((c: any) => c.id);
       const countMap: Record<string, number> = {};
 
-      // Query in batches of 100 camp IDs to avoid overly large IN clauses
       const BATCH = 100;
       for (let i = 0; i < campIds.length; i += BATCH) {
         const batch = campIds.slice(i, i + BATCH);
@@ -88,7 +90,7 @@ const CampsPage = () => {
         });
       }
 
-      setCamps(campsData.map(c => ({ ...c, participant_count: countMap[c.id] || 0 })) as CampRow[]);
+      setCamps(campsResult.data.map(c => ({ ...c, participant_count: countMap[c.id] || 0 })) as CampRow[]);
     }
     setLoading(false);
   }, []);
