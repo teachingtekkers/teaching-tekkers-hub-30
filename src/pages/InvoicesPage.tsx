@@ -405,7 +405,20 @@ const InvoicesPage = () => {
                 <TableBody>
                   {weekInvoices.map(inv => (
                     <TableRow key={inv.id}>
-                      <TableCell className="font-medium">{inv.club_name}</TableCell>
+                      <TableCell className="font-medium">
+                        {inv.resolved_club_name || "Unassigned"}
+                        {!inv.resolved_club_id && (
+                          <Select onValueChange={async (clubId) => {
+                            await supabase.from("camps").update({ club_id: clubId } as any).eq("id", inv.camp_id);
+                            loadData();
+                          }}>
+                            <SelectTrigger className="h-6 w-[130px] text-[10px] mt-0.5"><SelectValue placeholder="Assign club…" /></SelectTrigger>
+                            <SelectContent>
+                              {clubs.map(cl => <SelectItem key={cl.id} value={cl.id}>{cl.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm">{inv.camp_name}</TableCell>
                       <TableCell className="text-center">{inv.attendance_count}</TableCell>
                       <TableCell className="text-right">
