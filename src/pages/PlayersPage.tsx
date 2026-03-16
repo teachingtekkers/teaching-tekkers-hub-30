@@ -293,7 +293,9 @@ export default function PlayersPage() {
         <StatCard title="Total Bookings" value={counts.totalBookings} icon={Users} description="Matched synced bookings" />
         <StatCard title="Unmaterialized" value={counts.unmaterialized} icon={AlertCircle} variant={counts.unmaterialized > 0 ? "warning" : "default"} />
         <StatCard title="Medical Notes" value={counts.medical} icon={Heart} variant={counts.medical > 0 ? "warning" : "default"} />
-        <StatCard title="Unpaid" value={counts.unpaid} icon={AlertCircle} variant={counts.unpaid > 0 ? "destructive" : "success"} />
+        <StatCard title="Paid" value={financeCounts.paid} icon={CheckCircle} variant="success" description="Bookings fully paid" />
+        <StatCard title="Partial" value={financeCounts.partial} icon={CircleDollarSign} variant="warning" description="Some amount paid" />
+        <StatCard title="Unpaid" value={financeCounts.unpaid} icon={CircleAlert} variant={financeCounts.unpaid > 0 ? "destructive" : "default"} description="No payment received" />
       </div>
 
       <div className="flex items-center gap-2">
