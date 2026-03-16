@@ -67,6 +67,7 @@ interface SyncLog {
 type BookingFilter = "all" | "unmatched" | "needs_review" | "failed";
 
 export default function BookingSyncPage() {
+  const [errorsExpectedCount, setErrorsExpectedCount] = useState(0);
   const [bookings, setBookings] = useState<SyncedBooking[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,18 +85,44 @@ export default function BookingSyncPage() {
   const [errorsDrawerOpen, setErrorsDrawerOpen] = useState(false);
   const [errorsSyncLogId, setErrorsSyncLogId] = useState<string | null>(null);
   const [errorsCode, setErrorsCode] = useState<string | null>(null);
+  const [pageOffset, setPageOffset] = useState(0);
+  const [dbCounts, setDbCounts] = useState({ total: 0, unmatched: 0, duplicates: 0, unmaterialized: 0 });
+  const PAGE_SIZE = 500;
   const { toast } = useToast();
 
-  const loadData = useCallback(async () => {
+  const loadCounts = useCallback(async () => {
+    const [totalRes, unmatchedRes, dupRes, unmatRes] = await Promise.all([
+      supabase.from("synced_bookings").select("id", { count: "exact", head: true }),
+      supabase.from("synced_bookings").select("id", { count: "exact", head: true }).eq("match_status", "unmatched"),
+      supabase.from("synced_bookings").select("id", { count: "exact", head: true }).eq("duplicate_warning", true),
+      supabase.from("synced_bookings").select("id", { count: "exact", head: true }).is("matched_player_id", null),
+    ]);
+    setDbCounts({
+      total: totalRes.count || 0,
+      unmatched: unmatchedRes.count || 0,
+      duplicates: dupRes.count || 0,
+      unmaterialized: unmatRes.count || 0,
+    });
+  }, []);
+
+  const loadData = useCallback(async (offset = 0) => {
     setLoading(true);
     const [bRes, lRes] = await Promise.all([
-      supabase.from("synced_bookings").select("*").order("imported_at", { ascending: false }).limit(500),
+      supabase.from("synced_bookings").select("*").order("imported_at", { ascending: false }).range(offset, offset + PAGE_SIZE - 1),
       supabase.from("sync_logs").select("*").order("sync_started_at", { ascending: false }).limit(50),
     ]);
-    if (bRes.data) setBookings(bRes.data as unknown as SyncedBooking[]);
+    if (bRes.data) {
+      if (offset === 0) {
+        setBookings(bRes.data as unknown as SyncedBooking[]);
+      } else {
+        setBookings(prev => [...prev, ...(bRes.data as unknown as SyncedBooking[])]);
+      }
+    }
     if (lRes.data) setSyncLogs(lRes.data as unknown as SyncLog[]);
+    setPageOffset(offset);
     setLoading(false);
-  }, []);
+    await loadCounts();
+  }, [loadCounts]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -213,10 +240,11 @@ export default function BookingSyncPage() {
   }, [toast, loadData]);
 
   const lastSync = syncLogs[0];
-  const totalSynced = bookings.length;
-  const unmatched = bookings.filter(b => b.match_status === "unmatched" || b.match_status === "needs_review").length;
-  const duplicates = bookings.filter(b => b.duplicate_warning).length;
-  const unmaterialized = bookings.filter(b => !b.matched_player_id).length;
+  const totalSynced = dbCounts.total;
+  const unmatched = dbCounts.unmatched;
+  const duplicates = dbCounts.duplicates;
+  const unmaterialized = dbCounts.unmaterialized;
+  const hasMore = bookings.length < totalSynced;
 
   const filtered = useMemo(() => {
     let list = bookings;
@@ -263,9 +291,10 @@ export default function BookingSyncPage() {
     return <Badge variant="secondary">{s || "—"}</Badge>;
   };
 
-  const openErrorsForLog = (logId: string) => {
+  const openErrorsForLog = (logId: string, failedCount: number) => {
     setErrorsSyncLogId(logId);
     setErrorsCode(null);
+    setErrorsExpectedCount(failedCount);
     setErrorsDrawerOpen(true);
   };
 
@@ -292,7 +321,7 @@ export default function BookingSyncPage() {
             <Wrench className={`h-4 w-4 mr-1.5 ${repairing ? "animate-spin" : ""}`} />
             {repairing ? "Repairing…" : "Repair All Links"}
           </Button>
-          <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => loadData(0)} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
@@ -466,7 +495,7 @@ export default function BookingSyncPage() {
                 </Button>
               ))}
             </div>
-            <Badge variant="secondary">{filtered.length} records</Badge>
+            <Badge variant="secondary">{filtered.length} of {totalSynced} records{hasMore ? " (showing latest)" : ""}</Badge>
           </div>
           <div className="rounded-lg border overflow-auto">
             <Table>
@@ -534,11 +563,23 @@ export default function BookingSyncPage() {
               </TableBody>
             </Table>
           </div>
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => loadData(bookings.length)}
+                disabled={loading}
+              >
+                {loading ? "Loading…" : `Load more (showing ${bookings.length} of ${totalSynced})`}
+              </Button>
+            </div>
+          )}
         </TabsContent>
 
         {/* Unmatched Queue Tab */}
         <TabsContent value="queue" className="space-y-4">
-          <UnmatchedQueue bookings={bookings as any} onRefresh={loadData} />
+          <UnmatchedQueue bookings={bookings as any} onRefresh={() => loadData(0)} />
         </TabsContent>
 
         {/* Diagnostics Tab */}
@@ -654,7 +695,7 @@ export default function BookingSyncPage() {
                           size="sm"
                           variant="ghost"
                           className="h-7 px-2 text-destructive"
-                          onClick={() => openErrorsForLog(l.id)}
+                          onClick={() => openErrorsForLog(l.id, l.records_failed)}
                         >
                           <Eye className="h-3.5 w-3.5 mr-1" />
                           View Errors
@@ -722,13 +763,14 @@ export default function BookingSyncPage() {
         </TabsContent>
       </Tabs>
 
-      <BookingImportDialog open={importOpen} onOpenChange={setImportOpen} onImportComplete={loadData} />
+      <BookingImportDialog open={importOpen} onOpenChange={setImportOpen} onImportComplete={() => loadData(0)} />
       <ImportErrorsDrawer
         open={errorsDrawerOpen}
         onOpenChange={setErrorsDrawerOpen}
         syncLogId={errorsSyncLogId}
         errorCode={errorsCode}
-        onRefresh={loadData}
+        expectedFailedCount={errorsExpectedCount}
+        onRefresh={() => loadData(0)}
       />
     </div>
   );

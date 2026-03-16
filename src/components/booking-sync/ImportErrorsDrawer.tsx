@@ -26,10 +26,11 @@ interface ImportErrorsDrawerProps {
   onOpenChange: (open: boolean) => void;
   syncLogId?: string | null;
   errorCode?: string | null;
+  expectedFailedCount?: number;
   onRefresh?: () => void;
 }
 
-export default function ImportErrorsDrawer({ open, onOpenChange, syncLogId, errorCode, onRefresh }: ImportErrorsDrawerProps) {
+export default function ImportErrorsDrawer({ open, onOpenChange, syncLogId, errorCode, expectedFailedCount, onRefresh }: ImportErrorsDrawerProps) {
   const [errors, setErrors] = useState<ImportError[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -142,7 +143,14 @@ export default function ImportErrorsDrawer({ open, onOpenChange, syncLogId, erro
           {loading ? (
             <p className="text-center text-muted-foreground py-8">Loading errors…</p>
           ) : filtered.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">No errors found</p>
+            <div className="text-center text-muted-foreground py-8 space-y-2">
+              <AlertCircle className="h-6 w-6 mx-auto opacity-40" />
+              {expectedFailedCount && expectedFailedCount > 0 ? (
+                <p className="text-sm">No error rows recorded for this sync run ({expectedFailedCount} failures reported).<br />Check booking-intake error logging.</p>
+              ) : (
+                <p className="text-sm">No errors found</p>
+              )}
+            </div>
           ) : (
             <div className="rounded-lg border overflow-auto">
               <Table>

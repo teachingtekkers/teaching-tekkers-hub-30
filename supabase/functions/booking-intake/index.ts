@@ -435,10 +435,8 @@ Deno.serve(async (req) => {
               delete record.match_reason;
             }
             updates.push({ id: existing.id, record });
-            updated++;
           } else {
             inserts.push(record);
-            created++;
           }
         } catch (e) {
           failed++;
@@ -459,13 +457,13 @@ Deno.serve(async (req) => {
           .from("synced_bookings")
           .insert(inserts);
         if (insertErr) {
-          let batchFailed = 0;
+          // Batch failed — fall back to row-by-row
           for (const row of inserts) {
             const { error: rowErr } = await supabase
               .from("synced_bookings")
               .insert(row);
             if (rowErr) {
-              batchFailed++;
+              failed++;
               errorRows.push({
                 external_booking_id: (row.external_booking_id as string) || null,
                 camp_name: (row.camp_name as string) || "",
@@ -475,10 +473,12 @@ Deno.serve(async (req) => {
                 error_message: rowErr.message,
                 raw_row_json: row,
               });
+            } else {
+              created++;
             }
           }
-          failed += batchFailed;
-          created -= batchFailed;
+        } else {
+          created += inserts.length;
         }
       }
 
@@ -489,7 +489,6 @@ Deno.serve(async (req) => {
           .eq("id", u.id);
         if (updateErr) {
           failed++;
-          updated--;
           errorRows.push({
             external_booking_id: (u.record.external_booking_id as string) || null,
             camp_name: (u.record.camp_name as string) || "",
@@ -499,6 +498,8 @@ Deno.serve(async (req) => {
             error_message: updateErr.message,
             raw_row_json: u.record,
           });
+        } else {
+          updated++;
         }
       }
     }
