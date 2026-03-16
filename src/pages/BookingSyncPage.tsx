@@ -257,6 +257,7 @@ export default function BookingSyncPage() {
     } finally {
       setRecalculating(false);
     }
+  }, [toast, loadData]);
 
   const lastSync = syncLogs[0];
   const totalSynced = dbCounts.total;
