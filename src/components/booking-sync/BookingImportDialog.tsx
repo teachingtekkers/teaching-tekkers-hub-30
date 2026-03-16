@@ -578,16 +578,27 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         {/* Step 3: Preview */}
         {step === "preview" && (() => {
           const previewRows = getMappedRows();
-          const missingIdCount = previewRows.filter(r => !r.external_booking_id || r.external_booking_id.startsWith("gen_")).length;
+          const missingIdCount = previewRows.filter(r => !r.external_booking_id || r.external_booking_id.startsWith("gen::")).length;
           const missingIdPct = previewRows.length > 0 ? Math.round((missingIdCount / previewRows.length) * 100) : 0;
           const missingCampName = previewRows.filter(r => !r.camp_name).length;
           const missingFirstName = previewRows.filter(r => !r.child_first_name).length;
           const missingLastName = previewRows.filter(r => !r.child_last_name).length;
+
+          // Detect duplicate external_booking_id values
+          const idCounts = new Map<string, number>();
+          for (const r of previewRows) {
+            const id = r.external_booking_id || "";
+            idCounts.set(id, (idCounts.get(id) || 0) + 1);
+          }
+          const duplicateIdCount = [...idCounts.values()].filter(c => c > 1).reduce((sum, c) => sum + c, 0);
+          const hasDuplicates = duplicateIdCount > 0;
+
           const warnings: string[] = [];
           if (missingIdPct > 50) warnings.push(`${missingIdCount} rows missing Booking ID (fallback IDs used)`);
           if (missingCampName > 0) warnings.push(`${missingCampName} rows missing Camp Name`);
           if (missingFirstName > 0) warnings.push(`${missingFirstName} rows missing First Name`);
           if (missingLastName > 0) warnings.push(`${missingLastName} rows missing Last Name`);
+
           return (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">Preview of mapped data (first 10 rows) — {previewRows.length} valid rows</p>
@@ -596,6 +607,18 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
                 <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                 <div className="text-xs text-amber-800 dark:text-amber-300 space-y-0.5">
                   {warnings.map((w, i) => <p key={i}>⚠ {w}</p>)}
+                </div>
+              </div>
+            )}
+            {hasDuplicates && (
+              <div className="flex items-start gap-2 rounded-md border border-destructive bg-destructive/5 px-3 py-2">
+                <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                <div className="text-xs text-destructive space-y-1">
+                  <p><strong>{duplicateIdCount} rows</strong> share duplicate Booking IDs. These will overwrite each other during import, resulting in lost data.</p>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" checked={forceImport} onChange={(e) => setForceImport(e.target.checked)} className="rounded" />
+                    <span>I understand — import anyway</span>
+                  </label>
                 </div>
               </div>
             )}
@@ -610,7 +633,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {getMappedRows().slice(0, 10).map((row, i) => (
+                  {previewRows.slice(0, 10).map((row, i) => (
                     <TableRow key={i}>
                       {BOOKING_FIELDS.filter((f) => mappedFields.includes(f.key)).map((f) => (
                         <TableCell key={f.key} className="text-xs py-1.5">{row[f.key] || "—"}</TableCell>
@@ -623,7 +646,9 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
             </div>
             <div className="flex justify-between pt-2">
               <Button variant="outline" onClick={() => setStep("map")}>Back</Button>
-              <Button onClick={handleImport}>Import {totalRows} rows</Button>
+              <Button onClick={handleImport} disabled={hasDuplicates && !forceImport}>
+                Import {previewRows.length} rows
+              </Button>
             </div>
           </div>
           );
