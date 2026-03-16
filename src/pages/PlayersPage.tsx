@@ -298,11 +298,18 @@ export default function PlayersPage() {
         <StatCard title="Unpaid" value={financeCounts.unpaid} icon={CircleAlert} variant={financeCounts.unpaid > 0 ? "destructive" : "default"} description="No payment received" />
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Search className="h-4 w-4 text-muted-foreground" />
         <Input placeholder="Search by name, email, medical…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+        <div className="flex gap-1">
+          {(["all", "paid", "partial", "unpaid"] as PaymentFilter[]).map((f) => (
+            <Button key={f} variant={paymentFilter === f ? "default" : "outline"} size="sm" onClick={() => setPaymentFilter(f)} className="capitalize">
+              {f === "all" ? "All" : f} {f !== "all" && `(${financeCounts[f as keyof typeof financeCounts]})`}
+            </Button>
+          ))}
+        </div>
         <Button variant={showOnlyUnmaterialized ? "default" : "outline"} size="sm" onClick={() => setShowOnlyUnmaterialized((prev) => !prev)}>
-          Show only unmaterialized
+          Unmaterialized
         </Button>
         <Badge variant="secondary">{showOnlyUnmaterialized ? counts.unmaterialized : visiblePlayers.length} {showOnlyUnmaterialized ? "unmaterialized" : `of ${counts.totalPlayers} players`}</Badge>
       </div>
