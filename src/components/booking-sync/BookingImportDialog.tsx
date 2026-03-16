@@ -62,7 +62,7 @@ const BOOKING_FIELDS = [
 
 // Exact Teaching Tekkers CSV column aliases — prioritised
 const ALIASES: Record<string, string[]> = {
-  external_booking_id: ["sr. no", "sr no", "booking id", "booking_id", "order id", "id", "ref", "reference"],
+  external_booking_id: ["booking id", "booking_id", "order id", "ref", "reference"],
   child_first_name: ["first name", "first_name", "child first name", "child_first_name", "forename"],
   child_last_name: ["last name", "last_name", "surname", "child last name", "child_last_name", "family name"],
   parent_name: ["parent name", "parent_name", "parent", "guardian", "guardian name"],
