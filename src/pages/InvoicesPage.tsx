@@ -269,7 +269,7 @@ const InvoicesPage = () => {
   );
 
   const exportRows = (rows: InvoiceRow[]) => rows.map(inv => ({
-    clubName: inv.club_name,
+    clubName: inv.resolved_club_name || inv.club_name,
     campName: inv.camp_name || "",
     attendance: inv.attendance_count,
     rate: inv.rate_per_child,

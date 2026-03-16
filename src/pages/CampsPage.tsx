@@ -186,7 +186,19 @@ const CampsPage = () => {
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1"><Label>Camp Name</Label><Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} required /></div>
-                <div className="space-y-1"><Label>Club Name</Label><Input value={form.club_name} onChange={e => setForm({...form, club_name: e.target.value})} required /></div>
+                <div className="space-y-1">
+                  <Label>Club</Label>
+                  <Select value={form.club_id} onValueChange={(v) => {
+                    const club = clubOptions.find(c => c.id === v);
+                    setForm({ ...form, club_id: v, club_name: club?.name || form.club_name });
+                  }}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Select club…" /></SelectTrigger>
+                    <SelectContent>
+                      {clubOptions.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1"><Label>Club Name (legacy)</Label><Input value={form.club_name} onChange={e => setForm({...form, club_name: e.target.value})} placeholder="Or type if no club" /></div>
                 <div className="space-y-1"><Label>Venue</Label><Input value={form.venue} onChange={e => setForm({...form, venue: e.target.value})} required /></div>
                 <div className="space-y-1"><Label>County</Label><Input value={form.county} onChange={e => setForm({...form, county: e.target.value})} required /></div>
                 <div className="space-y-1"><Label>Start Date</Label><Input type="date" value={form.start_date} onChange={e => setForm({...form, start_date: e.target.value})} required /></div>
