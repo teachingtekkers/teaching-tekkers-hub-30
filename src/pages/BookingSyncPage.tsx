@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload, Zap, Wrench } from "lucide-react";
+import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload, Zap, Wrench, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import BookingImportDialog from "@/components/booking-sync/BookingImportDialog";
@@ -71,6 +72,9 @@ export default function BookingSyncPage() {
   const [repairing, setRepairing] = useState(false);
   const [repairResult, setRepairResult] = useState<any>(null);
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetting, setResetting] = useState(false);
   const { toast } = useToast();
 
   const loadData = useCallback(async () => {
@@ -153,7 +157,28 @@ export default function BookingSyncPage() {
     }
   }, [toast, loadData]);
 
+  const handleReset = useCallback(async () => {
+    setResetting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("reset-import-data");
+      if (error) throw error;
+      const d = data?.deleted;
+      toast({
+        title: "Import data reset",
+        description: `Deleted ${d?.synced_bookings || 0} bookings, ${d?.sync_logs || 0} logs, ${d?.draft_camps || 0} draft camps`,
+      });
+      setResetOpen(false);
+      setResetConfirm("");
+      await loadData();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Reset failed";
+      toast({ title: "Reset failed", description: message, variant: "destructive" });
+    } finally {
+      setResetting(false);
+    }
+  }, [toast, loadData]);
   const lastSync = syncLogs[0];
+
   const totalSynced = bookings.length;
   const unmatched = bookings.filter(b => b.match_status === "unmatched" || b.match_status === "needs_review").length;
   const duplicates = bookings.filter(b => b.duplicate_warning).length;
@@ -229,8 +254,44 @@ export default function BookingSyncPage() {
               <ExternalLink className="h-4 w-4 mr-1.5" /> Booking Site
             </Button>
           </a>
+          <Button variant="destructive" size="sm" onClick={() => { setResetConfirm(""); setResetOpen(true); }}>
+            <Trash2 className="h-4 w-4 mr-1.5" /> Reset Import Data
+          </Button>
         </div>
       </div>
+
+      {/* Reset Confirmation Dialog */}
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> Reset All Import Data
+            </DialogTitle>
+            <DialogDescription>
+              This will permanently delete <strong>all synced bookings</strong>, <strong>sync logs</strong>, and <strong>draft/auto-created camps</strong>. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <p className="text-sm text-muted-foreground">Type <strong>RESET</strong> to confirm:</p>
+            <Input
+              value={resetConfirm}
+              onChange={(e) => setResetConfirm(e.target.value)}
+              placeholder="Type RESET"
+              className="font-mono"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setResetOpen(false)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                disabled={resetConfirm !== "RESET" || resetting}
+                onClick={handleReset}
+              >
+                {resetting ? "Resetting…" : "Confirm Reset"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Status Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
