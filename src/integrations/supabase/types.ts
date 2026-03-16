@@ -243,6 +243,7 @@ export type Database = {
         Row: {
           age_group: string
           capacity: number
+          club_id: string | null
           club_name: string
           county: string
           created_at: string
@@ -260,6 +261,7 @@ export type Database = {
         Insert: {
           age_group: string
           capacity?: number
+          club_id?: string | null
           club_name: string
           county: string
           created_at?: string
@@ -277,6 +279,7 @@ export type Database = {
         Update: {
           age_group?: string
           capacity?: number
+          club_id?: string | null
           club_name?: string
           county?: string
           created_at?: string
@@ -291,7 +294,15 @@ export type Database = {
           status?: string
           venue?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "camps_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       club_invoices: {
         Row: {
@@ -339,6 +350,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      clubs: {
+        Row: {
+          county: string | null
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          county?: string | null
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          county?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       coaches: {
         Row: {
