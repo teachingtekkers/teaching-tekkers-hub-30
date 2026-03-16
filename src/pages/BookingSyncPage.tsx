@@ -695,7 +695,7 @@ export default function BookingSyncPage() {
                           size="sm"
                           variant="ghost"
                           className="h-7 px-2 text-destructive"
-                          onClick={() => openErrorsForLog(l.id)}
+                          onClick={() => openErrorsForLog(l.id, l.records_failed)}
                         >
                           <Eye className="h-3.5 w-3.5 mr-1" />
                           View Errors
