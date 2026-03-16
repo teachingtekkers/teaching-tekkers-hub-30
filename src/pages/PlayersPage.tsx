@@ -7,7 +7,7 @@ import { StatCard } from "@/components/StatCard";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Users, AlertCircle, Camera, CameraOff, Heart, RefreshCw, Eye, Search, TriangleAlert } from "lucide-react";
+import { Users, AlertCircle, Camera, CameraOff, Heart, RefreshCw, Eye, Search, TriangleAlert, CheckCircle, CircleDollarSign, CircleAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ImportErrorsDrawer from "@/components/booking-sync/ImportErrorsDrawer";
 
@@ -56,6 +56,8 @@ interface CampRow {
   name: string;
 }
 
+type PaymentFilter = "all" | "paid" | "partial" | "unpaid";
+
 export default function PlayersPage() {
   const { toast } = useToast();
   const [players, setPlayers] = useState<PlayerRow[]>([]);
@@ -68,24 +70,23 @@ export default function PlayersPage() {
   const [merging, setMerging] = useState(false);
   const [search, setSearch] = useState("");
   const [showOnlyUnmaterialized, setShowOnlyUnmaterialized] = useState(false);
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
   const [errorsOpen, setErrorsOpen] = useState(false);
-  const [counts, setCounts] = useState({ totalPlayers: 0, totalBookings: 0, unmaterialized: 0, medical: 0, unpaid: 0 });
+  const [counts, setCounts] = useState({ totalPlayers: 0, totalBookings: 0, unmaterialized: 0, medical: 0 });
   const [duplicateGroups, setDuplicateGroups] = useState(0);
 
   const loadCounts = useCallback(async () => {
-    const [playersRes, bookingsRes, unmatRes, medRes, unpaidRes] = await Promise.all([
+    const [playersRes, bookingsRes, unmatRes, medRes] = await Promise.all([
       supabase.from("players").select("id", { count: "exact", head: true }),
       supabase.from("synced_bookings").select("id", { count: "exact", head: true }).not("matched_player_id", "is", null),
       supabase.from("synced_bookings").select("id", { count: "exact", head: true }).is("matched_player_id", null),
       supabase.from("players").select("id", { count: "exact", head: true }).not("medical_notes", "is", null).neq("medical_notes", ""),
-      supabase.from("synced_bookings").select("id", { count: "exact", head: true }).not("matched_player_id", "is", null).or("payment_status.in.(pending,partial),amount_owed.gt.0"),
     ]);
     setCounts({
       totalPlayers: playersRes.count || 0,
       totalBookings: bookingsRes.count || 0,
       unmaterialized: unmatRes.count || 0,
       medical: medRes.count || 0,
-      unpaid: unpaidRes.count || 0,
     });
   }, []);
 
@@ -139,6 +140,34 @@ export default function PlayersPage() {
   const campMap = useMemo(() => new Map(camps.map((camp) => [camp.id, camp.name])), [camps]);
   const getPlayerBookings = useCallback((playerId: string) => bookings.filter((booking) => booking.matched_player_id === playerId), [bookings]);
 
+  // Derive finance-based counts from loaded bookings
+  const financeCounts = useMemo(() => {
+    let paid = 0, partial = 0, unpaid = 0;
+    for (const b of bookings) {
+      const s = derivePaymentStatus(b).status;
+      if (s === "Paid") paid++;
+      else if (s === "Partial") partial++;
+      else if (s === "Pending") unpaid++;
+    }
+    return { paid, partial, unpaid };
+  }, [bookings]);
+
+  // Build a set of player IDs per payment category for filtering
+  const playerIdsByPayment = useMemo(() => {
+    const paid = new Set<string>();
+    const partial = new Set<string>();
+    const unpaid = new Set<string>();
+    for (const b of bookings) {
+      const pid = b.matched_player_id;
+      if (!pid) continue;
+      const s = derivePaymentStatus(b).status;
+      if (s === "Paid") paid.add(pid);
+      if (s === "Partial") partial.add(pid);
+      if (s === "Pending") unpaid.add(pid);
+    }
+    return { paid, partial, unpaid };
+  }, [bookings]);
+
   const visiblePlayers = useMemo(() => {
     let list = players;
     if (showOnlyUnmaterialized) return [];
@@ -150,8 +179,11 @@ export default function PlayersPage() {
         player.medical_notes?.toLowerCase().includes(q),
       );
     }
+    if (paymentFilter === "paid") list = list.filter((p) => playerIdsByPayment.paid.has(p.id));
+    else if (paymentFilter === "partial") list = list.filter((p) => playerIdsByPayment.partial.has(p.id));
+    else if (paymentFilter === "unpaid") list = list.filter((p) => playerIdsByPayment.unpaid.has(p.id));
     return list;
-  }, [players, search, showOnlyUnmaterialized]);
+  }, [players, search, showOnlyUnmaterialized, paymentFilter, playerIdsByPayment]);
 
   const runMaterialize = async (failedOnly = false) => {
     setMaterializing(true);
@@ -261,14 +293,23 @@ export default function PlayersPage() {
         <StatCard title="Total Bookings" value={counts.totalBookings} icon={Users} description="Matched synced bookings" />
         <StatCard title="Unmaterialized" value={counts.unmaterialized} icon={AlertCircle} variant={counts.unmaterialized > 0 ? "warning" : "default"} />
         <StatCard title="Medical Notes" value={counts.medical} icon={Heart} variant={counts.medical > 0 ? "warning" : "default"} />
-        <StatCard title="Unpaid" value={counts.unpaid} icon={AlertCircle} variant={counts.unpaid > 0 ? "destructive" : "success"} />
+        <StatCard title="Paid" value={financeCounts.paid} icon={CheckCircle} variant="success" description="Bookings fully paid" />
+        <StatCard title="Partial" value={financeCounts.partial} icon={CircleDollarSign} variant="warning" description="Some amount paid" />
+        <StatCard title="Unpaid" value={financeCounts.unpaid} icon={CircleAlert} variant={financeCounts.unpaid > 0 ? "destructive" : "default"} description="No payment received" />
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Search className="h-4 w-4 text-muted-foreground" />
         <Input placeholder="Search by name, email, medical…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+        <div className="flex gap-1">
+          {(["all", "paid", "partial", "unpaid"] as PaymentFilter[]).map((f) => (
+            <Button key={f} variant={paymentFilter === f ? "default" : "outline"} size="sm" onClick={() => setPaymentFilter(f)} className="capitalize">
+              {f === "all" ? "All" : f} {f !== "all" && `(${financeCounts[f as keyof typeof financeCounts]})`}
+            </Button>
+          ))}
+        </div>
         <Button variant={showOnlyUnmaterialized ? "default" : "outline"} size="sm" onClick={() => setShowOnlyUnmaterialized((prev) => !prev)}>
-          Show only unmaterialized
+          Unmaterialized
         </Button>
         <Badge variant="secondary">{showOnlyUnmaterialized ? counts.unmaterialized : visiblePlayers.length} {showOnlyUnmaterialized ? "unmaterialized" : `of ${counts.totalPlayers} players`}</Badge>
       </div>
@@ -297,6 +338,10 @@ export default function PlayersPage() {
               <TableBody>
                 {visiblePlayers.map((player) => {
                   const playerBookings = getPlayerBookings(player.id);
+                  const sortedBookings = [...playerBookings].sort((a, b) => {
+                    const order: Record<string, number> = { Pending: 0, Partial: 1, Refunded: 2, Paid: 3 };
+                    return (order[derivePaymentStatus(a).status] ?? 4) - (order[derivePaymentStatus(b).status] ?? 4);
+                  });
                   return (
                     <TableRow key={player.id}>
                       <TableCell className="font-medium text-sm">{player.first_name} {player.last_name}</TableCell>
@@ -323,10 +368,10 @@ export default function PlayersPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {playerBookings.length === 0 ? (
+                          {sortedBookings.length === 0 ? (
                             <span className="text-xs text-muted-foreground">—</span>
                           ) : (
-                            playerBookings.map((booking) => {
+                            sortedBookings.map((booking) => {
                               const fin = derivePaymentStatus(booking);
                               return (
                                 <div key={booking.id} className="inline-flex flex-col items-start">
