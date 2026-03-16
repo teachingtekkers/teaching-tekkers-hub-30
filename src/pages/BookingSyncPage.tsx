@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload, Zap, Wrench, Trash2 } from "lucide-react";
+import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload, Zap, Wrench, Trash2, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
