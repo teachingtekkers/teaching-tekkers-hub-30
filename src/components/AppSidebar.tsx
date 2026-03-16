@@ -35,6 +35,7 @@ const privateCoachingItems = [
 /* ── Admin: System ── */
 const systemItems = [
   { title: "User Management", url: "/users", icon: ShieldCheck },
+  { title: "DB Diagnostics", url: "/diagnostics", icon: Database },
 ];
 
 /* ── Head Coach ── */

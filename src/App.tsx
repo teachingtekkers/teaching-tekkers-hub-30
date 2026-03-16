@@ -81,6 +81,7 @@ const App = () => (
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/booking-sync" element={<BookingSyncPage />} />
               <Route path="/users" element={<UserManagementPage />} />
+              <Route path="/diagnostics" element={<DatabaseDiagnosticsPage />} />
               <Route path="/private/dashboard" element={<PrivateDashboardPage />} />
               <Route path="/private/sessions" element={<PrivateSessionsPage />} />
               <Route path="/private/bookings" element={<PrivateBookingsPage />} />
