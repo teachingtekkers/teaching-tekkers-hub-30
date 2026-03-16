@@ -76,19 +76,17 @@ export default function PlayersPage() {
   const [duplicateGroups, setDuplicateGroups] = useState(0);
 
   const loadCounts = useCallback(async () => {
-    const [playersRes, bookingsRes, unmatRes, medRes, unpaidRes] = await Promise.all([
+    const [playersRes, bookingsRes, unmatRes, medRes] = await Promise.all([
       supabase.from("players").select("id", { count: "exact", head: true }),
       supabase.from("synced_bookings").select("id", { count: "exact", head: true }).not("matched_player_id", "is", null),
       supabase.from("synced_bookings").select("id", { count: "exact", head: true }).is("matched_player_id", null),
       supabase.from("players").select("id", { count: "exact", head: true }).not("medical_notes", "is", null).neq("medical_notes", ""),
-      supabase.from("synced_bookings").select("id", { count: "exact", head: true }).not("matched_player_id", "is", null).or("payment_status.in.(pending,partial),amount_owed.gt.0"),
     ]);
     setCounts({
       totalPlayers: playersRes.count || 0,
       totalBookings: bookingsRes.count || 0,
       unmaterialized: unmatRes.count || 0,
       medical: medRes.count || 0,
-      unpaid: unpaidRes.count || 0,
     });
   }, []);
 
