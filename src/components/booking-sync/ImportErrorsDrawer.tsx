@@ -30,7 +30,7 @@ interface ImportErrorsDrawerProps {
   onRefresh?: () => void;
 }
 
-export default function ImportErrorsDrawer({ open, onOpenChange, syncLogId, errorCode, onRefresh }: ImportErrorsDrawerProps) {
+export default function ImportErrorsDrawer({ open, onOpenChange, syncLogId, errorCode, expectedFailedCount, onRefresh }: ImportErrorsDrawerProps) {
   const [errors, setErrors] = useState<ImportError[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
