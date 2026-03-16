@@ -157,7 +157,28 @@ export default function BookingSyncPage() {
     }
   }, [toast, loadData]);
 
-  const lastSync = syncLogs[0];
+  const handleReset = useCallback(async () => {
+    setResetting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("reset-import-data");
+      if (error) throw error;
+      const d = data?.deleted;
+      toast({
+        title: "Import data reset",
+        description: `Deleted ${d?.synced_bookings || 0} bookings, ${d?.sync_logs || 0} logs, ${d?.draft_camps || 0} draft camps`,
+      });
+      setResetOpen(false);
+      setResetConfirm("");
+      await loadData();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Reset failed";
+      toast({ title: "Reset failed", description: message, variant: "destructive" });
+    } finally {
+      setResetting(false);
+    }
+  }, [toast, loadData]);
+
+
   const totalSynced = bookings.length;
   const unmatched = bookings.filter(b => b.match_status === "unmatched" || b.match_status === "needs_review").length;
   const duplicates = bookings.filter(b => b.duplicate_warning).length;
