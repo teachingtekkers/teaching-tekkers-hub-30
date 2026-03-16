@@ -387,6 +387,18 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         if (!hasCampCol || !mapped.camp_name) mapped.camp_name = f.detectedCampName;
         if ((!hasVenueCol || !mapped.venue) && f.detectedVenue) mapped.venue = f.detectedVenue;
         if ((!hasCountyCol || !mapped.county) && f.detectedCounty) mapped.county = f.detectedCounty;
+
+        // Fallback external_booking_id when missing — prevents row collapse into updates
+        if (!mapped.external_booking_id) {
+          const parts = [
+            (mapped.camp_name || "").trim(),
+            (mapped.child_first_name || "").trim(),
+            (mapped.child_last_name || "").trim(),
+            (mapped.date_of_birth || mapped.parent_email || "").trim(),
+          ].map(s => s.toLowerCase());
+          mapped.external_booking_id = `gen_${parts.join("_").replace(/[^a-z0-9]/g, "_")}`;
+        }
+
         allMapped.push(mapped);
       });
     });
