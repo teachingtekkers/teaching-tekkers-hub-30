@@ -26,6 +26,7 @@ interface ImportErrorsDrawerProps {
   onOpenChange: (open: boolean) => void;
   syncLogId?: string | null;
   errorCode?: string | null;
+  expectedFailedCount?: number;
   onRefresh?: () => void;
 }
 
