@@ -228,6 +228,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
   const [files, setFiles] = useState<ParsedFile[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [forceImport, setForceImport] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
