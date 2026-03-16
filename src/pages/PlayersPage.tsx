@@ -62,7 +62,7 @@ export default function PlayersPage() {
       supabase.from("synced_bookings").select("id", { count: "exact", head: true }).not("matched_player_id", "is", null),
       supabase.from("synced_bookings").select("id", { count: "exact", head: true }).is("matched_player_id", null),
       supabase.from("players").select("id", { count: "exact", head: true }).not("medical_notes", "is", null).neq("medical_notes", ""),
-      supabase.from("synced_bookings").select("id", { count: "exact", head: true }).not("matched_player_id", "is", null).in("payment_status", ["pending", "partial"]),
+      supabase.from("synced_bookings").select("id", { count: "exact", head: true }).not("matched_player_id", "is", null).or("payment_status.in.(pending,partial),amount_owed.gt.0"),
     ]);
     setCounts({
       totalPlayers: playersRes.count || 0,
