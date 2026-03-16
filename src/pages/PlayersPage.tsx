@@ -37,7 +37,9 @@ interface SyncedBookingRow {
   total_amount: number | null;
   sibling_discount: number | null;
   amount_paid: number | null;
+  amount_owed: number | null;
   refund_amount: number | null;
+  payment_type: string | null;
 }
 
 function derivePaymentStatus(b: SyncedBookingRow) {
@@ -115,7 +117,7 @@ export default function PlayersPage() {
       if (!batch.length) continue;
       const { data } = await supabase
         .from("synced_bookings")
-        .select("id, external_booking_id, matched_player_id, matched_camp_id, payment_status, parent_name, parent_phone, parent_email, camp_name, total_amount, sibling_discount, amount_paid, refund_amount")
+        .select("id, external_booking_id, matched_player_id, matched_camp_id, payment_status, parent_name, parent_phone, parent_email, camp_name, total_amount, sibling_discount, amount_paid, amount_owed, refund_amount, payment_type")
         .in("matched_player_id", batch);
       if (data) bookingRows = bookingRows.concat(data as SyncedBookingRow[]);
     }
@@ -378,9 +380,7 @@ export default function PlayersPage() {
                                   <Badge variant={paymentVariant(fin.status.toLowerCase())} className="text-[10px]" title={`Paid: €${fin.paid} · Owed: €${fin.owed}`}>
                                     {(booking.matched_camp_id && campMap.get(booking.matched_camp_id)) || booking.camp_name || "Unknown"} • {fin.status}
                                   </Badge>
-                                  {fin.totalCost > 0 && (
-                                    <span className="text-[9px] text-muted-foreground ml-1">€{fin.paid} paid · €{fin.owed} owed</span>
-                                  )}
+                                  <span className="text-[9px] text-muted-foreground ml-1">€{fin.paid} paid · €{fin.owed} owed</span>
                                 </div>
                               );
                             })
