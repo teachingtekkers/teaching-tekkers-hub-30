@@ -763,13 +763,14 @@ export default function BookingSyncPage() {
         </TabsContent>
       </Tabs>
 
-      <BookingImportDialog open={importOpen} onOpenChange={setImportOpen} onImportComplete={loadData} />
+      <BookingImportDialog open={importOpen} onOpenChange={setImportOpen} onImportComplete={() => loadData(0)} />
       <ImportErrorsDrawer
         open={errorsDrawerOpen}
         onOpenChange={setErrorsDrawerOpen}
         syncLogId={errorsSyncLogId}
         errorCode={errorsCode}
-        onRefresh={loadData}
+        expectedFailedCount={errorsExpectedCount}
+        onRefresh={() => loadData(0)}
       />
     </div>
   );
