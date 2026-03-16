@@ -16,6 +16,9 @@ import {
 import {
   ToggleGroup, ToggleGroupItem,
 } from "@/components/ui/toggle-group";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Plus, MapPin, Calendar, Tent, Users, FileText, Check, Trash2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
