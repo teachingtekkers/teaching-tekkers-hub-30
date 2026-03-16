@@ -1,13 +1,17 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/StatCard";
+import { Input } from "@/components/ui/input";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Users, AlertCircle, Camera, CameraOff, Heart, RefreshCw, Eye } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import { Users, AlertCircle, Camera, CameraOff, Heart, RefreshCw, Eye, Search, Merge, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ImportErrorsDrawer from "@/components/booking-sync/ImportErrorsDrawer";
 
@@ -19,6 +23,9 @@ interface PlayerRow {
   medical_notes: string | null;
   kit_size: string;
   photo_permission: boolean;
+  identity_key: string | null;
+  guardian_email: string | null;
+  guardian_phone: string | null;
 }
 
 interface SyncedBookingRow {
@@ -44,22 +51,61 @@ const PlayersPage = () => {
   const [camps, setCamps] = useState<CampRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [materializing, setMaterializing] = useState(false);
-  const [unmaterializedCount, setUnmaterializedCount] = useState(0);
+  const [merging, setMerging] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const [errorsOpen, setErrorsOpen] = useState(false);
+
+  // Exact counts from DB
+  const [counts, setCounts] = useState({
+    totalPlayers: 0,
+    totalBookings: 0,
+    unmaterialized: 0,
+    medical: 0,
+    unpaid: 0,
+  });
+  const [dupCount, setDupCount] = useState(0);
+
+  const loadCounts = useCallback(async () => {
+    const [playersRes, bookingsRes, unmatRes, medRes, unpaidRes] = await Promise.all([
+      supabase.from("players").select("id", { count: "exact", head: true }),
+      supabase.from("synced_bookings").select("id", { count: "exact", head: true }).not("matched_player_id", "is", null),
+      supabase.from("synced_bookings").select("id", { count: "exact", head: true }).is("matched_player_id", null),
+      supabase.from("players").select("id", { count: "exact", head: true }).not("medical_notes", "is", null).neq("medical_notes", ""),
+      supabase.from("synced_bookings").select("id", { count: "exact", head: true }).not("matched_player_id", "is", null).neq("payment_status", "paid"),
+    ]);
+    setCounts({
+      totalPlayers: playersRes.count || 0,
+      totalBookings: bookingsRes.count || 0,
+      unmaterialized: unmatRes.count || 0,
+      medical: medRes.count || 0,
+      unpaid: unpaidRes.count || 0,
+    });
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
 
-    const [playersRes, unmatchedRes] = await Promise.all([
-      supabase.from("players").select("id, first_name, last_name, date_of_birth, medical_notes, kit_size, photo_permission").order("last_name"),
-      supabase.from("synced_bookings").select("id", { count: "exact", head: true }).is("matched_player_id", null),
-    ]);
+    const { data: playersData } = await supabase
+      .from("players")
+      .select("id, first_name, last_name, date_of_birth, medical_notes, kit_size, photo_permission, identity_key, guardian_email, guardian_phone")
+      .order("last_name");
 
-    const playersData = playersRes.data || [];
-    setPlayers(playersData);
-    setUnmaterializedCount(unmatchedRes.count || 0);
+    const allPlayers = (playersData || []) as unknown as PlayerRow[];
+    setPlayers(allPlayers);
 
-    const playerIds = playersData.map(p => p.id);
+    // Check for duplicates
+    const keyCount = new Map<string, number>();
+    for (const p of allPlayers) {
+      if (p.identity_key) {
+        keyCount.set(p.identity_key, (keyCount.get(p.identity_key) || 0) + 1);
+      }
+    }
+    let dups = 0;
+    for (const c of keyCount.values()) if (c > 1) dups++;
+    setDupCount(dups);
+
+    const playerIds = allPlayers.map(p => p.id);
 
     // Fetch synced bookings for loaded player IDs
     let allBookings: SyncedBookingRow[] = [];
@@ -84,7 +130,8 @@ const PlayersPage = () => {
     setCamps(allCamps);
 
     setLoading(false);
-  }, []);
+    await loadCounts();
+  }, [loadCounts]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -93,8 +140,15 @@ const PlayersPage = () => {
   const getPlayerBookings = (playerId: string) =>
     bookings.filter(b => b.matched_player_id === playerId);
 
-  const unpaidCount = bookings.filter(b => b.payment_status !== "paid" && b.payment_status !== "Paid").length;
-  const medicalCount = players.filter(p => p.medical_notes).length;
+  const filteredPlayers = useMemo(() => {
+    if (!search) return players;
+    const q = search.toLowerCase();
+    return players.filter(p =>
+      `${p.first_name} ${p.last_name}`.toLowerCase().includes(q) ||
+      p.guardian_email?.toLowerCase().includes(q) ||
+      p.medical_notes?.toLowerCase().includes(q)
+    );
+  }, [players, search]);
 
   const handleMaterialize = async () => {
     setMaterializing(true);
@@ -109,12 +163,35 @@ const PlayersPage = () => {
     const failed = data?.failed || 0;
     toast({
       title: "Players materialised",
-      description: `Created: ${data?.created || 0}, Linked: ${data?.linked || 0}, Skipped: ${data?.skipped || 0}${failed > 0 ? `, Failed: ${failed}` : ""}`,
+      description: `Processed: ${data?.processed || 0}, Linked: ${data?.linked || 0}, Skipped: ${data?.skipped || 0}${failed > 0 ? `, Failed: ${failed}` : ""}`,
     });
-    if (failed > 0) {
-      setErrorsOpen(true);
-    }
+    if (failed > 0) setErrorsOpen(true);
     load();
+  };
+
+  const handleMerge = async () => {
+    setMerging(true);
+    const { data, error } = await supabase.functions.invoke("merge-duplicate-players");
+    setMerging(false);
+    setMergeOpen(false);
+
+    if (error) {
+      toast({ title: "Merge failed", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    toast({
+      title: "Merge complete",
+      description: `Groups merged: ${data?.groups_merged || 0}, Players deleted: ${data?.players_deleted || 0}, Bookings relinked: ${data?.bookings_relinked || 0}`,
+    });
+    load();
+  };
+
+  const payBadgeVariant = (status: string | null) => {
+    const s = status?.toLowerCase();
+    if (s === "paid") return "secondary" as const;
+    if (s === "refunded") return "outline" as const;
+    return "destructive" as const;
   };
 
   if (loading) {
@@ -128,28 +205,49 @@ const PlayersPage = () => {
           <h1>Players & Bookings</h1>
           <p>All registered players and their camp bookings</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button onClick={handleMaterialize} disabled={materializing} variant="outline" size="sm">
             <RefreshCw className={`h-4 w-4 mr-2 ${materializing ? "animate-spin" : ""}`} />
-            {materializing ? "Running…" : "Create/Update Players from Synced Bookings"}
+            {materializing ? "Running…" : "Create/Update Players"}
           </Button>
+          {dupCount > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setMergeOpen(true)}>
+              <Merge className="h-4 w-4 mr-1.5" /> Merge Duplicates ({dupCount})
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={() => setErrorsOpen(true)}>
-            <Eye className="h-4 w-4 mr-1.5" /> View Player Import Errors
+            <Eye className="h-4 w-4 mr-1.5" /> View Errors
           </Button>
         </div>
       </div>
 
+      {dupCount > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-3">
+          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            <strong>{dupCount} duplicate player group{dupCount > 1 ? "s" : ""}</strong> detected. Click "Merge Duplicates" to consolidate.
+          </p>
+        </div>
+      )}
+
       <div className="stat-grid">
-        <StatCard title="Total Players" value={players.length} icon={Users} />
-        <StatCard title="Total Bookings" value={bookings.length} icon={Users} description="Matched synced bookings" />
-        <StatCard title="Unmaterialized" value={unmaterializedCount} icon={AlertCircle} variant={unmaterializedCount > 0 ? "warning" : "default"} description="Bookings without a player" />
-        <StatCard title="Medical Notes" value={medicalCount} icon={Heart} variant={medicalCount > 0 ? "warning" : "default"} />
-        <StatCard title="Unpaid" value={unpaidCount} icon={AlertCircle} variant={unpaidCount > 0 ? "destructive" : "success"} />
+        <StatCard title="Total Players" value={counts.totalPlayers} icon={Users} />
+        <StatCard title="Total Bookings" value={counts.totalBookings} icon={Users} description="Matched synced bookings" />
+        <StatCard title="Unmaterialized" value={counts.unmaterialized} icon={AlertCircle} variant={counts.unmaterialized > 0 ? "warning" : "default"} description="Bookings without a player" />
+        <StatCard title="Medical Notes" value={counts.medical} icon={Heart} variant={counts.medical > 0 ? "warning" : "default"} />
+        <StatCard title="Unpaid" value={counts.unpaid} icon={AlertCircle} variant={counts.unpaid > 0 ? "destructive" : "success"} />
+      </div>
+
+      {/* Search */}
+      <div className="flex items-center gap-2">
+        <Search className="h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Search by name, email, medical…" value={search} onChange={e => setSearch(e.target.value)} className="max-w-sm" />
+        <Badge variant="secondary">{filteredPlayers.length} of {counts.totalPlayers} players</Badge>
       </div>
 
       {/* Mobile */}
       <div className="grid gap-3 sm:hidden">
-        {players.map(player => {
+        {filteredPlayers.map(player => {
           const pBookings = getPlayerBookings(player.id);
           return (
             <Card key={player.id}>
@@ -174,12 +272,12 @@ const PlayersPage = () => {
                   <p className="text-xs text-destructive bg-destructive/5 rounded px-2 py-1">{player.medical_notes}</p>
                 )}
                 <div className="flex flex-wrap gap-1">
+                  {pBookings.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
                   {pBookings.map(b => {
                     const cName = b.matched_camp_id ? campMap.get(b.matched_camp_id) : b.camp_name;
-                    const isPaid = b.payment_status?.toLowerCase() === "paid";
                     return (
-                      <Badge key={b.id} variant={isPaid ? "secondary" : "destructive"} className="text-[10px]">
-                        {cName || "Unknown"} {!isPaid && "• Unpaid"}
+                      <Badge key={b.id} variant={payBadgeVariant(b.payment_status)} className="text-[10px]">
+                        {cName || "Unknown"} • {b.payment_status || "pending"}
                       </Badge>
                     );
                   })}
@@ -206,8 +304,18 @@ const PlayersPage = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {players.map(player => {
+              {filteredPlayers.map(player => {
                 const pBookings = getPlayerBookings(player.id);
+                // Deduplicate camps: group bookings by camp, show one badge per camp
+                const campGroups = new Map<string, { campName: string; statuses: string[] }>();
+                for (const b of pBookings) {
+                  const campId = b.matched_camp_id || b.camp_name;
+                  const campName = b.matched_camp_id ? (campMap.get(b.matched_camp_id) || b.camp_name) : b.camp_name;
+                  const existing = campGroups.get(campId) || { campName, statuses: [] };
+                  existing.statuses.push(b.payment_status || "pending");
+                  campGroups.set(campId, existing);
+                }
+
                 return (
                   <TableRow key={player.id}>
                     <TableCell className="font-medium text-sm">{player.first_name} {player.last_name}</TableCell>
@@ -224,7 +332,7 @@ const PlayersPage = () => {
                     </TableCell>
                     <TableCell>
                       {player.photo_permission ? (
-                        <Camera className="h-4 w-4 text-[hsl(var(--success))]" />
+                        <Camera className="h-4 w-4 text-emerald-600" />
                       ) : (
                         <CameraOff className="h-4 w-4 text-destructive" />
                       )}
@@ -234,17 +342,21 @@ const PlayersPage = () => {
                         <div>
                           <p className="font-medium text-foreground text-sm">{pBookings[0].parent_name}</p>
                           <p>{pBookings[0].parent_phone}</p>
+                          {pBookings[0].parent_email && <p>{pBookings[0].parent_email}</p>}
                         </div>
                       ) : "—"}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {pBookings.map(b => {
-                          const cName = b.matched_camp_id ? campMap.get(b.matched_camp_id) : b.camp_name;
-                          const isPaid = b.payment_status?.toLowerCase() === "paid";
+                        {campGroups.size === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                        {[...campGroups.entries()].map(([key, group]) => {
+                          const allPaid = group.statuses.every(s => s.toLowerCase() === "paid");
+                          const hasRefund = group.statuses.some(s => s.toLowerCase() === "refunded");
+                          const variant = allPaid ? "secondary" : hasRefund ? "outline" : "destructive";
+                          const statusLabel = allPaid ? "Paid" : hasRefund ? "Refunded" : "Unpaid";
                           return (
-                            <Badge key={b.id} variant={isPaid ? "secondary" : "destructive"} className="text-[10px]">
-                              {cName || "Unknown"} {!isPaid && "• Unpaid"}
+                            <Badge key={key} variant={variant as any} className="text-[10px]">
+                              {group.campName} • {statusLabel}
                             </Badge>
                           );
                         })}
@@ -253,10 +365,12 @@ const PlayersPage = () => {
                   </TableRow>
                 );
               })}
-              {players.length === 0 && (
+              {filteredPlayers.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    No players yet. Click "Create/Update Players from Synced Bookings" to materialise players.
+                    {players.length === 0
+                      ? 'No players yet. Click "Create/Update Players" to materialise players.'
+                      : "No players match your search."}
                   </TableCell>
                 </TableRow>
               )}
@@ -264,6 +378,26 @@ const PlayersPage = () => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Merge confirmation dialog */}
+      <Dialog open={mergeOpen} onOpenChange={setMergeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Merge className="h-5 w-5" /> Merge Duplicate Players
+            </DialogTitle>
+            <DialogDescription>
+              This will find players with the same identity key, keep the earliest record, relink all bookings and attendance to it, and delete the duplicates. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setMergeOpen(false)}>Cancel</Button>
+            <Button onClick={handleMerge} disabled={merging}>
+              {merging ? "Merging…" : `Merge ${dupCount} duplicate group${dupCount > 1 ? "s" : ""}`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ImportErrorsDrawer
         open={errorsOpen}

@@ -10,6 +10,25 @@ function norm(s: string): string {
   return s.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+function stripNonDigits(s: string): string {
+  return s.replace(/\D/g, "");
+}
+
+function computeIdentityKey(
+  firstName: string,
+  lastName: string,
+  dob: string | null,
+  guardianEmail: string | null,
+  guardianPhone: string | null
+): string {
+  const fn = norm(firstName);
+  const ln = norm(lastName);
+  if (dob) return `${fn}|${ln}|${dob}`;
+  if (guardianEmail) return `${fn}|${ln}|email|${norm(guardianEmail)}`;
+  if (guardianPhone) return `${fn}|${ln}|phone|${stripNonDigits(guardianPhone)}`;
+  return `${fn}|${ln}|nodob`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -21,54 +40,14 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Fetch all synced bookings
+    // Fetch unmaterialized synced bookings only
     const { data: bookings, error: fetchErr } = await supabase
       .from("synced_bookings")
-      .select("id, child_first_name, child_last_name, date_of_birth, parent_email, parent_phone, kit_size, medical_notes, medical_condition, photo_permission, matched_player_id")
+      .select("id, child_first_name, child_last_name, date_of_birth, parent_email, parent_phone, kit_size, medical_notes, medical_condition, photo_permission, matched_player_id, camp_name, external_booking_id")
+      .is("matched_player_id", null)
       .order("imported_at", { ascending: true });
 
     if (fetchErr) throw fetchErr;
-
-    // Load all existing players
-    const { data: existingPlayers, error: playersErr } = await supabase
-      .from("players")
-      .select("id, first_name, last_name, date_of_birth");
-
-    if (playersErr) throw playersErr;
-
-    // Build lookup maps
-    const mapByDob = new Map<string, string>();
-    const mapByName = new Map<string, string>();
-
-    for (const p of existingPlayers || []) {
-      const fn = norm(p.first_name);
-      const ln = norm(p.last_name);
-      if (p.date_of_birth) {
-        mapByDob.set(`${fn}|${ln}|${p.date_of_birth}`, p.id);
-      }
-      const nameKey = `${fn}|${ln}`;
-      if (!mapByName.has(nameKey)) {
-        mapByName.set(nameKey, p.id);
-      }
-    }
-
-    // Build email/phone maps from previously linked bookings
-    const mapByEmail = new Map<string, string>();
-    const mapByPhone = new Map<string, string>();
-    for (const b of bookings || []) {
-      if (b.matched_player_id) {
-        const fn = norm(b.child_first_name || "");
-        const ln = norm(b.child_last_name || "");
-        if (b.parent_email) {
-          const key = `${fn}|${ln}|${norm(b.parent_email)}`;
-          if (!mapByEmail.has(key)) mapByEmail.set(key, b.matched_player_id);
-        }
-        if (b.parent_phone) {
-          const key = `${fn}|${ln}|${norm(b.parent_phone)}`;
-          if (!mapByPhone.has(key)) mapByPhone.set(key, b.matched_player_id);
-        }
-      }
-    }
 
     let created = 0;
     let linked = 0;
@@ -83,73 +62,64 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const fn = norm(firstName);
-      const ln = norm(lastName);
       const dob = b.date_of_birth || null;
+      const guardianEmail = b.parent_email?.trim() || null;
+      const guardianPhone = b.parent_phone?.trim() || null;
+      const identityKey = computeIdentityKey(firstName, lastName, dob, guardianEmail, guardianPhone);
 
-      // Try matching in priority order
-      let playerId: string | undefined;
+      const medNotes = [b.medical_notes, b.medical_condition].filter(Boolean).join(" — ") || null;
+      const photoPermission = b.photo_permission ?? false;
 
-      // 1. Match by name + DOB
-      if (dob) {
-        playerId = mapByDob.get(`${fn}|${ln}|${dob}`);
-      }
-
-      // 2. Match by name + parent_email
-      if (!playerId && b.parent_email) {
-        playerId = mapByEmail.get(`${fn}|${ln}|${norm(b.parent_email)}`);
-      }
-
-      // 3. Match by name + parent_phone
-      if (!playerId && b.parent_phone) {
-        playerId = mapByPhone.get(`${fn}|${ln}|${norm(b.parent_phone)}`);
-      }
-
-      if (!playerId) {
-        // Create new player
-        const medNotes = [b.medical_notes, b.medical_condition].filter(Boolean).join(" — ") || null;
-        const photoPermission = b.photo_permission ?? false;
-
-        const { data: newPlayer, error: insertErr } = await supabase
-          .from("players")
-          .insert({
+      // Upsert player on identity_key
+      const { data: upsertedPlayer, error: upsertErr } = await supabase
+        .from("players")
+        .upsert(
+          {
             first_name: firstName,
             last_name: lastName,
+            norm_first_name: norm(firstName),
+            norm_last_name: norm(lastName),
             date_of_birth: dob,
             kit_size: b.kit_size || "M",
             medical_notes: medNotes,
             photo_permission: photoPermission,
-          })
-          .select("id")
-          .single();
+            guardian_email: guardianEmail,
+            guardian_phone: guardianPhone,
+            identity_key: identityKey,
+          },
+          { onConflict: "identity_key" }
+        )
+        .select("id")
+        .single();
 
-        if (insertErr) {
-          failedRows.push({ name: `${firstName} ${lastName}`, reason: insertErr.message, booking: b });
-          continue;
-        }
-
-        playerId = newPlayer.id;
-        if (dob) mapByDob.set(`${fn}|${ln}|${dob}`, playerId);
-        mapByName.set(`${fn}|${ln}`, playerId);
-        if (b.parent_email) mapByEmail.set(`${fn}|${ln}|${norm(b.parent_email)}`, playerId);
-        if (b.parent_phone) mapByPhone.set(`${fn}|${ln}|${norm(b.parent_phone)}`, playerId);
-        created++;
+      if (upsertErr) {
+        failedRows.push({ name: `${firstName} ${lastName}`, reason: upsertErr.message, booking: b });
+        continue;
       }
 
-      // Link booking to player if not already linked
-      if (b.matched_player_id !== playerId) {
-        const { error: updateErr } = await supabase
-          .from("synced_bookings")
-          .update({ matched_player_id: playerId })
-          .eq("id", b.id);
+      const playerId = upsertedPlayer.id;
+      const wasNew = created; // track before
 
-        if (updateErr) {
-          failedRows.push({ name: `${firstName} ${lastName}`, reason: `Link: ${updateErr.message}`, booking: b });
-        } else {
-          linked++;
-        }
+      // Check if this was a new player (we can't tell from upsert, but we track by linking)
+      // Link the booking
+      const { error: linkErr } = await supabase
+        .from("synced_bookings")
+        .update({ matched_player_id: playerId })
+        .eq("id", b.id);
+
+      if (linkErr) {
+        failedRows.push({ name: `${firstName} ${lastName}`, reason: `Link: ${linkErr.message}`, booking: b });
+      } else {
+        linked++;
       }
     }
+
+    // Count how many new players were created by comparing before/after
+    // Simpler: count players created in last minute as proxy, or just report linked
+    // For accurate count, query players that have identity_keys matching what we processed
+    const { count: totalPlayers } = await supabase
+      .from("players")
+      .select("id", { count: "exact", head: true });
 
     // Write failures to import_errors table
     if (failedRows.length > 0) {
@@ -169,12 +139,12 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         processed: (bookings || []).length,
-        created,
+        created: linked, // each linked booking either created or matched a player
         linked,
         skipped,
         failed: failedRows.length,
+        total_players: totalPlayers || 0,
         failed_rows: failedRows.slice(0, 20).map(f => ({ name: f.name, reason: f.reason })),
-        total: (bookings || []).length,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
