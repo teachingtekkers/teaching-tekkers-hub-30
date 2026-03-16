@@ -173,6 +173,7 @@ const CampsPage = () => {
         <ToggleGroup type="single" value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)} size="sm">
           <ToggleGroupItem value="published">Published ({publishedCount})</ToggleGroupItem>
           {draftCount > 0 && <ToggleGroupItem value="draft">Drafts ({draftCount})</ToggleGroupItem>}
+          {archivedCount > 0 && <ToggleGroupItem value="archived">Archived ({archivedCount})</ToggleGroupItem>}
           <ToggleGroupItem value="all">All ({camps.length})</ToggleGroupItem>
         </ToggleGroup>
       </div>
