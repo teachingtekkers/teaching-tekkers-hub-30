@@ -34,6 +34,21 @@ interface SyncedBookingRow {
   parent_phone: string | null;
   parent_email: string | null;
   camp_name: string;
+  total_amount: number | null;
+  sibling_discount: number | null;
+  amount_paid: number | null;
+  refund_amount: number | null;
+}
+
+function derivePaymentStatus(b: SyncedBookingRow) {
+  const totalCost = Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0));
+  const owed = Math.max(0, totalCost - (b.amount_paid ?? 0) - (b.refund_amount ?? 0));
+  let status: string;
+  if ((b.refund_amount ?? 0) > 0) status = "Refunded";
+  else if (owed <= 0 && totalCost > 0) status = "Paid";
+  else if ((b.amount_paid ?? 0) > 0 && owed > 0) status = "Partial";
+  else status = "Pending";
+  return { status, paid: b.amount_paid ?? 0, owed, totalCost };
 }
 
 interface CampRow {
