@@ -177,7 +177,7 @@ export default function BookingSyncPage() {
       setResetting(false);
     }
   }, [toast, loadData]);
-
+  const lastSync = syncLogs[0];
 
   const totalSynced = bookings.length;
   const unmatched = bookings.filter(b => b.match_status === "unmatched" || b.match_status === "needs_review").length;
