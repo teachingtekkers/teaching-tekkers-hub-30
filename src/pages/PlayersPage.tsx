@@ -56,6 +56,8 @@ interface CampRow {
   name: string;
 }
 
+type PaymentFilter = "all" | "paid" | "partial" | "unpaid";
+
 export default function PlayersPage() {
   const { toast } = useToast();
   const [players, setPlayers] = useState<PlayerRow[]>([]);
@@ -68,8 +70,9 @@ export default function PlayersPage() {
   const [merging, setMerging] = useState(false);
   const [search, setSearch] = useState("");
   const [showOnlyUnmaterialized, setShowOnlyUnmaterialized] = useState(false);
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
   const [errorsOpen, setErrorsOpen] = useState(false);
-  const [counts, setCounts] = useState({ totalPlayers: 0, totalBookings: 0, unmaterialized: 0, medical: 0, unpaid: 0 });
+  const [counts, setCounts] = useState({ totalPlayers: 0, totalBookings: 0, unmaterialized: 0, medical: 0 });
   const [duplicateGroups, setDuplicateGroups] = useState(0);
 
   const loadCounts = useCallback(async () => {
