@@ -56,10 +56,11 @@ const CampsPage = () => {
   const [deleteDraftsConfirm, setDeleteDraftsConfirm] = useState("");
   const [deletingDrafts, setDeletingDrafts] = useState(false);
   const [form, setForm] = useState({
-    name: "", club_name: "", venue: "", county: "",
+    name: "", club_name: "", club_id: "", venue: "", county: "",
     start_date: "", end_date: "", daily_start_time: "10:00", daily_end_time: "15:00",
     age_group: "", capacity: "", price_per_child: "",
   });
+  const [clubOptions, setClubOptions] = useState<ClubOption[]>([]);
 
   const loadCamps = useCallback(async () => {
     setLoading(true);
