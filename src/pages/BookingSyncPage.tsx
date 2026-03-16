@@ -577,7 +577,7 @@ export default function BookingSyncPage() {
 
         {/* Unmatched Queue Tab */}
         <TabsContent value="queue" className="space-y-4">
-          <UnmatchedQueue bookings={bookings as any} onRefresh={loadData} />
+          <UnmatchedQueue bookings={bookings as any} onRefresh={() => loadData(0)} />
         </TabsContent>
 
         {/* Diagnostics Tab */}
