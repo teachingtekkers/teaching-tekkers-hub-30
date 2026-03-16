@@ -188,6 +188,7 @@ const CampsPage = () => {
                   <div className="flex items-center gap-1.5">
                     <p className="font-semibold text-sm">{camp.name}</p>
                     {camp.status === "draft" && <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700">Draft</Badge>}
+                    {camp.status === "archived" && <Badge variant="outline" className="text-[10px] border-muted-foreground text-muted-foreground">Archived</Badge>}
                   </div>
                   <p className="text-xs text-muted-foreground">{camp.club_name}</p>
                 </div>
