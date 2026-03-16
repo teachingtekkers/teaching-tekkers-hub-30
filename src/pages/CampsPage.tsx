@@ -114,13 +114,15 @@ const CampsPage = () => {
   };
 
   const draftCount = camps.filter(c => c.status === "draft").length;
-  const publishedCount = camps.filter(c => c.status !== "draft").length;
+  const archivedCount = camps.filter(c => c.status === "archived").length;
+  const publishedCount = camps.filter(c => c.status !== "draft" && c.status !== "archived").length;
   const totalParticipants = camps.reduce((s, c) => s + (c.participant_count || 0), 0);
 
   const filtered = camps.filter(c => {
     if (statusFilter === "all") return true;
     if (statusFilter === "draft") return c.status === "draft";
-    return c.status !== "draft";
+    if (statusFilter === "archived") return c.status === "archived";
+    return c.status !== "draft" && c.status !== "archived";
   });
 
   return (
