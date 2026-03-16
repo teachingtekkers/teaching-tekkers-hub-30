@@ -84,18 +84,44 @@ export default function BookingSyncPage() {
   const [errorsDrawerOpen, setErrorsDrawerOpen] = useState(false);
   const [errorsSyncLogId, setErrorsSyncLogId] = useState<string | null>(null);
   const [errorsCode, setErrorsCode] = useState<string | null>(null);
+  const [pageOffset, setPageOffset] = useState(0);
+  const [dbCounts, setDbCounts] = useState({ total: 0, unmatched: 0, duplicates: 0, unmaterialized: 0 });
+  const PAGE_SIZE = 500;
   const { toast } = useToast();
 
-  const loadData = useCallback(async () => {
+  const loadCounts = useCallback(async () => {
+    const [totalRes, unmatchedRes, dupRes, unmatRes] = await Promise.all([
+      supabase.from("synced_bookings").select("id", { count: "exact", head: true }),
+      supabase.from("synced_bookings").select("id", { count: "exact", head: true }).eq("match_status", "unmatched"),
+      supabase.from("synced_bookings").select("id", { count: "exact", head: true }).eq("duplicate_warning", true),
+      supabase.from("synced_bookings").select("id", { count: "exact", head: true }).is("matched_player_id", null),
+    ]);
+    setDbCounts({
+      total: totalRes.count || 0,
+      unmatched: unmatchedRes.count || 0,
+      duplicates: dupRes.count || 0,
+      unmaterialized: unmatRes.count || 0,
+    });
+  }, []);
+
+  const loadData = useCallback(async (offset = 0) => {
     setLoading(true);
     const [bRes, lRes] = await Promise.all([
-      supabase.from("synced_bookings").select("*").order("imported_at", { ascending: false }).limit(500),
+      supabase.from("synced_bookings").select("*").order("imported_at", { ascending: false }).range(offset, offset + PAGE_SIZE - 1),
       supabase.from("sync_logs").select("*").order("sync_started_at", { ascending: false }).limit(50),
     ]);
-    if (bRes.data) setBookings(bRes.data as unknown as SyncedBooking[]);
+    if (bRes.data) {
+      if (offset === 0) {
+        setBookings(bRes.data as unknown as SyncedBooking[]);
+      } else {
+        setBookings(prev => [...prev, ...(bRes.data as unknown as SyncedBooking[])]);
+      }
+    }
     if (lRes.data) setSyncLogs(lRes.data as unknown as SyncLog[]);
+    setPageOffset(offset);
     setLoading(false);
-  }, []);
+    await loadCounts();
+  }, [loadCounts]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
