@@ -56,14 +56,40 @@ function parseAge(val: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
-function parseDateOfBirth(val: unknown): string | null {
+/**
+ * Safe date parser — NO `new Date(string)`.
+ * Supports YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY.
+ * Returns YYYY-MM-DD string or null.
+ */
+function safeParseDate(val: unknown): string | null {
   if (val == null || val === "") return null;
   const s = String(val).trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (s === "") return null;
+
+  // YYYY-MM-DD
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) {
+    const y = parseInt(iso[1], 10);
+    const m = parseInt(iso[2], 10);
+    const d = parseInt(iso[3], 10);
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1900 && y <= 2100) {
+      return `${iso[1]}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    }
+    return null;
+  }
+
+  // DD/MM/YYYY or DD-MM-YYYY
   const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
-  const d = new Date(s);
-  if (!isNaN(d.getTime())) return d.toISOString().split("T")[0];
+  if (dmy) {
+    const d = parseInt(dmy[1], 10);
+    const m = parseInt(dmy[2], 10);
+    const y = parseInt(dmy[3], 10);
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1900 && y <= 2100) {
+      return `${dmy[3]}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    }
+    return null;
+  }
+
   return null;
 }
 
@@ -249,22 +275,6 @@ Deno.serve(async (req) => {
       .select("id, name, venue, county, start_date, end_date, club_name");
     const campsList: CampRow[] = allCamps || [];
 
-    const externalIds = bookings
-      .map((b) => b.external_booking_id)
-      .filter(Boolean) as string[];
-
-    const existingByExtId: Record<string, { id: string; manual_override: boolean }> = {};
-    if (externalIds.length > 0) {
-      const { data: existingRows } = await supabase
-        .from("synced_bookings")
-        .select("id, external_booking_id, manual_override")
-        .in("external_booking_id", externalIds)
-        .eq("source_system", "bookings.teachingtekkers.com");
-      (existingRows || []).forEach((r: any) => {
-        existingByExtId[r.external_booking_id] = { id: r.id, manual_override: r.manual_override };
-      });
-    }
-
     let created = 0, updated = 0, failed = 0, needsReview = 0, draftsCreated = 0;
     const errorRows: { external_booking_id: string | null; camp_name: string; child_first_name: string; child_last_name: string; error_code: string; error_message: string; raw_row_json: unknown }[] = [];
     const draftCampCache: Record<string, string> = {};
@@ -272,8 +282,7 @@ Deno.serve(async (req) => {
     const BATCH_SIZE = 10;
     for (let i = 0; i < bookings.length; i += BATCH_SIZE) {
       const batch = bookings.slice(i, i + BATCH_SIZE);
-      const inserts: Record<string, unknown>[] = [];
-      const updates: { id: string; record: Record<string, unknown> }[] = [];
+      const upsertRecords: Record<string, unknown>[] = [];
 
       for (const b of batch) {
         try {
@@ -301,7 +310,7 @@ Deno.serve(async (req) => {
           // Auto-create draft camp when unmatched
           if (!matched_camp_id && match_status === "unmatched" && b.camp_name) {
             const normName = normalize(b.camp_name);
-            const campDate = b.camp_date || b.booking_date || new Date().toISOString().split("T")[0];
+            const campDate = safeParseDate(b.camp_date) || safeParseDate(b.booking_date) || new Date().toISOString().split("T")[0];
 
             if (draftCampCache[normName]) {
               matched_camp_id = draftCampCache[normName];
@@ -317,10 +326,9 @@ Deno.serve(async (req) => {
 
               const reusable = (existingDrafts || []).find((dc: any) => {
                 if (normalize(dc.name) !== normName) return false;
-                const s = new Date(dc.start_date).getTime();
-                const e = new Date(dc.end_date).getTime();
-                const d = new Date(campDate).getTime();
-                return d >= s - 7 * 86400000 && d <= e + 7 * 86400000;
+                const s = dc.start_date;
+                const e = dc.end_date;
+                return campDate >= s && campDate <= e;
               });
 
               if (reusable) {
@@ -331,9 +339,9 @@ Deno.serve(async (req) => {
                 match_reason = "Reused existing draft camp";
               } else {
                 const startDate = campDate;
-                const endDateObj = new Date(startDate);
-                endDateObj.setDate(endDateObj.getDate() + 3);
-                const endDate = endDateObj.toISOString().split("T")[0];
+                const endDateParts = startDate.split("-").map(Number);
+                const endDateObj = new Date(Date.UTC(endDateParts[0], endDateParts[1] - 1, endDateParts[2] + 3));
+                const endDate = `${endDateObj.getUTCFullYear()}-${String(endDateObj.getUTCMonth() + 1).padStart(2, "0")}-${String(endDateObj.getUTCDate()).padStart(2, "0")}`;
                 const clubName = b.camp_name.split(/[-–]/)[0].trim() || b.camp_name;
 
                 const { data: newCamp, error: campErr } = await supabase
@@ -387,15 +395,15 @@ Deno.serve(async (req) => {
           const medNotes = b.medical_notes?.trim() || "";
           const combinedMedical = [medCondition, medNotes].filter(Boolean).join(" — ") || null;
 
-          const record = {
+          const record: Record<string, unknown> = {
             external_booking_id: b.external_booking_id || null,
             camp_name: b.camp_name,
-            camp_date: b.camp_date || null,
+            camp_date: safeParseDate(b.camp_date),
             venue: b.venue || null,
             county: b.county || null,
             child_first_name: b.child_first_name,
             child_last_name: b.child_last_name,
-            date_of_birth: parseDateOfBirth(b.date_of_birth),
+            date_of_birth: safeParseDate(b.date_of_birth),
             age: parseAge(b.age),
             parent_name: b.parent_name || null,
             parent_phone: b.parent_phone || null,
@@ -407,7 +415,7 @@ Deno.serve(async (req) => {
             kit_size: b.kit_size || "M",
             payment_status: paymentStatus,
             booking_status: b.booking_status || "confirmed",
-            booking_date: parseDateOfBirth(b.booking_date),
+            booking_date: safeParseDate(b.booking_date),
             source_system: "bookings.teachingtekkers.com",
             last_synced_at: new Date().toISOString(),
             sync_log_id: syncLog.id,
@@ -425,19 +433,7 @@ Deno.serve(async (req) => {
             photo_permission: parsePhotoPermission(b.photo_permission),
           };
 
-          const existing = b.external_booking_id ? existingByExtId[b.external_booking_id] : null;
-
-          if (existing) {
-            if (existing.manual_override) {
-              delete record.matched_camp_id;
-              delete record.match_status;
-              delete record.match_score;
-              delete record.match_reason;
-            }
-            updates.push({ id: existing.id, record });
-          } else {
-            inserts.push(record);
-          }
+          upsertRecords.push(record);
         } catch (e) {
           failed++;
           errorRows.push({
@@ -452,16 +448,20 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (inserts.length > 0) {
-        const { error: insertErr } = await supabase
+      // Upsert all records (handles both new inserts and duplicates)
+      if (upsertRecords.length > 0) {
+        const { data: upsertResult, error: upsertErr } = await supabase
           .from("synced_bookings")
-          .insert(inserts);
-        if (insertErr) {
+          .upsert(upsertRecords, { onConflict: "external_booking_id,source_system" })
+          .select("id, external_booking_id");
+
+        if (upsertErr) {
           // Batch failed — fall back to row-by-row
-          for (const row of inserts) {
-            const { error: rowErr } = await supabase
+          for (const row of upsertRecords) {
+            const { data: singleResult, error: rowErr } = await supabase
               .from("synced_bookings")
-              .insert(row);
+              .upsert(row, { onConflict: "external_booking_id,source_system" })
+              .select("id, external_booking_id");
             if (rowErr) {
               failed++;
               errorRows.push({
@@ -469,37 +469,18 @@ Deno.serve(async (req) => {
                 camp_name: (row.camp_name as string) || "",
                 child_first_name: (row.child_first_name as string) || "",
                 child_last_name: (row.child_last_name as string) || "",
-                error_code: "booking_insert",
+                error_code: "booking_upsert",
                 error_message: rowErr.message,
                 raw_row_json: row,
               });
             } else {
+              // Can't distinguish create vs update in row-by-row upsert, count as created
               created++;
             }
           }
         } else {
-          created += inserts.length;
-        }
-      }
-
-      for (const u of updates) {
-        const { error: updateErr } = await supabase
-          .from("synced_bookings")
-          .update(u.record)
-          .eq("id", u.id);
-        if (updateErr) {
-          failed++;
-          errorRows.push({
-            external_booking_id: (u.record.external_booking_id as string) || null,
-            camp_name: (u.record.camp_name as string) || "",
-            child_first_name: (u.record.child_first_name as string) || "",
-            child_last_name: (u.record.child_last_name as string) || "",
-            error_code: "booking_update",
-            error_message: updateErr.message,
-            raw_row_json: u.record,
-          });
-        } else {
-          updated++;
+          // Batch succeeded — count all as created (upsert merges create/update)
+          created += upsertRecords.length;
         }
       }
     }
