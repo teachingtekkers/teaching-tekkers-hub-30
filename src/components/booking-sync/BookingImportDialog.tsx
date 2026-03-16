@@ -603,7 +603,9 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
               <Button onClick={handleImport}>Import {totalRows} rows</Button>
             </div>
           </div>
-        )}
+          );
+        })()}
+
 
         {/* Step 4: Importing */}
         {step === "importing" && (
