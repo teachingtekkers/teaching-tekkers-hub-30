@@ -48,6 +48,7 @@ export default function PlayersPage() {
   const [camps, setCamps] = useState<CampRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [materializing, setMaterializing] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [merging, setMerging] = useState(false);
   const [search, setSearch] = useState("");

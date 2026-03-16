@@ -354,6 +354,10 @@ export default function BookingSyncPage() {
             <Users className={`h-4 w-4 mr-1.5 ${materializing ? "animate-spin" : ""}`} />
             {materializing ? "Creating…" : "Create/Update Players"}
           </Button>
+          <Button size="sm" variant="outline" onClick={handleRecalculatePayments} disabled={recalculating}>
+            <RefreshCw className={`h-4 w-4 mr-1.5 ${recalculating ? "animate-spin" : ""}`} />
+            {recalculating ? "Recalculating…" : "Recalculate Payments"}
+          </Button>
           <Button variant="destructive" size="sm" onClick={() => { setResetConfirm(""); setResetOpen(true); }}>
             <Trash2 className="h-4 w-4 mr-1.5" /> Reset Import Data
           </Button>
