@@ -37,7 +37,9 @@ interface SyncedBookingRow {
   total_amount: number | null;
   sibling_discount: number | null;
   amount_paid: number | null;
+  amount_owed: number | null;
   refund_amount: number | null;
+  payment_type: string | null;
 }
 
 function derivePaymentStatus(b: SyncedBookingRow) {
