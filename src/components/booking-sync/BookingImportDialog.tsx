@@ -561,9 +561,21 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         )}
 
         {/* Step 3: Preview */}
-        {step === "preview" && (
+        {step === "preview" && (() => {
+          const previewRows = getMappedRows();
+          const missingIdCount = previewRows.filter(r => !r.external_booking_id || r.external_booking_id.startsWith("gen_")).length;
+          const missingIdPct = previewRows.length > 0 ? Math.round((missingIdCount / previewRows.length) * 100) : 0;
+          return (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">Preview of mapped data (first 10 rows)</p>
+            {missingIdPct > 50 && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 px-3 py-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  <strong>{missingIdPct}% of rows</strong> have no Booking ID column mapped. Generated fallback IDs will be used, but re-importing the same file may create duplicates if child names or DOB vary slightly.
+                </p>
+              </div>
+            )}
             <div className="overflow-x-auto border rounded-md">
               <Table>
                 <TableHeader>
