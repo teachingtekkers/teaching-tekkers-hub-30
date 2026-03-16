@@ -493,7 +493,7 @@ export default function BookingSyncPage() {
                 </Button>
               ))}
             </div>
-            <Badge variant="secondary">{filtered.length} records</Badge>
+            <Badge variant="secondary">{filtered.length} of {totalSynced} records{hasMore ? " (showing latest)" : ""}</Badge>
           </div>
           <div className="rounded-lg border overflow-auto">
             <Table>
