@@ -254,8 +254,44 @@ export default function BookingSyncPage() {
               <ExternalLink className="h-4 w-4 mr-1.5" /> Booking Site
             </Button>
           </a>
+          <Button variant="destructive" size="sm" onClick={() => { setResetConfirm(""); setResetOpen(true); }}>
+            <Trash2 className="h-4 w-4 mr-1.5" /> Reset Import Data
+          </Button>
         </div>
       </div>
+
+      {/* Reset Confirmation Dialog */}
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> Reset All Import Data
+            </DialogTitle>
+            <DialogDescription>
+              This will permanently delete <strong>all synced bookings</strong>, <strong>sync logs</strong>, and <strong>draft/auto-created camps</strong>. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <p className="text-sm text-muted-foreground">Type <strong>RESET</strong> to confirm:</p>
+            <Input
+              value={resetConfirm}
+              onChange={(e) => setResetConfirm(e.target.value)}
+              placeholder="Type RESET"
+              className="font-mono"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setResetOpen(false)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                disabled={resetConfirm !== "RESET" || resetting}
+                onClick={handleReset}
+              >
+                {resetting ? "Resetting…" : "Confirm Reset"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Status Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
