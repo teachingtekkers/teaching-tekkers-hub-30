@@ -334,7 +334,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
     total_amount: ["total amount", "total_amount", "total", "price", "cost"],
     sibling_discount: ["siblings discount", "sibling discount", "sibling_discount", "discount"],
     amount_paid: ["amount paid", "amount_paid", "paid amount", "paid"],
-    payment_status: ["status", "payment status", "payment_status"],
+    payment_status: ["payment status", "payment_status"],
     payment_type: ["payment type", "payment_type", "payment method"],
     refund_amount: ["refund amount", "refund_amount", "refund"],
   };
