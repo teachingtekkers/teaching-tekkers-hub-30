@@ -778,30 +778,45 @@ export type Database = {
           created_at: string
           date_of_birth: string | null
           first_name: string
+          guardian_email: string | null
+          guardian_phone: string | null
           id: string
+          identity_key: string | null
           kit_size: string
           last_name: string
           medical_notes: string | null
+          norm_first_name: string | null
+          norm_last_name: string | null
           photo_permission: boolean
         }
         Insert: {
           created_at?: string
           date_of_birth?: string | null
           first_name: string
+          guardian_email?: string | null
+          guardian_phone?: string | null
           id?: string
+          identity_key?: string | null
           kit_size?: string
           last_name: string
           medical_notes?: string | null
+          norm_first_name?: string | null
+          norm_last_name?: string | null
           photo_permission?: boolean
         }
         Update: {
           created_at?: string
           date_of_birth?: string | null
           first_name?: string
+          guardian_email?: string | null
+          guardian_phone?: string | null
           id?: string
+          identity_key?: string | null
           kit_size?: string
           last_name?: string
           medical_notes?: string | null
+          norm_first_name?: string | null
+          norm_last_name?: string | null
           photo_permission?: boolean
         }
         Relationships: []
