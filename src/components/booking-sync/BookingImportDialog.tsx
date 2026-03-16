@@ -394,9 +394,11 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
             (mapped.camp_name || "").trim(),
             (mapped.child_first_name || "").trim(),
             (mapped.child_last_name || "").trim(),
-            (mapped.date_of_birth || mapped.parent_email || "").trim(),
+            (mapped.date_of_birth || "").trim(),
+            (mapped.parent_email || "").trim(),
+            (mapped.camp_date || "").trim(),
           ].map(s => s.toLowerCase());
-          mapped.external_booking_id = `gen_${parts.join("_").replace(/[^a-z0-9]/g, "_")}`;
+          mapped.external_booking_id = `gen_${parts.join("|").replace(/[^a-z0-9|]/g, "_")}`;
         }
 
         allMapped.push(mapped);
