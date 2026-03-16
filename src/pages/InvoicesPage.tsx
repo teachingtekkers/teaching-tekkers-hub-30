@@ -69,12 +69,15 @@ const InvoicesPage = () => {
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
 
-  // Load invoices and camps
+  const [clubs, setClubs] = useState<ClubRef[]>([]);
+
+  // Load invoices, camps, and clubs
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [invoicesRes, campsRes] = await Promise.all([
+    const [invoicesRes, campsRes, clubsRes] = await Promise.all([
       supabase.from("club_invoices").select("*").order("created_at", { ascending: false }),
-      supabase.from("camps").select("id, name, club_name, start_date, end_date").order("start_date", { ascending: false }),
+      supabase.from("camps").select("id, name, club_name, club_id, start_date, end_date").order("start_date", { ascending: false }),
+      supabase.from("clubs").select("id, name").order("name"),
     ]);
 
     if (invoicesRes.error || campsRes.error) {
@@ -83,14 +86,26 @@ const InvoicesPage = () => {
       return;
     }
 
-    const campMap = new Map((campsRes.data || []).map((c: CampRow) => [c.id, c]));
+    const clubsList = (clubsRes.data || []) as ClubRef[];
+    setClubs(clubsList);
+    const clubMap = new Map(clubsList.map(cl => [cl.id, cl.name]));
+    const campMap = new Map((campsRes.data || []).map((c: any) => [c.id, c]));
+
     const enriched = (invoicesRes.data || []).map((inv: any) => {
       const camp = campMap.get(inv.camp_id);
-      return { ...inv, camp_name: camp?.name || "Unknown", camp_start: camp?.start_date, camp_end: camp?.end_date };
+      const resolvedClubName = camp?.club_id ? (clubMap.get(camp.club_id) || camp?.club_name || "Unknown") : (camp?.club_name || "Unassigned");
+      return {
+        ...inv,
+        camp_name: camp?.name || "Unknown",
+        camp_start: camp?.start_date,
+        camp_end: camp?.end_date,
+        resolved_club_name: resolvedClubName,
+        resolved_club_id: camp?.club_id || null,
+      };
     });
 
     setInvoices(enriched);
-    setCamps(campsRes.data || []);
+    setCamps((campsRes.data || []) as CampRow[]);
     setLoading(false);
   }, [toast]);
 
