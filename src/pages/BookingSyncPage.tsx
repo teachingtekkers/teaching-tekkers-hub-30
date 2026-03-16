@@ -82,6 +82,7 @@ export default function BookingSyncPage() {
   const [resetConfirm, setResetConfirm] = useState("");
   const [resetting, setResetting] = useState(false);
   const [materializing, setMaterializing] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [errorsDrawerOpen, setErrorsDrawerOpen] = useState(false);
   const [errorsSyncLogId, setErrorsSyncLogId] = useState<string | null>(null);
   const [errorsCode, setErrorsCode] = useState<string | null>(null);
