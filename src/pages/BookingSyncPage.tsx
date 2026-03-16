@@ -319,7 +319,7 @@ export default function BookingSyncPage() {
             <Wrench className={`h-4 w-4 mr-1.5 ${repairing ? "animate-spin" : ""}`} />
             {repairing ? "Repairing…" : "Repair All Links"}
           </Button>
-          <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => loadData(0)} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
