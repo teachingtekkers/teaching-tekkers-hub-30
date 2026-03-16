@@ -435,10 +435,8 @@ Deno.serve(async (req) => {
               delete record.match_reason;
             }
             updates.push({ id: existing.id, record });
-            updated++;
           } else {
             inserts.push(record);
-            created++;
           }
         } catch (e) {
           failed++;
