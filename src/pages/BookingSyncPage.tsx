@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload, Zap, Wrench, Trash2 } from "lucide-react";
+import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload, Zap, Wrench, Trash2, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -75,6 +75,7 @@ export default function BookingSyncPage() {
   const [resetOpen, setResetOpen] = useState(false);
   const [resetConfirm, setResetConfirm] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [materializing, setMaterializing] = useState(false);
   const { toast } = useToast();
 
   const loadData = useCallback(async () => {
@@ -177,6 +178,24 @@ export default function BookingSyncPage() {
       setResetting(false);
     }
   }, [toast, loadData]);
+
+  const handleMaterializePlayers = useCallback(async () => {
+    setMaterializing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("materialize-players");
+      if (error) throw error;
+      toast({
+        title: "Players created/updated",
+        description: `Created: ${data.created || 0}, Linked: ${data.linked || 0}, Skipped: ${data.skipped || 0}, Failed: ${data.failed || 0}`,
+      });
+      await loadData();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Materialize failed";
+      toast({ title: "Player creation failed", description: message, variant: "destructive" });
+    } finally {
+      setMaterializing(false);
+    }
+  }, [toast, loadData]);
   const lastSync = syncLogs[0];
 
   const totalSynced = bookings.length;
@@ -254,6 +273,10 @@ export default function BookingSyncPage() {
               <ExternalLink className="h-4 w-4 mr-1.5" /> Booking Site
             </Button>
           </a>
+          <Button size="sm" variant="secondary" onClick={handleMaterializePlayers} disabled={materializing}>
+            <Users className={`h-4 w-4 mr-1.5 ${materializing ? "animate-spin" : ""}`} />
+            {materializing ? "Creating…" : "Create/Update Players"}
+          </Button>
           <Button variant="destructive" size="sm" onClick={() => { setResetConfirm(""); setResetOpen(true); }}>
             <Trash2 className="h-4 w-4 mr-1.5" /> Reset Import Data
           </Button>

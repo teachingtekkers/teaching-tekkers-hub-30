@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatCard } from "@/components/StatCard";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -16,7 +16,7 @@ import {
 import {
   ToggleGroup, ToggleGroupItem,
 } from "@/components/ui/toggle-group";
-import { Plus, MapPin, Calendar, Tent, Users, FileText, Check } from "lucide-react";
+import { Plus, MapPin, Calendar, Tent, Users, FileText, Check, Trash2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface CampRow {
@@ -43,6 +43,9 @@ const CampsPage = () => {
   const [open, setOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("published");
   const [publishing, setPublishing] = useState<string | null>(null);
+  const [deleteDraftsOpen, setDeleteDraftsOpen] = useState(false);
+  const [deleteDraftsConfirm, setDeleteDraftsConfirm] = useState("");
+  const [deletingDrafts, setDeletingDrafts] = useState(false);
   const [form, setForm] = useState({
     name: "", club_name: "", venue: "", county: "",
     start_date: "", end_date: "", daily_start_time: "10:00", daily_end_time: "15:00",
@@ -113,6 +116,26 @@ const CampsPage = () => {
     setPublishing(null);
   };
 
+  const handleDeleteDrafts = async () => {
+    setDeletingDrafts(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-auto-created-camps");
+      if (error) throw error;
+      toast({
+        title: "Draft camps deleted",
+        description: `Deleted ${data.deleted_camps || 0} camps, unlinked ${data.unlinked_bookings || 0} bookings`,
+      });
+      setDeleteDraftsOpen(false);
+      setDeleteDraftsConfirm("");
+      loadCamps();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Delete failed";
+      toast({ title: "Delete failed", description: message, variant: "destructive" });
+    } finally {
+      setDeletingDrafts(false);
+    }
+  };
+
   const draftCount = camps.filter(c => c.status === "draft").length;
   const archivedCount = camps.filter(c => c.status === "archived").length;
   const publishedCount = camps.filter(c => c.status !== "draft" && c.status !== "archived").length;
@@ -132,10 +155,16 @@ const CampsPage = () => {
           <h1>Camps</h1>
           <p>Manage your football camps</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm"><Plus className="mr-2 h-4 w-4" /> New Camp</Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          {draftCount > 0 && (
+            <Button size="sm" variant="destructive" onClick={() => { setDeleteDraftsConfirm(""); setDeleteDraftsOpen(true); }}>
+              <Trash2 className="h-4 w-4 mr-1.5" /> Delete Draft Camps
+            </Button>
+          )}
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm"><Plus className="mr-2 h-4 w-4" /> New Camp</Button>
+            </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Create Camp</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
@@ -156,7 +185,41 @@ const CampsPage = () => {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      {/* Delete Draft Camps Dialog */}
+      <Dialog open={deleteDraftsOpen} onOpenChange={setDeleteDraftsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> Delete Auto-Created Draft Camps
+            </DialogTitle>
+            <DialogDescription>
+              This will delete all <strong>{draftCount} auto-created draft camps</strong> and unlink their synced bookings. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <p className="text-sm text-muted-foreground">Type <strong>DELETE</strong> to confirm:</p>
+            <Input
+              value={deleteDraftsConfirm}
+              onChange={(e) => setDeleteDraftsConfirm(e.target.value)}
+              placeholder="Type DELETE"
+              className="font-mono"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeleteDraftsOpen(false)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                disabled={deleteDraftsConfirm !== "DELETE" || deletingDrafts}
+                onClick={handleDeleteDrafts}
+              >
+                {deletingDrafts ? "Deleting…" : "Confirm Delete"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="stat-grid">
         <StatCard title="Total Camps" value={camps.length} icon={Tent} />
