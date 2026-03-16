@@ -368,10 +368,10 @@ export default function PlayersPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {playerBookings.length === 0 ? (
+                          {sortedBookings.length === 0 ? (
                             <span className="text-xs text-muted-foreground">—</span>
                           ) : (
-                            playerBookings.map((booking) => {
+                            sortedBookings.map((booking) => {
                               const fin = derivePaymentStatus(booking);
                               return (
                                 <div key={booking.id} className="inline-flex flex-col items-start">
