@@ -1266,6 +1266,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      recalculate_payment_statuses: { Args: never; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "head_coach"
