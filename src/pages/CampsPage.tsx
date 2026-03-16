@@ -43,6 +43,9 @@ const CampsPage = () => {
   const [open, setOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("published");
   const [publishing, setPublishing] = useState<string | null>(null);
+  const [deleteDraftsOpen, setDeleteDraftsOpen] = useState(false);
+  const [deleteDraftsConfirm, setDeleteDraftsConfirm] = useState("");
+  const [deletingDrafts, setDeletingDrafts] = useState(false);
   const [form, setForm] = useState({
     name: "", club_name: "", venue: "", county: "",
     start_date: "", end_date: "", daily_start_time: "10:00", daily_end_time: "15:00",
