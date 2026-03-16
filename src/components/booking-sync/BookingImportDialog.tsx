@@ -286,6 +286,24 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
           parsed.forEach((p) => p.headers.forEach((h) => mergedHeaders.add(h)));
           const autoMap: Record<string, string> = {};
           mergedHeaders.forEach((h) => { autoMap[h] = autoMapColumn(h); });
+
+          // Auto-detect "Status" column: sniff first 30 values to decide payment_status vs booking_status
+          const PAYMENT_KEYWORDS = ["paid", "unpaid", "paid online", "pending", "refunded", "partial", "complete", "completed", "success", "awaiting"];
+          for (const header of mergedHeaders) {
+            if (normalizeHeader(header) === "status") {
+              const sampleValues: string[] = [];
+              for (const f of parsed) {
+                for (const row of f.rows) {
+                  const v = (row[header] || "").trim();
+                  if (v && sampleValues.length < 30) sampleValues.push(v.toLowerCase());
+                }
+              }
+              const looksLikePayment = sampleValues.some((v) => PAYMENT_KEYWORDS.some((kw) => v.includes(kw)));
+              autoMap[header] = looksLikePayment ? "payment_status" : "booking_status";
+              console.log(`[BookingImport] "Status" auto-detect: sampled ${sampleValues.length} values, looksLikePayment=${looksLikePayment}, mapped to ${autoMap[header]}`, sampleValues.slice(0, 5));
+            }
+          }
+
           console.log("[BookingImport] Auto-mapping result:", JSON.stringify(autoMap, null, 2));
           // Log first row raw data for finance debugging
           if (parsed[0]?.rows[0]) {
