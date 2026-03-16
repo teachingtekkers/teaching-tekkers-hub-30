@@ -225,6 +225,10 @@ export default function PlayersPage() {
           <Button variant="ghost" size="sm" onClick={() => setErrorsOpen(true)}>
             <Eye className="mr-1.5 h-4 w-4" /> View Errors
           </Button>
+          <Button variant="outline" size="sm" onClick={handleRecalculatePayments} disabled={recalculating}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${recalculating ? "animate-spin" : ""}`} />
+            {recalculating ? "Recalculating…" : "Recalculate Payments"}
+          </Button>
         </div>
       </div>
 
