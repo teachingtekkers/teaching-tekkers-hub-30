@@ -155,10 +155,16 @@ const CampsPage = () => {
           <h1>Camps</h1>
           <p>Manage your football camps</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm"><Plus className="mr-2 h-4 w-4" /> New Camp</Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          {draftCount > 0 && (
+            <Button size="sm" variant="destructive" onClick={() => { setDeleteDraftsConfirm(""); setDeleteDraftsOpen(true); }}>
+              <Trash2 className="h-4 w-4 mr-1.5" /> Delete Draft Camps
+            </Button>
+          )}
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm"><Plus className="mr-2 h-4 w-4" /> New Camp</Button>
+            </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Create Camp</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
