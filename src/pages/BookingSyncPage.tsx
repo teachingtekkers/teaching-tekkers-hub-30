@@ -273,6 +273,10 @@ export default function BookingSyncPage() {
               <ExternalLink className="h-4 w-4 mr-1.5" /> Booking Site
             </Button>
           </a>
+          <Button size="sm" variant="secondary" onClick={handleMaterializePlayers} disabled={materializing}>
+            <Users className={`h-4 w-4 mr-1.5 ${materializing ? "animate-spin" : ""}`} />
+            {materializing ? "Creating…" : "Create/Update Players"}
+          </Button>
           <Button variant="destructive" size="sm" onClick={() => { setResetConfirm(""); setResetOpen(true); }}>
             <Trash2 className="h-4 w-4 mr-1.5" /> Reset Import Data
           </Button>

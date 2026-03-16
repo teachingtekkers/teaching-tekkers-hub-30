@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatCard } from "@/components/StatCard";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -16,7 +16,7 @@ import {
 import {
   ToggleGroup, ToggleGroupItem,
 } from "@/components/ui/toggle-group";
-import { Plus, MapPin, Calendar, Tent, Users, FileText, Check } from "lucide-react";
+import { Plus, MapPin, Calendar, Tent, Users, FileText, Check, Trash2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface CampRow {
