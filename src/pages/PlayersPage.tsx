@@ -114,7 +114,7 @@ export default function PlayersPage() {
       if (!batch.length) continue;
       const { data } = await supabase
         .from("synced_bookings")
-        .select("id, external_booking_id, matched_player_id, matched_camp_id, payment_status, parent_name, parent_phone, parent_email, camp_name")
+        .select("id, external_booking_id, matched_player_id, matched_camp_id, payment_status, parent_name, parent_phone, parent_email, camp_name, total_amount, sibling_discount, amount_paid, refund_amount")
         .in("matched_player_id", batch);
       if (data) bookingRows = bookingRows.concat(data as SyncedBookingRow[]);
     }
