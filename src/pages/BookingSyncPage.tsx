@@ -291,9 +291,10 @@ export default function BookingSyncPage() {
     return <Badge variant="secondary">{s || "—"}</Badge>;
   };
 
-  const openErrorsForLog = (logId: string) => {
+  const openErrorsForLog = (logId: string, failedCount: number) => {
     setErrorsSyncLogId(logId);
     setErrorsCode(null);
+    setErrorsExpectedCount(failedCount);
     setErrorsDrawerOpen(true);
   };
 
