@@ -116,6 +116,26 @@ const CampsPage = () => {
     setPublishing(null);
   };
 
+  const handleDeleteDrafts = async () => {
+    setDeletingDrafts(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-auto-created-camps");
+      if (error) throw error;
+      toast({
+        title: "Draft camps deleted",
+        description: `Deleted ${data.deleted_camps || 0} camps, unlinked ${data.unlinked_bookings || 0} bookings`,
+      });
+      setDeleteDraftsOpen(false);
+      setDeleteDraftsConfirm("");
+      loadCamps();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Delete failed";
+      toast({ title: "Delete failed", description: message, variant: "destructive" });
+    } finally {
+      setDeletingDrafts(false);
+    }
+  };
+
   const draftCount = camps.filter(c => c.status === "draft").length;
   const archivedCount = camps.filter(c => c.status === "archived").length;
   const publishedCount = camps.filter(c => c.status !== "draft" && c.status !== "archived").length;
