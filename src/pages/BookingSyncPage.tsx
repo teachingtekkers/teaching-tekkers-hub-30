@@ -82,6 +82,7 @@ export default function BookingSyncPage() {
   const [resetConfirm, setResetConfirm] = useState("");
   const [resetting, setResetting] = useState(false);
   const [materializing, setMaterializing] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [errorsDrawerOpen, setErrorsDrawerOpen] = useState(false);
   const [errorsSyncLogId, setErrorsSyncLogId] = useState<string | null>(null);
   const [errorsCode, setErrorsCode] = useState<string | null>(null);
@@ -239,6 +240,25 @@ export default function BookingSyncPage() {
     }
   }, [toast, loadData]);
 
+  const handleRecalculatePayments = useCallback(async () => {
+    setRecalculating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("recalculate-payment-status");
+      if (error) throw error;
+      const c = data?.counts;
+      toast({
+        title: "Payment status recalculated",
+        description: `${c?.changed || 0} updated — Paid: ${c?.paid || 0}, Pending: ${c?.pending || 0}, Partial: ${c?.partial || 0}, Refunded: ${c?.refunded || 0}`,
+      });
+      await loadData();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Recalculation failed";
+      toast({ title: "Recalculation failed", description: message, variant: "destructive" });
+    } finally {
+      setRecalculating(false);
+    }
+  }, [toast, loadData]);
+
   const lastSync = syncLogs[0];
   const totalSynced = dbCounts.total;
   const unmatched = dbCounts.unmatched;
@@ -333,6 +353,10 @@ export default function BookingSyncPage() {
           <Button size="sm" variant="secondary" onClick={handleMaterializePlayers} disabled={materializing}>
             <Users className={`h-4 w-4 mr-1.5 ${materializing ? "animate-spin" : ""}`} />
             {materializing ? "Creating…" : "Create/Update Players"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleRecalculatePayments} disabled={recalculating}>
+            <RefreshCw className={`h-4 w-4 mr-1.5 ${recalculating ? "animate-spin" : ""}`} />
+            {recalculating ? "Recalculating…" : "Recalculate Payments"}
           </Button>
           <Button variant="destructive" size="sm" onClick={() => { setResetConfirm(""); setResetOpen(true); }}>
             <Trash2 className="h-4 w-4 mr-1.5" /> Reset Import Data
