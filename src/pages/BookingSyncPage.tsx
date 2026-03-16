@@ -75,6 +75,7 @@ export default function BookingSyncPage() {
   const [resetOpen, setResetOpen] = useState(false);
   const [resetConfirm, setResetConfirm] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [materializing, setMaterializing] = useState(false);
   const { toast } = useToast();
 
   const loadData = useCallback(async () => {
