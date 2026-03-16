@@ -23,6 +23,7 @@ import InvoicesPage from "./pages/InvoicesPage";
 import ReportsPage from "./pages/ReportsPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import BookingSyncPage from "./pages/BookingSyncPage";
+import DatabaseDiagnosticsPage from "./pages/DatabaseDiagnosticsPage";
 
 // Admin: Private Coaching
 import PrivateDashboardPage from "./pages/private/PrivateDashboardPage";
