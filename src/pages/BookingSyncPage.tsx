@@ -652,6 +652,45 @@ export default function BookingSyncPage() {
             </Card>
           )}
 
+          {/* Payment Status Distribution */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Payment Status Distribution</CardTitle>
+              <CardDescription>Top 10 distinct payment_status values currently stored in synced_bookings</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const counts = new Map<string, number>();
+                for (const b of bookings) {
+                  const key = b.payment_status || "(null)";
+                  counts.set(key, (counts.get(key) || 0) + 1);
+                }
+                const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+                return (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>payment_status</TableHead>
+                        <TableHead className="text-right">Count</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sorted.map(([status, count]) => (
+                        <TableRow key={status}>
+                          <TableCell className="font-mono text-sm">{status}</TableCell>
+                          <TableCell className="text-right font-semibold">{count}</TableCell>
+                        </TableRow>
+                      ))}
+                      {sorted.length === 0 && (
+                        <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground py-4">No data</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
           <div className="flex gap-2">
             <Button size="sm" variant="secondary" onClick={handleRepairLinks} disabled={repairing}>
               <Wrench className={`h-4 w-4 mr-1.5 ${repairing ? "animate-spin" : ""}`} />
