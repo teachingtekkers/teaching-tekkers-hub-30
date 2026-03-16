@@ -67,7 +67,6 @@ function parseDateOfBirth(val: unknown): string | null {
   return null;
 }
 
-/** Returns true, false, or null when unknown/blank */
 function parsePhotoPermission(val: unknown): boolean | null {
   if (val == null || val === "") return null;
   if (typeof val === "boolean") return val;
@@ -147,19 +146,16 @@ function findBestCamp(booking: IncomingBooking, camps: CampRow[]): MatchResult |
   const bookingNameNorm = normalize(booking.camp_name);
   const bookingNameMatch = normalizeForMatching(booking.camp_name);
 
-  // Exact match
   for (const camp of camps) {
     if (normalize(camp.name) === bookingNameNorm) {
       return { camp, score: 100, reason: "Exact name match" };
     }
   }
-  // Exact match after noise strip
   for (const camp of camps) {
     if (normalizeForMatching(camp.name) === bookingNameMatch) {
       return { camp, score: 90, reason: "Exact match after normalization" };
     }
   }
-  // Substring match
   for (const camp of camps) {
     const campNorm = normalize(camp.name);
     if (campNorm.includes(bookingNameNorm) || bookingNameNorm.includes(campNorm)) {
@@ -167,7 +163,6 @@ function findBestCamp(booking: IncomingBooking, camps: CampRow[]): MatchResult |
     }
   }
 
-  // Scored matching
   type Scored = { camp: CampRow; score: number; reasons: string[] };
   const scored: Scored[] = camps.map((camp) => {
     let score = 0;
@@ -219,7 +214,6 @@ function findBestCamp(booking: IncomingBooking, camps: CampRow[]): MatchResult |
   return null;
 }
 
-/** 3-tier match status from score */
 function matchTier(score: number): string {
   if (score >= 60) return "matched";
   if (score >= 45) return "needs_review";
@@ -266,15 +260,14 @@ Deno.serve(async (req) => {
         .select("id, external_booking_id, manual_override")
         .in("external_booking_id", externalIds)
         .eq("source_system", "bookings.teachingtekkers.com");
-      (existingRows || []).forEach((r: { id: string; external_booking_id: string; manual_override: boolean }) => {
+      (existingRows || []).forEach((r: any) => {
         existingByExtId[r.external_booking_id] = { id: r.id, manual_override: r.manual_override };
       });
     }
 
     let created = 0, updated = 0, failed = 0, needsReview = 0, draftsCreated = 0;
-    const errors: string[] = [];
-    // Track draft camps created in this run to avoid duplicates within the same import
-    const draftCampCache: Record<string, string> = {}; // normalized name -> camp id
+    const errorRows: { external_booking_id: string | null; camp_name: string; child_first_name: string; child_last_name: string; error_code: string; error_message: string; raw_row_json: unknown }[] = [];
+    const draftCampCache: Record<string, string> = {};
 
     const BATCH_SIZE = 10;
     for (let i = 0; i < bookings.length; i += BATCH_SIZE) {
@@ -284,7 +277,6 @@ Deno.serve(async (req) => {
 
       for (const b of batch) {
         try {
-          // Find best camp match
           const matchResult = findBestCamp(b, campsList);
 
           let matched_camp_id: string | null = null;
@@ -311,14 +303,12 @@ Deno.serve(async (req) => {
             const normName = normalize(b.camp_name);
             const campDate = b.camp_date || b.booking_date || new Date().toISOString().split("T")[0];
 
-            // Check in-memory cache first (same import batch)
             if (draftCampCache[normName]) {
               matched_camp_id = draftCampCache[normName];
               match_status = "matched";
               match_score = 100;
               match_reason = "Reused draft camp from this import";
             } else {
-              // Check if a draft camp with the same normalized name already exists
               const { data: existingDrafts } = await supabase
                 .from("camps")
                 .select("id, name, start_date, end_date")
@@ -327,7 +317,6 @@ Deno.serve(async (req) => {
 
               const reusable = (existingDrafts || []).find((dc: any) => {
                 if (normalize(dc.name) !== normName) return false;
-                // Check date overlap: camp_date within ±7 days of draft range
                 const s = new Date(dc.start_date).getTime();
                 const e = new Date(dc.end_date).getTime();
                 const d = new Date(campDate).getTime();
@@ -341,7 +330,6 @@ Deno.serve(async (req) => {
                 match_score = 95;
                 match_reason = "Reused existing draft camp";
               } else {
-                // Create new draft camp
                 const startDate = campDate;
                 const endDateObj = new Date(startDate);
                 endDateObj.setDate(endDateObj.getDate() + 3);
@@ -365,7 +353,15 @@ Deno.serve(async (req) => {
                   .single();
 
                 if (campErr) {
-                  errors.push(`Draft camp "${b.camp_name}": ${campErr.message}`);
+                  errorRows.push({
+                    external_booking_id: b.external_booking_id || null,
+                    camp_name: b.camp_name,
+                    child_first_name: b.child_first_name,
+                    child_last_name: b.child_last_name,
+                    error_code: "draft_camp_creation",
+                    error_message: `Draft camp "${b.camp_name}": ${campErr.message}`,
+                    raw_row_json: b,
+                  });
                 } else if (newCamp) {
                   matched_camp_id = newCamp.id;
                   campsList.push(newCamp as CampRow);
@@ -379,7 +375,6 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Parse finance fields
           const totalAmount = parseMoney(b.total_amount);
           const amountPaidRaw = parseMoney(b.amount_paid);
           const siblingDiscount = parseMoney(b.sibling_discount);
@@ -388,7 +383,6 @@ Deno.serve(async (req) => {
           const amountOwed = Math.max(0, totalCost - amountPaidRaw - refundAmount);
           const paymentStatus = normalizePaymentStatus(b.payment_status);
 
-          // Combine medical fields
           const medCondition = b.medical_condition?.trim() || "";
           const medNotes = b.medical_notes?.trim() || "";
           const combinedMedical = [medCondition, medNotes].filter(Boolean).join(" — ") || null;
@@ -422,7 +416,6 @@ Deno.serve(async (req) => {
             match_score,
             match_reason,
             duplicate_warning: false,
-            // Finance fields
             total_amount: totalAmount,
             amount_paid: amountPaidRaw,
             sibling_discount: siblingDiscount,
@@ -435,7 +428,6 @@ Deno.serve(async (req) => {
           const existing = b.external_booking_id ? existingByExtId[b.external_booking_id] : null;
 
           if (existing) {
-            // If manually overridden, preserve match fields
             if (existing.manual_override) {
               delete record.matched_camp_id;
               delete record.match_status;
@@ -450,7 +442,15 @@ Deno.serve(async (req) => {
           }
         } catch (e) {
           failed++;
-          errors.push(`${b.child_first_name} ${b.child_last_name}: ${e.message}`);
+          errorRows.push({
+            external_booking_id: b.external_booking_id || null,
+            camp_name: b.camp_name || "",
+            child_first_name: b.child_first_name || "",
+            child_last_name: b.child_last_name || "",
+            error_code: "booking_processing",
+            error_message: e.message,
+            raw_row_json: b,
+          });
         }
       }
 
@@ -466,8 +466,15 @@ Deno.serve(async (req) => {
               .insert(row);
             if (rowErr) {
               batchFailed++;
-              const name = `${row.child_first_name} ${row.child_last_name}`;
-              errors.push(`Row "${name}": ${rowErr.message}`);
+              errorRows.push({
+                external_booking_id: (row.external_booking_id as string) || null,
+                camp_name: (row.camp_name as string) || "",
+                child_first_name: (row.child_first_name as string) || "",
+                child_last_name: (row.child_last_name as string) || "",
+                error_code: "booking_insert",
+                error_message: rowErr.message,
+                raw_row_json: row,
+              });
             }
           }
           failed += batchFailed;
@@ -483,10 +490,37 @@ Deno.serve(async (req) => {
         if (updateErr) {
           failed++;
           updated--;
-          errors.push(`Update error: ${updateErr.message}`);
+          errorRows.push({
+            external_booking_id: (u.record.external_booking_id as string) || null,
+            camp_name: (u.record.camp_name as string) || "",
+            child_first_name: (u.record.child_first_name as string) || "",
+            child_last_name: (u.record.child_last_name as string) || "",
+            error_code: "booking_update",
+            error_message: updateErr.message,
+            raw_row_json: u.record,
+          });
         }
       }
     }
+
+    // Write error rows to import_errors table
+    if (errorRows.length > 0) {
+      const errorInserts = errorRows.map(e => ({
+        sync_log_id: syncLog.id,
+        external_booking_id: e.external_booking_id,
+        camp_name: e.camp_name,
+        child_first_name: e.child_first_name,
+        child_last_name: e.child_last_name,
+        error_code: e.error_code,
+        error_message: e.error_message,
+        raw_row_json: e.raw_row_json,
+      }));
+      await supabase.from("import_errors").insert(errorInserts);
+    }
+
+    const errorSummary = errorRows.length > 0
+      ? `${errorRows.length} failures – see import_errors table`
+      : null;
 
     await supabase
       .from("sync_logs")
@@ -496,7 +530,7 @@ Deno.serve(async (req) => {
         records_created: created,
         records_updated: updated,
         records_failed: failed,
-        error_notes: errors.length ? errors.join("; ") : null,
+        error_notes: errorSummary,
       })
       .eq("id", syncLog.id);
 
