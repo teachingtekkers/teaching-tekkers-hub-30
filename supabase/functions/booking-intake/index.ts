@@ -106,11 +106,12 @@ function parsePhotoPermission(val: unknown): boolean | null {
 function normalizePaymentStatus(val: unknown): string {
   if (val == null || val === "") return "pending";
   const s = String(val).toLowerCase().trim();
-  if (s === "paid" || s === "complete" || s === "completed" || s === "success") return "paid";
-  if (s === "refunded" || s === "refund") return "refunded";
-  if (s === "partial" || s === "partially paid") return "partial";
-  if (s === "unpaid" || s === "pending" || s === "awaiting") return "pending";
-  return s || "pending";
+  if (!s) return "pending";
+  if (s.includes("paid") || s.includes("complete") || s.includes("success") || s.includes("succeeded")) return "paid";
+  if (s.includes("refund")) return "refunded";
+  if (s.includes("partial")) return "partial";
+  if (s.includes("pending") || s.includes("unpaid") || s.includes("awaiting")) return "pending";
+  return "pending";
 }
 
 // ── Matching helpers ──

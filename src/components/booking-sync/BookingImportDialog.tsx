@@ -104,12 +104,9 @@ function normalizeHeader(header: string): string {
 function autoMapColumn(header: string): string {
   const h = normalizeHeader(header);
 
-  // Disambiguate generic "status" — only map to payment_status if it contains "payment"
-  if (h === "status" || h === "state") {
-    // bare "status"/"state" is ambiguous — leave unmapped
-    console.log(`[BookingImport] Ambiguous header "${header}" — skipping (map manually if needed)`);
-    return "skip";
-  }
+  // "Status" alone maps to payment_status (the Teaching Tekkers CSV convention)
+  if (h === "status") return "payment_status";
+  if (h === "state") return "booking_status";
 
   // 1. Exact alias match
   for (const [field, aliases] of Object.entries(ALIASES)) {
