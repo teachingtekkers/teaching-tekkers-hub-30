@@ -103,9 +103,29 @@ function normalizeHeader(header: string): string {
 
 function autoMapColumn(header: string): string {
   const h = normalizeHeader(header);
+
+  // Disambiguate generic "status" — only map to payment_status if it contains "payment"
+  if (h === "status" || h === "state") {
+    // bare "status"/"state" is ambiguous — leave unmapped
+    console.log(`[BookingImport] Ambiguous header "${header}" — skipping (map manually if needed)`);
+    return "skip";
+  }
+
+  // 1. Exact alias match
   for (const [field, aliases] of Object.entries(ALIASES)) {
     if (aliases.includes(h) || h === field) return field;
   }
+
+  // 2. Partial / contains match — alias is a substring of h, or h is a substring of alias
+  for (const [field, aliases] of Object.entries(ALIASES)) {
+    for (const alias of aliases) {
+      if (alias.length >= 4 && (h.includes(alias) || alias.includes(h))) {
+        // Extra guard: don't let short header match long alias loosely
+        if (h.length >= 3) return field;
+      }
+    }
+  }
+
   console.log(`[BookingImport] Unmapped CSV header: "${header}" → normalized: "${h}"`);
   return "skip";
 }
@@ -116,7 +136,16 @@ function parseCSV(text: string): { headers: string[]; rows: ParsedRow[] } {
   const lines = clean.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length === 0) return { headers: [], rows: [] };
   const firstLine = lines[0];
-  const delimiter = firstLine.includes("\t") ? "\t" : ",";
+
+  // Detect delimiter by trying each and picking the one that yields the most columns
+  const candidates: Array<{ delim: string; count: number }> = [
+    { delim: ",", count: firstLine.split(",").length },
+    { delim: ";", count: firstLine.split(";").length },
+    { delim: "\t", count: firstLine.split("\t").length },
+  ];
+  candidates.sort((a, b) => b.count - a.count);
+  const delimiter = candidates[0].count > 1 ? candidates[0].delim : ",";
+  console.log(`[BookingImport] Detected delimiter: "${delimiter === "\t" ? "TAB" : delimiter}" (${candidates[0].count} columns)`);
 
   const parseRow = (line: string): string[] => {
     const result: string[] = [];
@@ -305,7 +334,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
     total_amount: ["total amount", "total_amount", "total", "price", "cost"],
     sibling_discount: ["siblings discount", "sibling discount", "sibling_discount", "discount"],
     amount_paid: ["amount paid", "amount_paid", "paid amount", "paid"],
-    payment_status: ["status", "payment status", "payment_status"],
+    payment_status: ["payment status", "payment_status"],
     payment_type: ["payment type", "payment_type", "payment method"],
     refund_amount: ["refund amount", "refund_amount", "refund"],
   };
@@ -358,6 +387,18 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         if (!hasCampCol || !mapped.camp_name) mapped.camp_name = f.detectedCampName;
         if ((!hasVenueCol || !mapped.venue) && f.detectedVenue) mapped.venue = f.detectedVenue;
         if ((!hasCountyCol || !mapped.county) && f.detectedCounty) mapped.county = f.detectedCounty;
+
+        // Fallback external_booking_id when missing — prevents row collapse into updates
+        if (!mapped.external_booking_id) {
+          const parts = [
+            (mapped.camp_name || "").trim(),
+            (mapped.child_first_name || "").trim(),
+            (mapped.child_last_name || "").trim(),
+            (mapped.date_of_birth || mapped.parent_email || "").trim(),
+          ].map(s => s.toLowerCase());
+          mapped.external_booking_id = `gen_${parts.join("_").replace(/[^a-z0-9]/g, "_")}`;
+        }
+
         allMapped.push(mapped);
       });
     });
@@ -520,9 +561,21 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         )}
 
         {/* Step 3: Preview */}
-        {step === "preview" && (
+        {step === "preview" && (() => {
+          const previewRows = getMappedRows();
+          const missingIdCount = previewRows.filter(r => !r.external_booking_id || r.external_booking_id.startsWith("gen_")).length;
+          const missingIdPct = previewRows.length > 0 ? Math.round((missingIdCount / previewRows.length) * 100) : 0;
+          return (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">Preview of mapped data (first 10 rows)</p>
+            {missingIdPct > 50 && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 px-3 py-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  <strong>{missingIdPct}% of rows</strong> have no Booking ID column mapped. Generated fallback IDs will be used, but re-importing the same file may create duplicates if child names or DOB vary slightly.
+                </p>
+              </div>
+            )}
             <div className="overflow-x-auto border rounded-md">
               <Table>
                 <TableHeader>
@@ -550,7 +603,9 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
               <Button onClick={handleImport}>Import {totalRows} rows</Button>
             </div>
           </div>
-        )}
+          );
+        })()}
+
 
         {/* Step 4: Importing */}
         {step === "importing" && (
