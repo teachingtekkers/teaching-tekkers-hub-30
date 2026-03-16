@@ -20,10 +20,15 @@ import { cn } from "@/lib/utils";
 
 // ---- Types ----
 
+interface ClubRef {
+  id: string;
+  name: string;
+}
+
 interface InvoiceRow {
   id: string;
   camp_id: string;
-  club_name: string;
+  club_name: string;       // legacy from club_invoices
   attendance_count: number;
   rate_per_child: number;
   total_amount: number;
@@ -34,12 +39,15 @@ interface InvoiceRow {
   camp_name?: string;
   camp_start?: string;
   camp_end?: string;
+  resolved_club_name?: string;  // from clubs table via camp.club_id
+  resolved_club_id?: string | null;
 }
 
 interface CampRow {
   id: string;
   name: string;
   club_name: string;
+  club_id: string | null;
   start_date: string;
   end_date: string;
 }
