@@ -338,6 +338,10 @@ export default function PlayersPage() {
               <TableBody>
                 {visiblePlayers.map((player) => {
                   const playerBookings = getPlayerBookings(player.id);
+                  const sortedBookings = [...playerBookings].sort((a, b) => {
+                    const order: Record<string, number> = { Pending: 0, Partial: 1, Refunded: 2, Paid: 3 };
+                    return (order[derivePaymentStatus(a).status] ?? 4) - (order[derivePaymentStatus(b).status] ?? 4);
+                  });
                   return (
                     <TableRow key={player.id}>
                       <TableCell className="font-medium text-sm">{player.first_name} {player.last_name}</TableCell>
