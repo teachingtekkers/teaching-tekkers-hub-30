@@ -245,6 +245,9 @@ const CampsPage = () => {
                       {camp.status === "draft" && (
                         <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 shrink-0">Draft</Badge>
                       )}
+                      {camp.status === "archived" && (
+                        <Badge variant="outline" className="text-[10px] border-muted-foreground text-muted-foreground shrink-0">Archived</Badge>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="text-sm">{camp.club_name}</TableCell>
