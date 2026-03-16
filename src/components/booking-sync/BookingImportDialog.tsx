@@ -247,6 +247,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
     setMapping({});
     setResult(null);
     setDragOver(false);
+    setForceImport(false);
   }, []);
 
   const processFiles = useCallback((fileList: File[]) => {
