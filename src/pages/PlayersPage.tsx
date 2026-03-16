@@ -34,6 +34,21 @@ interface SyncedBookingRow {
   parent_phone: string | null;
   parent_email: string | null;
   camp_name: string;
+  total_amount: number | null;
+  sibling_discount: number | null;
+  amount_paid: number | null;
+  refund_amount: number | null;
+}
+
+function derivePaymentStatus(b: SyncedBookingRow) {
+  const totalCost = Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0));
+  const owed = Math.max(0, totalCost - (b.amount_paid ?? 0) - (b.refund_amount ?? 0));
+  let status: string;
+  if ((b.refund_amount ?? 0) > 0) status = "Refunded";
+  else if (owed <= 0 && totalCost > 0) status = "Paid";
+  else if ((b.amount_paid ?? 0) > 0 && owed > 0) status = "Partial";
+  else status = "Pending";
+  return { status, paid: b.amount_paid ?? 0, owed, totalCost };
 }
 
 interface CampRow {
@@ -99,7 +114,7 @@ export default function PlayersPage() {
       if (!batch.length) continue;
       const { data } = await supabase
         .from("synced_bookings")
-        .select("id, external_booking_id, matched_player_id, matched_camp_id, payment_status, parent_name, parent_phone, parent_email, camp_name")
+        .select("id, external_booking_id, matched_player_id, matched_camp_id, payment_status, parent_name, parent_phone, parent_email, camp_name, total_amount, sibling_discount, amount_paid, refund_amount")
         .in("matched_player_id", batch);
       if (data) bookingRows = bookingRows.concat(data as SyncedBookingRow[]);
     }
@@ -311,11 +326,19 @@ export default function PlayersPage() {
                           {playerBookings.length === 0 ? (
                             <span className="text-xs text-muted-foreground">—</span>
                           ) : (
-                            playerBookings.map((booking) => (
-                              <Badge key={booking.id} variant={paymentVariant(booking.payment_status)} className="text-[10px]">
-                                {(booking.matched_camp_id && campMap.get(booking.matched_camp_id)) || booking.camp_name || "Unknown"} • {booking.payment_status || "pending"}
-                              </Badge>
-                            ))
+                            playerBookings.map((booking) => {
+                              const fin = derivePaymentStatus(booking);
+                              return (
+                                <div key={booking.id} className="inline-flex flex-col items-start">
+                                  <Badge variant={paymentVariant(fin.status.toLowerCase())} className="text-[10px]" title={`Paid: €${fin.paid} · Owed: €${fin.owed}`}>
+                                    {(booking.matched_camp_id && campMap.get(booking.matched_camp_id)) || booking.camp_name || "Unknown"} • {fin.status}
+                                  </Badge>
+                                  {fin.totalCost > 0 && (
+                                    <span className="text-[9px] text-muted-foreground ml-1">€{fin.paid} paid · €{fin.owed} owed</span>
+                                  )}
+                                </div>
+                              );
+                            })
                           )}
                         </div>
                       </TableCell>
