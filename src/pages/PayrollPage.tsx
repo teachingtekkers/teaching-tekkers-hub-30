@@ -149,9 +149,10 @@ const PayrollPage = () => {
     load();
   }, [selectedDate]);
 
-  const buildPayroll = useCallback((rosterAssignments: DailyAssignment[], campsList: PayrollCamp[], coachesList: PayrollCoach[]) => {
+  const buildPayroll = useCallback((rosterAssignments: DailyAssignment[], campsList: PayrollCamp[], coachesList: PayrollCoach[], approvedBonuses: ApprovedCampBonus[] = []) => {
     const coachMap = new Map(coachesList.map(c => [c.id, c]));
     const campMap = new Map(campsList.map(c => [c.id, c]));
+    const bonusMap = new Map(approvedBonuses.map(b => [b.campId, b.bonusPerStaff]));
     const linesByCoach = new Map<string, PayrollLine>();
 
     for (const asgn of rosterAssignments) {
@@ -166,11 +167,13 @@ const PayrollPage = () => {
       const dailyRate = role === "head_coach" ? coach.head_coach_daily_rate : coach.daily_rate;
       const basePay = dailyRate * daysWorked;
       const fuel = (asgn.driving_this_week && coach.fuel_allowance_eligible) ? DEFAULT_FUEL : 0;
+      const campBonus = bonusMap.get(camp.id) || 0;
 
       const entry: PayrollCampEntry = {
         campId: camp.id, campName: camp.name, clubName: camp.club_name,
         role, daysWorked, dailyRate, basePay, fuel,
-        bonus: 0, adjustment: 0, lineTotal: basePay + fuel,
+        campBonus, bonus: 0, adjustment: 0,
+        lineTotal: basePay + fuel + campBonus,
         drivingThisWeek: !!asgn.driving_this_week,
       };
 
