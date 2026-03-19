@@ -62,11 +62,11 @@ export default function FixtureTemplatesPanel({ currentTeams, onLoadTemplate }: 
       toast.error("Please enter a template name");
       return;
     }
-    const { error } = await supabase.from("fixture_templates").insert({
+    const { error } = await supabase.from("fixture_templates").insert([{
       name: saveName.trim(),
-      teams: currentTeams as unknown as Record<string, unknown>[],
+      teams: JSON.parse(JSON.stringify(currentTeams)),
       notes: saveNotes.trim() || null,
-    });
+    }]);
     if (error) {
       toast.error("Failed to save template");
       return;
