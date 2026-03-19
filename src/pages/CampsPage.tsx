@@ -72,7 +72,9 @@ const CampsPage = () => {
     ]);
 
     if (campsResult.error) console.error("[Camps] Camps fetch error:", campsResult.error);
-    setClubOptions((clubsResult.data || []) as ClubOption[]);
+    const clubsList = (clubsResult.data || []) as ClubOption[];
+    setClubOptions(clubsList);
+    const clubMap = new Map(clubsList.map(c => [c.id, c.name]));
 
     if (campsResult.data) {
       const campIds = campsResult.data.map((c: any) => c.id);
@@ -90,7 +92,12 @@ const CampsPage = () => {
         });
       }
 
-      setCamps(campsResult.data.map(c => ({ ...c, participant_count: countMap[c.id] || 0 })) as CampRow[]);
+      setCamps(campsResult.data.map(c => ({
+        ...c,
+        participant_count: countMap[c.id] || 0,
+        // Use linked club name as source of truth
+        club_name: c.club_id ? (clubMap.get(c.club_id) || c.club_name) : c.club_name,
+      })) as CampRow[]);
     }
     setLoading(false);
   }, []);
@@ -284,7 +291,6 @@ const CampsPage = () => {
                   <p className="text-xs text-muted-foreground">{camp.club_name}</p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Badge variant="secondary" className="text-xs">{camp.age_group}</Badge>
                   {camp.status === "draft" && (
                     <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={(e) => handlePublish(camp.id, e)} disabled={publishing === camp.id}>
                       <Check className="h-3 w-3 mr-0.5" /> Publish
@@ -315,7 +321,6 @@ const CampsPage = () => {
                 <TableHead>Club</TableHead>
                 <TableHead>County</TableHead>
                 <TableHead>Dates</TableHead>
-                <TableHead>Age</TableHead>
                 <TableHead className="text-center">Participants</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="w-[100px]"></TableHead>
@@ -323,9 +328,9 @@ const CampsPage = () => {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No camps found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No camps found</TableCell></TableRow>
               ) : filtered.map(camp => (
                 <TableRow key={camp.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/camps/${camp.id}`)}>
                   <TableCell>
@@ -345,7 +350,7 @@ const CampsPage = () => {
                   <TableCell className="text-sm">{camp.club_name}</TableCell>
                   <TableCell className="text-sm">{camp.county}</TableCell>
                   <TableCell className="text-sm">{camp.start_date} — {camp.end_date}</TableCell>
-                  <TableCell><Badge variant="secondary" className="text-xs">{camp.age_group}</Badge></TableCell>
+                  
                   <TableCell className="text-center text-sm">{camp.participant_count || 0}/{camp.capacity}</TableCell>
                   <TableCell className="text-right text-sm font-medium">€{camp.price_per_child}</TableCell>
                   <TableCell className="text-right">
