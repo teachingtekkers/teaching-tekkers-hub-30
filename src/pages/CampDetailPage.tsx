@@ -54,11 +54,20 @@ interface Participant {
   photo_permission: boolean | null;
 }
 
+interface CoachAssignment {
+  id: string;
+  coach_id: string;
+  role: string;
+  coach_name: string;
+}
+
 export default function CampDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [camp, setCamp] = useState<CampData | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [coachAssignments, setCoachAssignments] = useState<CoachAssignment[]>([]);
+  const [clubName, setClubName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [archiving, setArchiving] = useState(false);
