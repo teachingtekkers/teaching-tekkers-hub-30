@@ -9,7 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Users, MapPin, Calendar, Heart, Banknote, Check, AlertTriangle, Settings, Archive, Trash2, ClipboardCheck, UserCog, Building2, FileText, ExternalLink } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Users, MapPin, Calendar, Heart, Banknote, Check, AlertTriangle, Settings, Archive, Trash2, ClipboardCheck, UserCog, Building2, FileText, ExternalLink, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CampFinancialOverview from "@/components/camp/CampFinancialOverview";
 
@@ -87,6 +89,12 @@ export default function CampDetailPage() {
   const [purgeConfirm, setPurgeConfirm] = useState("");
   const [purging, setPurging] = useState(false);
 
+  // Edit camp modal state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ club_id: "", start_date: "", end_date: "", price_per_child: "" });
+  const [clubOptions, setClubOptions] = useState<{ id: string; name: string }[]>([]);
+  const [saving, setSaving] = useState(false);
+
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
@@ -99,13 +107,16 @@ export default function CampDetailPage() {
         .order("child_last_name"),
       supabase.from("camp_coach_assignments").select("id, coach_id, role").eq("camp_id", id),
     ]);
-    const campData = cRes.data as unknown as CampData & { club_id?: string };
+    const campData = cRes.data as unknown as CampData & { club_id?: string; price_per_child?: number };
+    // Load clubs for edit dropdown
+    const { data: clubsList } = await supabase.from("clubs").select("id, name").order("name");
+    setClubOptions(clubsList || []);
+    const clubMap = new Map((clubsList || []).map((c: any) => [c.id, c.name]));
     if (campData) {
       setCamp(campData);
       // Resolve club name
       if (campData.club_id) {
-        const { data: club } = await supabase.from("clubs").select("name").eq("id", campData.club_id).single();
-        setClubName(club?.name || campData.club_name);
+        setClubName(clubMap.get(campData.club_id) || campData.club_name);
       } else {
         setClubName(campData.club_name);
       }
@@ -228,6 +239,40 @@ export default function CampDetailPage() {
     );
   };
 
+  const openEditCamp = useCallback(() => {
+    if (!camp) return;
+    const campFull = camp as any;
+    setEditForm({
+      club_id: campFull.club_id || "",
+      start_date: camp.start_date,
+      end_date: camp.end_date,
+      price_per_child: String(campFull.price_per_child ?? ""),
+    });
+    setEditOpen(true);
+  }, [camp]);
+
+  const saveEditCamp = useCallback(async () => {
+    if (!camp) return;
+    setSaving(true);
+    const clubId = editForm.club_id || null;
+    const clubNameVal = clubId ? (clubOptions.find(c => c.id === clubId)?.name || camp.club_name) : camp.club_name;
+    const { error } = await supabase.from("camps").update({
+      club_id: clubId,
+      club_name: clubNameVal,
+      start_date: editForm.start_date,
+      end_date: editForm.end_date,
+      price_per_child: Number(editForm.price_per_child) || 0,
+    } as any).eq("id", camp.id);
+    if (error) {
+      toast({ title: "Save failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Camp updated" });
+      setEditOpen(false);
+      load();
+    }
+    setSaving(false);
+  }, [camp, editForm, clubOptions, toast, load]);
+
   if (loading) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (!camp) return <div className="p-8 text-muted-foreground">Camp not found</div>;
 
@@ -289,6 +334,9 @@ export default function CampDetailPage() {
               {archiving ? "Archiving…" : "Archive"}
             </Button>
           )}
+          <Button size="sm" variant="outline" onClick={openEditCamp}>
+            <Pencil className="h-4 w-4 mr-1.5" /> Edit Details
+          </Button>
           <Button size="sm" variant="outline" onClick={openManageData}>
             <Settings className="h-4 w-4 mr-1.5" /> Manage Data
           </Button>
@@ -313,7 +361,54 @@ export default function CampDetailPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Edit Camp Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Camp Details</DialogTitle>
+            <DialogDescription>Update the source-of-truth fields for this camp.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1">
+              <Label>Linked Club</Label>
+              <Select value={editForm.club_id} onValueChange={(v) => setEditForm({ ...editForm, club_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Select club…" /></SelectTrigger>
+                <SelectContent>
+                  {clubOptions.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Start Date</Label>
+                <Input type="date" value={editForm.start_date} onChange={e => setEditForm({ ...editForm, start_date: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>End Date</Label>
+                <Input type="date" value={editForm.end_date} onChange={e => setEditForm({ ...editForm, end_date: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Base Price (€)</Label>
+              <Input type="number" value={editForm.price_per_child} onChange={e => setEditForm({ ...editForm, price_per_child: e.target.value })} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+              <Button onClick={saveEditCamp} disabled={saving}>
+                {saving ? "Saving…" : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" />Club</p>
+            <p className="text-sm font-medium text-foreground">{clubName || camp.club_name}</p>
+          </CardContent>
+        </Card>
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />Venue</p>
@@ -334,8 +429,8 @@ export default function CampDetailPage() {
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-xs text-muted-foreground">Age Group</p>
-            <Badge variant="secondary" className="mt-1">{camp.age_group}</Badge>
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><Banknote className="h-3 w-3" />Base Price</p>
+            <p className="text-sm font-medium text-foreground">€{(camp as any).price_per_child || 0}</p>
           </CardContent>
         </Card>
       </div>
