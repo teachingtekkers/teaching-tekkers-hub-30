@@ -237,6 +237,7 @@ const PayrollPage = () => {
           {rosterStatus === "draft" && (
             <span className="text-xs text-muted-foreground">(Finalise the roster before generating payroll)</span>
           )}
+          <Link to="/roster" className="text-xs text-primary hover:underline ml-2">View Roster →</Link>
         </div>
       )}
 
