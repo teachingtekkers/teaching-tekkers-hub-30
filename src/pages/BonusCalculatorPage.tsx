@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
+import { startOfWeek, format } from "date-fns";
 import {
   Plus, Pencil, Trash2, Trophy, Medal, TrendingUp,
-  DollarSign, CheckCircle2, Users, Star,
+  DollarSign, CheckCircle2, Users, Star, RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -66,7 +67,7 @@ interface StaffWeekPoint {
   created_at: string;
 }
 interface CoachOption { id: string; full_name: string; is_head_coach: boolean; }
-interface CampOption { id: string; name: string; }
+interface CampOption { id: string; name: string; start_date: string; }
 
 export default function BonusCalculatorPage() {
   const [campScores, setCampScores] = useState<CampWeekScore[]>([]);
@@ -98,7 +99,7 @@ export default function BonusCalculatorPage() {
       supabase.from("camp_week_scores").select("*").order("week_label"),
       supabase.from("staff_week_points").select("*").order("week_label"),
       supabase.from("coaches").select("id, full_name, is_head_coach").order("full_name"),
-      supabase.from("camps").select("id, name").order("name"),
+      supabase.from("camps").select("id, name, start_date").order("name"),
     ]);
     setCampScores((csRes.data || []) as unknown as CampWeekScore[]);
     setStaffPoints((spRes.data || []) as unknown as StaffWeekPoint[]);
@@ -112,6 +113,7 @@ export default function BonusCalculatorPage() {
   /* ── maps ── */
   const coachMap = useMemo(() => new Map(coaches.map(c => [c.id, c])), [coaches]);
   const campMap = useMemo(() => new Map(camps.map(c => [c.id, c.name])), [camps]);
+  const campFullMap = useMemo(() => new Map(camps.map(c => [c.id, c])), [camps]);
   const scoreKey = (campId: string, week: string) => `${campId}::${week}`;
   const scoreMap = useMemo(() => {
     const m = new Map<string, CampWeekScore>();
@@ -295,7 +297,73 @@ export default function BonusCalculatorPage() {
     fetchAll();
   };
 
-  /* ── summary stats ── */
+  /* ── Pull staff from roster ── */
+  const [pulling, setPulling] = useState(false);
+
+  const pullFromRoster = async (campId: string, weekLabel: string) => {
+    const camp = campFullMap.get(campId);
+    if (!camp) { toast.error("Camp not found"); return; }
+
+    const campStart = new Date(camp.start_date + "T00:00:00");
+    const weekStartDate = startOfWeek(campStart, { weekStartsOn: 1 });
+    const weekStartStr = format(weekStartDate, "yyyy-MM-dd");
+
+    const { data: roster } = await supabase
+      .from("weekly_rosters")
+      .select("assignments")
+      .eq("week_start", weekStartStr)
+      .maybeSingle();
+
+    if (!roster || !roster.assignments) {
+      toast.error("No roster found for week of " + weekStartStr);
+      return;
+    }
+
+    const assignments = (roster.assignments as unknown as Array<{
+      camp_id: string; coach_id: string; role: string; days: string[];
+    }>);
+
+    const campAssignments = assignments.filter(a => a.camp_id === campId);
+    if (campAssignments.length === 0) {
+      toast.error("No staff assigned to this camp in the roster");
+      return;
+    }
+
+    const existingCoachIds = new Set(
+      staffPoints.filter(sp => sp.camp_id === campId && sp.week_label === weekLabel).map(sp => sp.coach_id)
+    );
+
+    const newRecords = campAssignments
+      .filter(a => !existingCoachIds.has(a.coach_id))
+      .map(a => ({
+        coach_id: a.coach_id,
+        camp_id: campId,
+        week_label: weekLabel,
+        role_that_week: a.role === "head_coach" ? "head_coach" : "assistant",
+        attendance_complete: false,
+        hc_rating_score: null,
+        notes: null,
+      }));
+
+    if (newRecords.length === 0) {
+      toast.info("All rostered staff already have records");
+      return;
+    }
+
+    const { error } = await supabase.from("staff_week_points").insert(newRecords);
+    if (error) { toast.error("Failed: " + error.message); return; }
+    toast.success(`Pulled ${newRecords.length} staff from roster`);
+    fetchAll();
+  };
+
+  const pullAllFromRoster = async () => {
+    if (campScores.length === 0) { toast.error("Add camp scores first"); return; }
+    setPulling(true);
+    for (const cs of campScores) {
+      await pullFromRoster(cs.camp_id, cs.week_label);
+    }
+    setPulling(false);
+  };
   const totalBonusPayout = useMemo(() => {
     let total = 0;
     campScores.forEach(cs => {
@@ -424,20 +492,22 @@ export default function BonusCalculatorPage() {
                     <TableHead className="text-center">Satisfaction</TableHead>
                     <TableHead className="text-center">Bonus/Staff</TableHead>
                     <TableHead className="text-center">Club Return</TableHead>
+                    <TableHead className="text-center">Staff</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="w-[80px]" />
+                    <TableHead className="w-[100px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredScores.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
+                      <TableCell colSpan={10} className="text-center text-muted-foreground py-12">
                         No camp scores yet. Add one to get started.
                       </TableCell>
                     </TableRow>
                   ) : filteredScores.map(cs => {
                     const sat = calcSatisfaction(cs.club_score, cs.parent_score_avg);
                     const bonus = calcBonusPerStaff(sat);
+                    const staffCount = staffPoints.filter(sp => sp.camp_id === cs.camp_id && sp.week_label === cs.week_label).length;
                     return (
                       <TableRow key={cs.id} className="cursor-pointer group" onClick={() => openEditCampScore(cs)}>
                         <TableCell>
@@ -455,11 +525,21 @@ export default function BonusCalculatorPage() {
                         <TableCell className="text-center text-sm">
                           {cs.club_would_return ? <CheckCircle2 className="h-4 w-4 text-emerald-600 mx-auto" /> : "—"}
                         </TableCell>
+                        <TableCell className="text-center text-sm">
+                          {staffCount > 0 ? (
+                            <Badge variant="secondary" className="text-[10px]">{staffCount} staff</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-[10px]">{cs.status}</Badge>
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Pull staff from roster" onClick={e => { e.stopPropagation(); pullFromRoster(cs.camp_id, cs.week_label); }}>
+                              <RefreshCw className="h-3.5 w-3.5" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={e => { e.stopPropagation(); openEditCampScore(cs); }}>
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
@@ -479,7 +559,10 @@ export default function BonusCalculatorPage() {
 
         {/* ── Tab: Staff Points ── */}
         <TabsContent value="staff-points" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button onClick={pullAllFromRoster} size="sm" variant="outline" className="gap-1" disabled={pulling}>
+              <RefreshCw className={`h-4 w-4 ${pulling ? "animate-spin" : ""}`} /> Pull All from Roster
+            </Button>
             <Button onClick={openNewStaffPoint} size="sm" className="gap-1">
               <Plus className="h-4 w-4" /> Add Staff Points
             </Button>
