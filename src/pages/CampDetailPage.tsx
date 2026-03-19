@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Users, MapPin, Calendar, Heart, Banknote, Check, AlertTriangle, Settings, Archive, Trash2 } from "lucide-react";
+import { ArrowLeft, Users, MapPin, Calendar, Heart, Banknote, Check, AlertTriangle, Settings, Archive, Trash2, ClipboardCheck, UserCog, Building2, FileText, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CampFinancialOverview from "@/components/camp/CampFinancialOverview";
 
@@ -54,11 +54,20 @@ interface Participant {
   photo_permission: boolean | null;
 }
 
+interface CoachAssignment {
+  id: string;
+  coach_id: string;
+  role: string;
+  coach_name: string;
+}
+
 export default function CampDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [camp, setCamp] = useState<CampData | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [coachAssignments, setCoachAssignments] = useState<CoachAssignment[]>([]);
+  const [clubName, setClubName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -81,16 +90,43 @@ export default function CampDetailPage() {
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    const [cRes, pRes] = await Promise.all([
+    const [cRes, pRes, coachRes] = await Promise.all([
       supabase.from("camps").select("*").eq("id", id).single(),
       supabase
         .from("synced_bookings")
         .select("id, child_first_name, child_last_name, parent_name, parent_phone, parent_email, emergency_contact, alternate_phone, medical_condition, medical_notes, kit_size, payment_status, age, date_of_birth, camp_date, booking_date, imported_at, total_amount, amount_paid, amount_owed, sibling_discount, refund_amount, payment_type, photo_permission")
         .eq("matched_camp_id", id)
         .order("child_last_name"),
+      supabase.from("camp_coach_assignments").select("id, coach_id, role").eq("camp_id", id),
     ]);
-    if (cRes.data) setCamp(cRes.data as unknown as CampData);
+    const campData = cRes.data as unknown as CampData & { club_id?: string };
+    if (campData) {
+      setCamp(campData);
+      // Resolve club name
+      if (campData.club_id) {
+        const { data: club } = await supabase.from("clubs").select("name").eq("id", campData.club_id).single();
+        setClubName(club?.name || campData.club_name);
+      } else {
+        setClubName(campData.club_name);
+      }
+    }
     setParticipants((pRes.data as unknown as Participant[]) || []);
+    
+    // Resolve coach names
+    const assignments = (coachRes.data || []) as any[];
+    if (assignments.length > 0) {
+      const coachIds = assignments.map((a: any) => a.coach_id);
+      const { data: coaches } = await supabase.from("coaches").select("id, full_name").in("id", coachIds);
+      const nameMap = new Map((coaches || []).map((c: any) => [c.id, c.full_name]));
+      setCoachAssignments(assignments.map((a: any) => ({
+        id: a.id,
+        coach_id: a.coach_id,
+        role: a.role,
+        coach_name: nameMap.get(a.coach_id) || "Unknown",
+      })));
+    } else {
+      setCoachAssignments([]);
+    }
     setLoading(false);
   }, [id]);
 
@@ -303,6 +339,60 @@ export default function CampDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Quick Links */}
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Quick Links</p>
+          <div className="flex flex-wrap gap-2">
+            <Link to={`/attendance`}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ClipboardCheck className="h-3.5 w-3.5" /> Attendance
+              </Button>
+            </Link>
+            <Link to={`/players`}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Users className="h-3.5 w-3.5" /> Bookings
+              </Button>
+            </Link>
+            <Link to={`/invoices`}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <FileText className="h-3.5 w-3.5" /> Club Payments
+              </Button>
+            </Link>
+            <Link to={`/roster`}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <UserCog className="h-3.5 w-3.5" /> Roster
+              </Button>
+            </Link>
+            {clubName && (
+              <Link to={`/clubs`}>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" /> {clubName}
+                </Button>
+              </Link>
+            )}
+          </div>
+
+          {/* Assigned Coaches */}
+          {coachAssignments.length > 0 && (
+            <div className="mt-3 pt-3 border-t">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Assigned Staff</p>
+              <div className="flex flex-wrap gap-2">
+                {coachAssignments.map((a) => (
+                  <Link key={a.id} to={`/coaches/${a.coach_id}`}>
+                    <Badge variant="secondary" className="cursor-pointer hover:bg-accent gap-1.5">
+                      <UserCog className="h-3 w-3" />
+                      {a.coach_name}
+                      <span className="text-[10px] text-muted-foreground">({a.role === "head_coach" ? "HC" : "Asst"})</span>
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="financial">
         <TabsList>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
-  ArrowLeft, Save, Car, Shield, Fuel, Upload, Trash2, FileText, AlertCircle,
+  ArrowLeft, Save, Car, Shield, Fuel, Upload, Trash2, FileText, AlertCircle, Tent, DollarSign, CalendarClock,
 } from "lucide-react";
 
 const COUNTIES = [
@@ -36,6 +36,14 @@ interface CoachDoc {
   name: string;
   id: string;
   created_at: string;
+}
+
+interface CampAssignment {
+  camp_id: string;
+  camp_name: string;
+  role: string;
+  start_date: string;
+  end_date: string;
 }
 
 export default function CoachDetailPage() {
@@ -62,6 +70,7 @@ export default function CoachDetailPage() {
   const [docs, setDocs] = useState<{ safeguarding: CoachDoc[]; first_aid: CoachDoc[]; other: CoachDoc[] }>({
     safeguarding: [], first_aid: [], other: [],
   });
+  const [campAssignments, setCampAssignments] = useState<CampAssignment[]>([]);
 
   const fetchCoach = useCallback(async () => {
     if (isNew) return;
@@ -112,7 +121,27 @@ export default function CoachDetailPage() {
     setDocs(result);
   }, [id, isNew]);
 
-  useEffect(() => { fetchCoach(); fetchDocs(); }, [fetchCoach, fetchDocs]);
+  const fetchCampAssignments = useCallback(async () => {
+    if (isNew || !id) return;
+    const { data } = await supabase.from("camp_coach_assignments").select("camp_id, role").eq("coach_id", id);
+    if (data && data.length > 0) {
+      const campIds = data.map((a: any) => a.camp_id);
+      const { data: camps } = await supabase.from("camps").select("id, name, start_date, end_date").in("id", campIds);
+      const campMap = new Map((camps || []).map((c: any) => [c.id, c]));
+      setCampAssignments(data.map((a: any) => {
+        const camp = campMap.get(a.camp_id);
+        return {
+          camp_id: a.camp_id,
+          camp_name: camp?.name || "Unknown",
+          role: a.role,
+          start_date: camp?.start_date || "",
+          end_date: camp?.end_date || "",
+        };
+      }).sort((a: CampAssignment, b: CampAssignment) => b.start_date.localeCompare(a.start_date)));
+    }
+  }, [id, isNew]);
+
+  useEffect(() => { fetchCoach(); fetchDocs(); fetchCampAssignments(); }, [fetchCoach, fetchDocs, fetchCampAssignments]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -538,6 +567,37 @@ export default function CoachDetailPage() {
               <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={4} placeholder="General notes about this coach…" />
             </CardContent>
           </Card>
+
+          {/* Camp Assignments */}
+          {!isNew && (
+            <Card>
+              <CardContent className="p-5 space-y-4">
+                <SectionLabel>Camp Assignments</SectionLabel>
+                {campAssignments.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No camp assignments found.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {campAssignments.map((a) => (
+                      <Link key={a.camp_id} to={`/camps/${a.camp_id}`} className="flex items-center justify-between rounded-lg border p-3 hover:bg-accent/50 transition-colors group">
+                        <div className="flex items-center gap-2">
+                          <Tent className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium">{a.camp_name}</p>
+                            <p className="text-xs text-muted-foreground">{a.start_date} — {a.end_date}</p>
+                          </div>
+                        </div>
+                        <Badge variant="secondary" className="text-[10px]">{a.role === "head_coach" ? "Head Coach" : "Assistant"}</Badge>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2 pt-2">
+                  <Link to="/roster"><Button variant="outline" size="sm" className="gap-1.5"><CalendarClock className="h-3.5 w-3.5" /> Roster</Button></Link>
+                  <Link to="/payroll"><Button variant="outline" size="sm" className="gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Payroll</Button></Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
