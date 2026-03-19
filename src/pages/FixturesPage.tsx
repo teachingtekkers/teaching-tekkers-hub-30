@@ -1,11 +1,12 @@
-import { useState, useRef } from "react";
-import { Plus, Trash2, Trophy, Printer, RotateCcw } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Trophy, Printer, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import FixtureTemplatesPanel from "@/components/fixtures/FixtureTemplatesPanel";
 
 const COLOURS = ["#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316"];
 
@@ -28,7 +29,6 @@ interface Round {
 
 function generateRoundRobin(teams: Team[]): Round[] {
   const list = [...teams];
-  // If odd number, add a "BYE"
   if (list.length % 2 !== 0) {
     list.push({ name: "BYE", colour: "#94a3b8" });
   }
@@ -51,12 +51,13 @@ function generateRoundRobin(teams: Team[]): Round[] {
       }
     }
     rounds.push({ label: `Round ${r + 1}`, matches });
-    // Rotate all except first
     const last = list.pop()!;
     list.splice(1, 0, last);
   }
   return rounds;
 }
+
+const STORAGE_KEY = "fixtures_autosave";
 
 const FixturesPage = () => {
   const [teamCount, setTeamCount] = useState("4");
@@ -65,6 +66,27 @@ const FixturesPage = () => {
   );
   const [rounds, setRounds] = useState<Round[]>([]);
   const printRef = useRef<HTMLDivElement>(null);
+
+  // Restore last unsaved setup from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed.teams) && parsed.teams.length >= 3) {
+          setTeams(parsed.teams);
+          setTeamCount(String(parsed.teams.length));
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Auto-save current setup to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ teams }));
+    } catch {}
+  }, [teams]);
 
   const handleTeamCountChange = (val: string) => {
     const count = Number(val);
@@ -131,6 +153,12 @@ const FixturesPage = () => {
     w.print();
   };
 
+  const handleLoadTemplate = (loadedTeams: Team[]) => {
+    setTeams(loadedTeams);
+    setTeamCount(String(loadedTeams.length));
+    setRounds([]);
+  };
+
   return (
     <div className="space-y-6">
       <div className="page-header">
@@ -179,7 +207,7 @@ const FixturesPage = () => {
             </div>
           </div>
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-wrap gap-2 pt-2">
             <Button onClick={generate}>
               <Trophy className="mr-2 h-4 w-4" />Generate Fixtures
             </Button>
@@ -197,6 +225,9 @@ const FixturesPage = () => {
         </CardContent>
       </Card>
 
+      {/* Saved Templates */}
+      <FixtureTemplatesPanel currentTeams={teams} onLoadTemplate={handleLoadTemplate} />
+
       {/* Results */}
       {rounds.length > 0 && (
         <Card>
@@ -212,13 +243,13 @@ const FixturesPage = () => {
                     {round.matches.map((m, mi) => (
                       <div key={mi} className="flex items-center gap-3 rounded-lg border p-3 bg-muted/20">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <span className="dot h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: m.homeColour }} />
+                          <span className="h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: m.homeColour }} />
                           <span className="text-sm font-medium truncate">{m.home}</span>
                         </div>
-                        <span className="vs text-muted-foreground text-sm font-medium">v</span>
+                        <span className="text-muted-foreground text-sm font-medium">v</span>
                         <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
                           <span className="text-sm font-medium truncate">{m.away}</span>
-                          <span className="dot h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: m.awayColour }} />
+                          <span className="h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: m.awayColour }} />
                         </div>
                       </div>
                     ))}
