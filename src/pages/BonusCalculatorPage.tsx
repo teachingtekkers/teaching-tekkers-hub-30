@@ -528,6 +528,9 @@ export default function BonusCalculatorPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Pull staff from roster" onClick={e => { e.stopPropagation(); pullFromRoster(cs.camp_id, cs.week_label); }}>
+                              <RefreshCw className="h-3.5 w-3.5" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={e => { e.stopPropagation(); openEditCampScore(cs); }}>
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
