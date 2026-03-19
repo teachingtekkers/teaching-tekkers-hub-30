@@ -1067,6 +1067,7 @@ export type Database = {
           other_comments: string | null
           player_numbers: string | null
           title: string
+          video_url: string | null
         }
         Insert: {
           age_group?: string
@@ -1082,6 +1083,7 @@ export type Database = {
           other_comments?: string | null
           player_numbers?: string | null
           title: string
+          video_url?: string | null
         }
         Update: {
           age_group?: string
@@ -1097,6 +1099,7 @@ export type Database = {
           other_comments?: string | null
           player_numbers?: string | null
           title?: string
+          video_url?: string | null
         }
         Relationships: [
           {

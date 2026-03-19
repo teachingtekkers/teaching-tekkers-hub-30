@@ -19,6 +19,7 @@ export interface SessionFormValues {
   equipment: string;
   content: string;
   diagram_image_url: string;
+  video_url: string;
 }
 
 interface Category {
@@ -38,7 +39,7 @@ interface Props {
 const EMPTY: SessionFormValues = {
   title: "", category_id: "", age_group: "U8-U12", description: "",
   organisation: "", other_comments: "", coaching_points: "",
-  player_numbers: "", equipment: "", content: "", diagram_image_url: "",
+  player_numbers: "", equipment: "", content: "", diagram_image_url: "", video_url: "",
 };
 
 export default function SessionPlanForm({ open, onClose, categories, initialValues, onSave, mode }: Props) {
@@ -60,6 +61,7 @@ export default function SessionPlanForm({ open, onClose, categories, initialValu
           equipment: initialValues.equipment || "",
           content: initialValues.content || "",
           diagram_image_url: initialValues.diagram_image_url || "",
+          video_url: initialValues.video_url || "",
         });
       } else {
         setForm(EMPTY);
@@ -148,6 +150,12 @@ export default function SessionPlanForm({ open, onClose, categories, initialValu
             <Label>Diagram / Image URL</Label>
             <Input value={form.diagram_image_url} onChange={e => set("diagram_image_url", e.target.value)} placeholder="Paste image URL or leave blank" />
             <p className="text-[11px] text-muted-foreground">You can paste a link to a session diagram or uploaded image</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Video URL</Label>
+            <Input value={form.video_url} onChange={e => set("video_url", e.target.value)} placeholder="Paste video link or leave blank" />
+            <p className="text-[11px] text-muted-foreground">Link to a session video (YouTube, Vimeo, etc.)</p>
           </div>
 
           <Button onClick={handleSubmit} className="w-full" disabled={saving}>

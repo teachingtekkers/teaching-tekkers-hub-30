@@ -49,6 +49,7 @@ const SessionPlansPage = () => {
         equipment: p.equipment,
         content: p.content,
         diagram_image_url: p.diagram_image_url,
+        video_url: p.video_url,
         created_at: p.created_at,
       })));
     }
@@ -70,6 +71,7 @@ const SessionPlansPage = () => {
       equipment: values.equipment || null,
       content: values.content || null,
       diagram_image_url: values.diagram_image_url || null,
+      video_url: values.video_url || null,
     };
 
     if (editId) {

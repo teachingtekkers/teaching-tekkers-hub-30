@@ -1,4 +1,4 @@
-import { X, Edit, Copy, Image, BookOpen } from "lucide-react";
+import { X, Edit, Copy, Image, BookOpen, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -18,6 +18,7 @@ export interface SessionPlanData {
   content: string | null;
   diagram_image_url: string | null;
   created_at: string;
+  video_url: string | null;
 }
 
 interface Props {
@@ -127,6 +128,19 @@ export default function SessionPlanDetail({ plan, open, onClose, onEdit, onDupli
                 <pre className="text-sm whitespace-pre-wrap font-sans">{plan.content}</pre>
               </div>
             </DetailSection>
+          )}
+          {plan.video_url && (
+            <div>
+              <a
+                href={plan.video_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+              >
+                <Video className="h-4 w-4" />
+                Watch Video
+              </a>
+            </div>
           )}
         </div>
       </DialogContent>
