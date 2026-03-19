@@ -25,7 +25,7 @@ export function PayrollCoachView({ coachSummaries, onUpdateEntry }: Props) {
       {coachSummaries.map(cs => (
         <Card key={cs.coachId}>
           <div className="p-4 border-b flex items-center justify-between">
-            <h3 className="font-semibold">{cs.coachName}</h3>
+            <Link to={`/coaches/${cs.coachId}`} className="font-semibold hover:underline text-primary">{cs.coachName}</Link>
             <Badge variant="secondary" className="font-mono text-sm">€{cs.grandTotal.toFixed(2)}</Badge>
           </div>
           <Table>
