@@ -113,6 +113,7 @@ export default function BonusCalculatorPage() {
   /* ── maps ── */
   const coachMap = useMemo(() => new Map(coaches.map(c => [c.id, c])), [coaches]);
   const campMap = useMemo(() => new Map(camps.map(c => [c.id, c.name])), [camps]);
+  const campFullMap = useMemo(() => new Map(camps.map(c => [c.id, c])), [camps]);
   const scoreKey = (campId: string, week: string) => `${campId}::${week}`;
   const scoreMap = useMemo(() => {
     const m = new Map<string, CampWeekScore>();
