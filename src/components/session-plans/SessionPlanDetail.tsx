@@ -129,6 +129,19 @@ export default function SessionPlanDetail({ plan, open, onClose, onEdit, onDupli
               </div>
             </DetailSection>
           )}
+          {plan.video_url && (
+            <div>
+              <a
+                href={plan.video_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+              >
+                <Video className="h-4 w-4" />
+                Watch Video
+              </a>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
