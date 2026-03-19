@@ -89,6 +89,12 @@ export default function CampDetailPage() {
   const [purgeConfirm, setPurgeConfirm] = useState("");
   const [purging, setPurging] = useState(false);
 
+  // Edit camp modal state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ club_id: "", start_date: "", end_date: "", price_per_child: "" });
+  const [clubOptions, setClubOptions] = useState<{ id: string; name: string }[]>([]);
+  const [saving, setSaving] = useState(false);
+
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
