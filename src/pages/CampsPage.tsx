@@ -321,7 +321,6 @@ const CampsPage = () => {
                 <TableHead>Club</TableHead>
                 <TableHead>County</TableHead>
                 <TableHead>Dates</TableHead>
-                <TableHead>Age</TableHead>
                 <TableHead className="text-center">Participants</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="w-[100px]"></TableHead>
