@@ -84,11 +84,11 @@ export default function FixtureTemplatesPanel({ currentTeams, onLoadTemplate }: 
   };
 
   const handleDuplicate = async (t: FixtureTemplate) => {
-    const { error } = await supabase.from("fixture_templates").insert({
+    const { error } = await supabase.from("fixture_templates").insert([{
       name: `${t.name} (copy)`,
-      teams: t.teams as unknown as Record<string, unknown>[],
+      teams: JSON.parse(JSON.stringify(t.teams)),
       notes: t.notes,
-    });
+    }]);
     if (error) {
       toast.error("Failed to duplicate");
       return;
