@@ -69,72 +69,6 @@ export type Database = {
           },
         ]
       }
-      bonus_records: {
-        Row: {
-          admin_adjustment: number
-          approved_bonus_amount: number
-          camp_id: string
-          club_feedback_points: number
-          coach_id: string
-          created_at: string
-          id: string
-          notes: string | null
-          parent_feedback_points: number
-          payroll_linked: boolean
-          status: Database["public"]["Enums"]["bonus_status"]
-          total_points: number
-          updated_at: string
-          week_label: string
-        }
-        Insert: {
-          admin_adjustment?: number
-          approved_bonus_amount?: number
-          camp_id: string
-          club_feedback_points?: number
-          coach_id: string
-          created_at?: string
-          id?: string
-          notes?: string | null
-          parent_feedback_points?: number
-          payroll_linked?: boolean
-          status?: Database["public"]["Enums"]["bonus_status"]
-          total_points?: number
-          updated_at?: string
-          week_label?: string
-        }
-        Update: {
-          admin_adjustment?: number
-          approved_bonus_amount?: number
-          camp_id?: string
-          club_feedback_points?: number
-          coach_id?: string
-          created_at?: string
-          id?: string
-          notes?: string | null
-          parent_feedback_points?: number
-          payroll_linked?: boolean
-          status?: Database["public"]["Enums"]["bonus_status"]
-          total_points?: number
-          updated_at?: string
-          week_label?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bonus_records_camp_id_fkey"
-            columns: ["camp_id"]
-            isOneToOne: false
-            referencedRelation: "camps"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bonus_records_coach_id_fkey"
-            columns: ["coach_id"]
-            isOneToOne: false
-            referencedRelation: "coaches"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       bookings: {
         Row: {
           camp_id: string
@@ -301,6 +235,53 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "message_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      camp_week_scores: {
+        Row: {
+          camp_id: string
+          club_score: number
+          club_would_return: boolean
+          created_at: string
+          id: string
+          notes: string | null
+          parent_score_avg: number
+          status: string
+          updated_at: string
+          week_label: string
+        }
+        Insert: {
+          camp_id: string
+          club_score?: number
+          club_would_return?: boolean
+          created_at?: string
+          id?: string
+          notes?: string | null
+          parent_score_avg?: number
+          status?: string
+          updated_at?: string
+          week_label?: string
+        }
+        Update: {
+          camp_id?: string
+          club_score?: number
+          club_would_return?: boolean
+          created_at?: string
+          id?: string
+          notes?: string | null
+          parent_score_avg?: number
+          status?: string
+          updated_at?: string
+          week_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camp_week_scores_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
             referencedColumns: ["id"]
           },
         ]
@@ -1082,6 +1063,57 @@ export type Database = {
           },
         ]
       }
+      staff_week_points: {
+        Row: {
+          attendance_complete: boolean
+          camp_id: string
+          coach_id: string
+          created_at: string
+          hc_rating_score: number | null
+          id: string
+          notes: string | null
+          role_that_week: string
+          week_label: string
+        }
+        Insert: {
+          attendance_complete?: boolean
+          camp_id: string
+          coach_id: string
+          created_at?: string
+          hc_rating_score?: number | null
+          id?: string
+          notes?: string | null
+          role_that_week?: string
+          week_label?: string
+        }
+        Update: {
+          attendance_complete?: boolean
+          camp_id?: string
+          coach_id?: string
+          created_at?: string
+          hc_rating_score?: number | null
+          id?: string
+          notes?: string | null
+          role_that_week?: string
+          week_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_week_points_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_week_points_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sync_logs: {
         Row: {
           created_at: string
@@ -1441,7 +1473,6 @@ export type Database = {
     Enums: {
       app_role: "admin" | "head_coach"
       attendance_status: "present" | "absent"
-      bonus_status: "draft" | "reviewed" | "approved"
       coach_role: "head_coach" | "assistant"
       fixture_format: "group_stage" | "knockout" | "group_knockout"
       invoice_status: "draft" | "ready" | "sent" | "paid"
@@ -1579,7 +1610,6 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "head_coach"],
       attendance_status: ["present", "absent"],
-      bonus_status: ["draft", "reviewed", "approved"],
       coach_role: ["head_coach", "assistant"],
       fixture_format: ["group_stage", "knockout", "group_knockout"],
       invoice_status: ["draft", "ready", "sent", "paid"],
