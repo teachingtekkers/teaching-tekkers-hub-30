@@ -44,6 +44,7 @@ export interface PayrollCampEntry {
   dailyRate: number;
   basePay: number;
   fuel: number;
+  campBonus: number;
   bonus: number;
   adjustment: number;
   lineTotal: number;
