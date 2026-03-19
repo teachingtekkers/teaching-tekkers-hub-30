@@ -340,6 +340,60 @@ export default function CampDetailPage() {
         </Card>
       </div>
 
+      {/* Quick Links */}
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Quick Links</p>
+          <div className="flex flex-wrap gap-2">
+            <Link to={`/attendance`}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ClipboardCheck className="h-3.5 w-3.5" /> Attendance
+              </Button>
+            </Link>
+            <Link to={`/players`}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Users className="h-3.5 w-3.5" /> Bookings
+              </Button>
+            </Link>
+            <Link to={`/invoices`}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <FileText className="h-3.5 w-3.5" /> Club Payments
+              </Button>
+            </Link>
+            <Link to={`/roster`}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <UserCog className="h-3.5 w-3.5" /> Roster
+              </Button>
+            </Link>
+            {clubName && (
+              <Link to={`/clubs`}>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" /> {clubName}
+                </Button>
+              </Link>
+            )}
+          </div>
+
+          {/* Assigned Coaches */}
+          {coachAssignments.length > 0 && (
+            <div className="mt-3 pt-3 border-t">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Assigned Staff</p>
+              <div className="flex flex-wrap gap-2">
+                {coachAssignments.map((a) => (
+                  <Link key={a.id} to={`/coaches/${a.coach_id}`}>
+                    <Badge variant="secondary" className="cursor-pointer hover:bg-accent gap-1.5">
+                      <UserCog className="h-3 w-3" />
+                      {a.coach_name}
+                      <span className="text-[10px] text-muted-foreground">({a.role === "head_coach" ? "HC" : "Asst"})</span>
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="financial">
         <TabsList>
           <TabsTrigger value="financial" className="gap-1.5"><Banknote className="h-3.5 w-3.5" />Financial Overview</TabsTrigger>
