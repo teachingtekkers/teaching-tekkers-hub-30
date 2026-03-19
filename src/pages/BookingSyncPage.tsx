@@ -553,7 +553,12 @@ export default function BookingSyncPage() {
                       <TableCell className="font-medium">{b.child_first_name} {b.child_last_name}
                         {b.medical_notes && <span className="ml-1 text-destructive text-xs">♥</span>}
                       </TableCell>
-                      <TableCell>{b.camp_name}<br /><span className="text-xs text-muted-foreground">{b.camp_date ? format(new Date(b.camp_date), "dd MMM yyyy") : ""}</span></TableCell>
+                      <TableCell>
+                        {b.matched_camp_id ? (
+                          <Link to={`/camps/${b.matched_camp_id}`} className="hover:underline text-primary">{b.camp_name}</Link>
+                        ) : b.camp_name}
+                        <br /><span className="text-xs text-muted-foreground">{b.camp_date ? format(new Date(b.camp_date), "dd MMM yyyy") : ""}</span>
+                      </TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{b.venue || "—"}</TableCell>
                       <TableCell className="hidden lg:table-cell text-sm">{b.parent_name || "—"}<br /><span className="text-xs text-muted-foreground">{b.parent_email || ""}</span></TableCell>
                       <TableCell>{payBadge(b.payment_status)}{b.payment_type && <span className="block text-[10px] text-muted-foreground">{b.payment_type}</span>}</TableCell>

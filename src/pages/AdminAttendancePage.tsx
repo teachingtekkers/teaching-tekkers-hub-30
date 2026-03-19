@@ -241,6 +241,14 @@ export default function AdminAttendancePage() {
 
       {camp && (
         <>
+          <div className="flex items-center gap-3 mb-1">
+            <Link to={`/camps/${camp.id}`} className="text-sm text-primary hover:underline font-medium">
+              View Camp Detail →
+            </Link>
+            <Link to="/players" className="text-sm text-primary hover:underline font-medium">
+              View Bookings →
+            </Link>
+          </div>
           <AttendanceMetricsSummary
             participants={participants}
             getStatus={getStatus}

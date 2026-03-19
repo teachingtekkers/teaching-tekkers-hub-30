@@ -491,7 +491,7 @@ const InvoicesPage = () => {
                   <TableBody>
                     {clubInvs.map(inv => (
                       <TableRow key={inv.id}>
-                        <TableCell className="font-medium">{inv.camp_name}</TableCell>
+                        <TableCell className="font-medium"><Link to={`/camps/${inv.camp_id}`} className="hover:underline text-primary">{inv.camp_name}</Link></TableCell>
                         <TableCell className="text-center">{inv.attendance_count}</TableCell>
                         <TableCell className="text-right font-mono">€{inv.rate_per_child}</TableCell>
                         <TableCell className="text-right font-semibold font-mono">€{getEffective(inv).toFixed(2)}</TableCell>

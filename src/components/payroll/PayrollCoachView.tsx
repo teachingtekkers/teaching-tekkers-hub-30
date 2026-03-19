@@ -45,7 +45,7 @@ export function PayrollCoachView({ coachSummaries, onUpdateEntry }: Props) {
             <TableBody>
               {cs.entries.map(e => (
                 <TableRow key={e.campId}>
-                  <TableCell className="font-medium">{e.campName}</TableCell>
+                  <TableCell className="font-medium"><Link to={`/camps/${e.campId}`} className="hover:underline">{e.campName}</Link></TableCell>
                   <TableCell className="text-center">
                     <Badge variant={e.role === "head_coach" ? "default" : "secondary"} className="text-xs">
                       {e.role === "head_coach" ? "HC" : "Asst"}
