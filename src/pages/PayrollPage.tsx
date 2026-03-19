@@ -111,16 +111,36 @@ const PayrollPage = () => {
         return;
       }
 
-      setCamps(campsRes.data || []);
-      setCoaches((coachesRes.data as PayrollCoach[]) || []);
+      const campsList = campsRes.data || [];
+      const coachesList = (coachesRes.data as PayrollCoach[]) || [];
+      setCamps(campsList);
+      setCoaches(coachesList);
       setRosterStatus(rosterRes.data?.status || null);
+
+      // Fetch approved camp bonuses for camps active this week
+      const campIds = campsList.map(c => c.id);
+      let approvedBonuses: ApprovedCampBonus[] = [];
+      if (campIds.length > 0) {
+        const { data: scoreData } = await supabase
+          .from("camp_week_scores")
+          .select("camp_id, club_score, parent_score_avg, status")
+          .in("camp_id", campIds)
+          .eq("status", "approved");
+        if (scoreData) {
+          approvedBonuses = scoreData.map(s => ({
+            campId: s.camp_id,
+            bonusPerStaff: calcCampBonus(calcSatisfaction(Number(s.club_score), Number(s.parent_score_avg))),
+          }));
+        }
+      }
 
       // Auto-generate payroll if a finalised roster exists
       if (rosterRes.data?.status === "finalised" && rosterRes.data.assignments) {
         buildPayroll(
           rosterRes.data.assignments as unknown as DailyAssignment[],
-          campsRes.data || [],
-          (coachesRes.data as PayrollCoach[]) || []
+          campsList,
+          coachesList,
+          approvedBonuses
         );
       }
 
