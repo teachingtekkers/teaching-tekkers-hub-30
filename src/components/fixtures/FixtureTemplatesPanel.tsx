@@ -130,7 +130,7 @@ export default function FixtureTemplatesPanel({ currentTeams, onLoadTemplate }: 
     const { error } = await supabase
       .from("fixture_templates")
       .update({
-        teams: currentTeams as unknown as Record<string, unknown>[],
+        teams: JSON.parse(JSON.stringify(currentTeams)),
         updated_at: new Date().toISOString(),
       })
       .eq("id", t.id);
