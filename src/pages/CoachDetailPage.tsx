@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
-  ArrowLeft, Save, Car, Shield, Fuel, Upload, Trash2, FileText, AlertCircle,
+  ArrowLeft, Save, Car, Shield, Fuel, Upload, Trash2, FileText, AlertCircle, Tent, DollarSign, CalendarClock,
 } from "lucide-react";
 
 const COUNTIES = [
