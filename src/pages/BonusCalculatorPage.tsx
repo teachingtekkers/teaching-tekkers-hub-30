@@ -67,7 +67,7 @@ interface StaffWeekPoint {
   created_at: string;
 }
 interface CoachOption { id: string; full_name: string; is_head_coach: boolean; }
-interface CampOption { id: string; name: string; }
+interface CampOption { id: string; name: string; start_date: string; }
 
 export default function BonusCalculatorPage() {
   const [campScores, setCampScores] = useState<CampWeekScore[]>([]);
