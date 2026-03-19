@@ -59,6 +59,20 @@ export interface PayrollLine {
 
 const DEFAULT_FUEL = 20;
 
+function calcSatisfaction(club: number, parent: number): number {
+  return Math.round(((club + parent) / 2) * 10) / 10;
+}
+function calcCampBonus(satisfaction: number): number {
+  if (satisfaction >= 9.0) return 20;
+  if (satisfaction >= 7.5) return 10;
+  return 0;
+}
+
+interface ApprovedCampBonus {
+  campId: string;
+  bonusPerStaff: number;
+}
+
 // ---------- Component ----------
 
 const PayrollPage = () => {
