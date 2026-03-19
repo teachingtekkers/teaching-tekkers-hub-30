@@ -189,6 +189,7 @@ const PayrollPage = () => {
 
   const generatePayroll = useCallback(async () => {
     const wsISO = format(weekStart, "yyyy-MM-dd");
+    const weISO = format(weekEnd, "yyyy-MM-dd");
     const { data, error } = await supabase.from("weekly_rosters")
       .select("assignments, status").eq("week_start", wsISO).maybeSingle();
 
@@ -202,9 +203,26 @@ const PayrollPage = () => {
       return;
     }
 
-    buildPayroll(data.assignments as unknown as DailyAssignment[], camps, coaches);
+    // Fetch approved bonuses
+    const campIds = camps.map(c => c.id);
+    let approvedBonuses: ApprovedCampBonus[] = [];
+    if (campIds.length > 0) {
+      const { data: scoreData } = await supabase
+        .from("camp_week_scores")
+        .select("camp_id, club_score, parent_score_avg, status")
+        .in("camp_id", campIds)
+        .eq("status", "approved");
+      if (scoreData) {
+        approvedBonuses = scoreData.map(s => ({
+          campId: s.camp_id,
+          bonusPerStaff: calcCampBonus(calcSatisfaction(Number(s.club_score), Number(s.parent_score_avg))),
+        }));
+      }
+    }
+
+    buildPayroll(data.assignments as unknown as DailyAssignment[], camps, coaches, approvedBonuses);
     sonnerToast.success("Payroll generated from finalised roster");
-  }, [weekStart, camps, coaches, buildPayroll]);
+  }, [weekStart, weekEnd, camps, coaches, buildPayroll]);
 
   const updateEntry = useCallback((coachId: string, campId: string, field: "fuel" | "bonus" | "adjustment", value: number) => {
     setPayrollLines(prev => prev.map(line => {
