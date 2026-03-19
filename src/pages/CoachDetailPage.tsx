@@ -70,6 +70,7 @@ export default function CoachDetailPage() {
   const [docs, setDocs] = useState<{ safeguarding: CoachDoc[]; first_aid: CoachDoc[]; other: CoachDoc[] }>({
     safeguarding: [], first_aid: [], other: [],
   });
+  const [campAssignments, setCampAssignments] = useState<CampAssignment[]>([]);
 
   const fetchCoach = useCallback(async () => {
     if (isNew) return;
