@@ -121,7 +121,27 @@ export default function CoachDetailPage() {
     setDocs(result);
   }, [id, isNew]);
 
-  useEffect(() => { fetchCoach(); fetchDocs(); }, [fetchCoach, fetchDocs]);
+  const fetchCampAssignments = useCallback(async () => {
+    if (isNew || !id) return;
+    const { data } = await supabase.from("camp_coach_assignments").select("camp_id, role").eq("coach_id", id);
+    if (data && data.length > 0) {
+      const campIds = data.map((a: any) => a.camp_id);
+      const { data: camps } = await supabase.from("camps").select("id, name, start_date, end_date").in("id", campIds);
+      const campMap = new Map((camps || []).map((c: any) => [c.id, c]));
+      setCampAssignments(data.map((a: any) => {
+        const camp = campMap.get(a.camp_id);
+        return {
+          camp_id: a.camp_id,
+          camp_name: camp?.name || "Unknown",
+          role: a.role,
+          start_date: camp?.start_date || "",
+          end_date: camp?.end_date || "",
+        };
+      }).sort((a: CampAssignment, b: CampAssignment) => b.start_date.localeCompare(a.start_date)));
+    }
+  }, [id, isNew]);
+
+  useEffect(() => { fetchCoach(); fetchDocs(); fetchCampAssignments(); }, [fetchCoach, fetchDocs, fetchCampAssignments]);
 
   const handleSave = async () => {
     setSaving(true);
