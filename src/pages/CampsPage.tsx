@@ -291,7 +291,6 @@ const CampsPage = () => {
                   <p className="text-xs text-muted-foreground">{camp.club_name}</p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Badge variant="secondary" className="text-xs">{camp.age_group}</Badge>
                   {camp.status === "draft" && (
                     <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={(e) => handlePublish(camp.id, e)} disabled={publishing === camp.id}>
                       <Check className="h-3 w-3 mr-0.5" /> Publish
