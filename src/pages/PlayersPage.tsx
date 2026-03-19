@@ -36,12 +36,17 @@ interface SyncedBookingRow {
   parent_phone: string | null;
   parent_email: string | null;
   camp_name: string;
+  camp_date: string | null;
+  venue: string | null;
+  imported_at: string;
   total_amount: number | null;
   sibling_discount: number | null;
   amount_paid: number | null;
   amount_owed: number | null;
   refund_amount: number | null;
   payment_type: string | null;
+  child_first_name: string;
+  child_last_name: string;
 }
 
 function derivePaymentStatus(b: SyncedBookingRow) {
