@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tent, Users, Banknote, AlertTriangle, ArrowRight, CheckCircle, ClipboardCheck, DollarSign, UserCog, Calendar, Building2, Wallet, CloudDownload, FileText } from "lucide-react";
+import { DashboardTasksPanel } from "@/components/dashboard/DashboardTasksPanel";
 import { Link } from "react-router-dom";
 import { StatCard } from "@/components/StatCard";
 import { Card, CardContent } from "@/components/ui/card";
@@ -222,6 +223,9 @@ const DashboardPage = () => {
           </div>
         </div>
       )}
+
+      {/* Tasks & Reminders */}
+      <DashboardTasksPanel />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">

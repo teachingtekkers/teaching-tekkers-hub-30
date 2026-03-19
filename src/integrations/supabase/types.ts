@@ -1228,6 +1228,69 @@ export type Database = {
           },
         ]
       }
+      tasks: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          linked_area: string | null
+          linked_camp_id: string | null
+          linked_coach_id: string | null
+          notes: string | null
+          priority: Database["public"]["Enums"]["task_priority"]
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          linked_area?: string | null
+          linked_camp_id?: string | null
+          linked_coach_id?: string | null
+          notes?: string | null
+          priority?: Database["public"]["Enums"]["task_priority"]
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          linked_area?: string | null
+          linked_camp_id?: string | null
+          linked_coach_id?: string | null
+          notes?: string | null
+          priority?: Database["public"]["Enums"]["task_priority"]
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_linked_camp_id_fkey"
+            columns: ["linked_camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_linked_coach_id_fkey"
+            columns: ["linked_coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -1318,6 +1381,8 @@ export type Database = {
       payment_status: "paid" | "pending" | "refunded"
       proposal_status: "draft" | "sent" | "accepted" | "rejected"
       roster_status: "draft" | "finalised"
+      task_priority: "low" | "medium" | "high" | "urgent"
+      task_status: "to_do" | "in_progress" | "done" | "overdue"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1453,6 +1518,8 @@ export const Constants = {
       payment_status: ["paid", "pending", "refunded"],
       proposal_status: ["draft", "sent", "accepted", "rejected"],
       roster_status: ["draft", "finalised"],
+      task_priority: ["low", "medium", "high", "urgent"],
+      task_status: ["to_do", "in_progress", "done", "overdue"],
     },
   },
 } as const
