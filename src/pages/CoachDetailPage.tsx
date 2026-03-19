@@ -284,7 +284,7 @@ export default function CoachDetailPage() {
             <ArrowLeft className="h-4 w-4 mr-1" /> Back
           </Button>
           <div>
-            <h1 className="text-xl font-bold">{isNew ? "New Coach" : form.full_name}</h1>
+            <h1 className="text-xl font-bold">{isNew ? "New Staff Member" : form.full_name}</h1>
             {!isNew && (
               <div className="flex items-center gap-2 mt-0.5">
                 {age !== null && <span className="text-xs text-muted-foreground">Age: {age}</span>}

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,7 @@ export function PayrollCoachView({ coachSummaries, onUpdateEntry }: Props) {
       {coachSummaries.map(cs => (
         <Card key={cs.coachId}>
           <div className="p-4 border-b flex items-center justify-between">
-            <h3 className="font-semibold">{cs.coachName}</h3>
+            <Link to={`/coaches/${cs.coachId}`} className="font-semibold hover:underline text-primary">{cs.coachName}</Link>
             <Badge variant="secondary" className="font-mono text-sm">€{cs.grandTotal.toFixed(2)}</Badge>
           </div>
           <Table>
@@ -44,7 +45,7 @@ export function PayrollCoachView({ coachSummaries, onUpdateEntry }: Props) {
             <TableBody>
               {cs.entries.map(e => (
                 <TableRow key={e.campId}>
-                  <TableCell className="font-medium">{e.campName}</TableCell>
+                  <TableCell className="font-medium"><Link to={`/camps/${e.campId}`} className="hover:underline">{e.campName}</Link></TableCell>
                   <TableCell className="text-center">
                     <Badge variant={e.role === "head_coach" ? "default" : "secondary"} className="text-xs">
                       {e.role === "head_coach" ? "HC" : "Asst"}

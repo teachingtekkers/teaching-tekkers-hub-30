@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -22,7 +23,7 @@ export function PayrollCampView({ campGroups }: Props) {
         <Card key={cg.campId}>
           <div className="p-4 border-b flex items-center justify-between">
             <div>
-              <h3 className="font-semibold">{cg.campName}</h3>
+              <Link to={`/camps/${cg.campId}`} className="font-semibold hover:underline text-primary">{cg.campName}</Link>
               <p className="text-sm text-muted-foreground">{cg.clubName}</p>
             </div>
             <Badge variant="secondary" className="font-mono text-sm">€{cg.campTotal.toFixed(2)}</Badge>

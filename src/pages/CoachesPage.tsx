@@ -238,7 +238,7 @@ const CoachesPage = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="page-header !mb-0">
-          <h1>Coach Profiles</h1>
+          <h1>Staff Profiles</h1>
           <p>Manage your coaching team</p>
         </div>
         <Button size="sm" onClick={() => navigate("/coaches/new")}>
