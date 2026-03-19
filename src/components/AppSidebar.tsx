@@ -1,7 +1,8 @@
 import {
   LayoutDashboard, Tent, Users, UserCog, ClipboardCheck, Trophy, LogOut,
-  CalendarClock, DollarSign, FileText, Swords, BookOpen, BarChart3,
+  CalendarClock, DollarSign, FileText, Swords, BookOpen, ListChecks,
   Briefcase, CreditCard, Calendar, FileCheck, ShieldCheck, CloudDownload, Database, Building2,
+  Calculator, ImagePlus, Sparkles, Megaphone,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -13,24 +14,52 @@ import { useAuth } from "@/hooks/useAuth";
 /* ── Admin: Seasonal Camps ── */
 const seasonalCampsItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Camps", url: "/camps", icon: Tent },
-  { title: "Bookings", url: "/players", icon: Users },
-  { title: "Coach Profiles", url: "/coaches", icon: UserCog },
+  { title: "Tasks & Deadlines", url: "/tasks", icon: ListChecks },
+];
+
+/* ── Admin: Staffing Admin ── */
+const staffingItems = [
+  { title: "Staff Profiles", url: "/coaches", icon: UserCog },
   { title: "Roster Generator", url: "/roster", icon: CalendarClock },
-  { title: "Attendance", url: "/attendance", icon: ClipboardCheck },
-  { title: "Payroll", url: "/payroll", icon: DollarSign },
-  { title: "Club Payments", url: "/invoices", icon: FileText },
-  { title: "Reports", url: "/reports", icon: BarChart3 },
+  { title: "Bonus Calculator", url: "/bonus-calculator", icon: Calculator },
+  { title: "Staff Payroll", url: "/payroll", icon: DollarSign },
+];
+
+/* ── Admin: Club Admin ── */
+const clubAdminItems = [
   { title: "Clubs", url: "/clubs", icon: Building2 },
+  { title: "Camps", url: "/camps", icon: Tent },
+  { title: "Club Payments", url: "/invoices", icon: FileText },
+];
+
+/* ── Admin: Booking Admin ── */
+const bookingAdminItems = [
+  { title: "Bookings", url: "/players", icon: Users },
   { title: "Booking Sync", url: "/booking-sync", icon: CloudDownload },
+];
+
+/* ── Admin: Coach Tools ── */
+const coachToolsItems = [
+  { title: "Attendance", url: "/attendance", icon: ClipboardCheck },
+  { title: "Fixtures Generator", url: "/fixtures", icon: Swords },
+  { title: "Session Plans", url: "/session-plans", icon: BookOpen },
+  { title: "Itineraries", url: "/itineraries", icon: FileCheck },
+];
+
+/* ── Admin: Social Media ── */
+const socialMediaItems = [
+  { title: "Media Uploads", url: "/media-uploads", icon: ImagePlus },
+  { title: "AI Content Planner", url: "/ai-content-planner", icon: Sparkles },
+  { title: "Ad Poster Creation", url: "/ad-posters", icon: Megaphone },
 ];
 
 /* ── Admin: Private Coaching ── */
 const privateCoachingItems = [
   { title: "Dashboard", url: "/private/dashboard", icon: LayoutDashboard },
   { title: "Sessions", url: "/private/sessions", icon: Briefcase },
-  { title: "Bookings", url: "/private/bookings", icon: Calendar },
+  { title: "Attendance", url: "/private/attendance", icon: ClipboardCheck },
   { title: "Payments", url: "/private/payments", icon: CreditCard },
+  { title: "Session Plans", url: "/private/session-plans", icon: BookOpen },
 ];
 
 /* ── Admin: System ── */
@@ -83,6 +112,8 @@ export function AppSidebar({ role }: AppSidebarProps) {
     </SidebarGroup>
   );
 
+  const divider = <div className="my-1 mx-4 border-t border-sidebar-border" />;
+
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarContent className="bg-sidebar">
@@ -104,9 +135,19 @@ export function AppSidebar({ role }: AppSidebarProps) {
         {role === "admin" ? (
           <>
             {renderGroup("Seasonal Camps", seasonalCampsItems)}
-            <div className="my-1 mx-4 border-t border-sidebar-border" />
+            {divider}
+            {renderGroup("Staffing Admin", staffingItems)}
+            {divider}
+            {renderGroup("Club Admin", clubAdminItems)}
+            {divider}
+            {renderGroup("Booking Admin", bookingAdminItems)}
+            {divider}
+            {renderGroup("Coach Tools", coachToolsItems)}
+            {divider}
+            {renderGroup("Social Media", socialMediaItems)}
+            {divider}
             {renderGroup("Private Coaching", privateCoachingItems)}
-            <div className="my-1 mx-4 border-t border-sidebar-border" />
+            {divider}
             {renderGroup("System", systemItems)}
           </>
         ) : (
