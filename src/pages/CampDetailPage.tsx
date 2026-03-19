@@ -334,6 +334,9 @@ export default function CampDetailPage() {
               {archiving ? "Archiving…" : "Archive"}
             </Button>
           )}
+          <Button size="sm" variant="outline" onClick={openEditCamp}>
+            <Pencil className="h-4 w-4 mr-1.5" /> Edit Details
+          </Button>
           <Button size="sm" variant="outline" onClick={openManageData}>
             <Settings className="h-4 w-4 mr-1.5" /> Manage Data
           </Button>
