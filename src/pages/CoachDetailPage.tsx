@@ -567,6 +567,37 @@ export default function CoachDetailPage() {
               <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={4} placeholder="General notes about this coach…" />
             </CardContent>
           </Card>
+
+          {/* Camp Assignments */}
+          {!isNew && (
+            <Card>
+              <CardContent className="p-5 space-y-4">
+                <SectionLabel>Camp Assignments</SectionLabel>
+                {campAssignments.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No camp assignments found.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {campAssignments.map((a) => (
+                      <Link key={a.camp_id} to={`/camps/${a.camp_id}`} className="flex items-center justify-between rounded-lg border p-3 hover:bg-accent/50 transition-colors group">
+                        <div className="flex items-center gap-2">
+                          <Tent className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium">{a.camp_name}</p>
+                            <p className="text-xs text-muted-foreground">{a.start_date} — {a.end_date}</p>
+                          </div>
+                        </div>
+                        <Badge variant="secondary" className="text-[10px]">{a.role === "head_coach" ? "Head Coach" : "Assistant"}</Badge>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2 pt-2">
+                  <Link to="/roster"><Button variant="outline" size="sm" className="gap-1.5"><CalendarClock className="h-3.5 w-3.5" /> Roster</Button></Link>
+                  <Link to="/payroll"><Button variant="outline" size="sm" className="gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Payroll</Button></Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
