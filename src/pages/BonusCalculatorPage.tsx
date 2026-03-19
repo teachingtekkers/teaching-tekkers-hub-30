@@ -507,6 +507,7 @@ export default function BonusCalculatorPage() {
                   ) : filteredScores.map(cs => {
                     const sat = calcSatisfaction(cs.club_score, cs.parent_score_avg);
                     const bonus = calcBonusPerStaff(sat);
+                    const staffCount = staffPoints.filter(sp => sp.camp_id === cs.camp_id && sp.week_label === cs.week_label).length;
                     return (
                       <TableRow key={cs.id} className="cursor-pointer group" onClick={() => openEditCampScore(cs)}>
                         <TableCell>
