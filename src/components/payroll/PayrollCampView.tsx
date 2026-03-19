@@ -37,6 +37,7 @@ export function PayrollCampView({ campGroups }: Props) {
                 <TableHead className="text-right">Rate</TableHead>
                 <TableHead className="text-right">Base</TableHead>
                 <TableHead className="text-right">Fuel</TableHead>
+                <TableHead className="text-right">Camp Bonus</TableHead>
                 <TableHead className="text-right">Total</TableHead>
               </TableRow>
             </TableHeader>
@@ -53,6 +54,13 @@ export function PayrollCampView({ campGroups }: Props) {
                   <TableCell className="text-right font-mono">€{e.dailyRate}</TableCell>
                   <TableCell className="text-right font-mono">€{e.basePay.toFixed(2)}</TableCell>
                   <TableCell className="text-right font-mono">€{e.fuel.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-mono">
+                    {e.campBonus > 0 ? (
+                      <Badge variant="default" className="font-mono text-xs">€{e.campBonus.toFixed(2)}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right font-semibold font-mono">€{e.lineTotal.toFixed(2)}</TableCell>
                 </TableRow>
               ))}
