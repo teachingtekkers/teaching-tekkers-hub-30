@@ -38,6 +38,14 @@ interface CoachDoc {
   created_at: string;
 }
 
+interface CampAssignment {
+  camp_id: string;
+  camp_name: string;
+  role: string;
+  start_date: string;
+  end_date: string;
+}
+
 export default function CoachDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
