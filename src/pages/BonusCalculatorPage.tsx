@@ -297,7 +297,73 @@ export default function BonusCalculatorPage() {
     fetchAll();
   };
 
-  /* ── summary stats ── */
+  /* ── Pull staff from roster ── */
+  const [pulling, setPulling] = useState(false);
+
+  const pullFromRoster = async (campId: string, weekLabel: string) => {
+    const camp = campFullMap.get(campId);
+    if (!camp) { toast.error("Camp not found"); return; }
+
+    const campStart = new Date(camp.start_date + "T00:00:00");
+    const weekStartDate = startOfWeek(campStart, { weekStartsOn: 1 });
+    const weekStartStr = format(weekStartDate, "yyyy-MM-dd");
+
+    const { data: roster } = await supabase
+      .from("weekly_rosters")
+      .select("assignments")
+      .eq("week_start", weekStartStr)
+      .maybeSingle();
+
+    if (!roster || !roster.assignments) {
+      toast.error("No roster found for week of " + weekStartStr);
+      return;
+    }
+
+    const assignments = (roster.assignments as unknown as Array<{
+      camp_id: string; coach_id: string; role: string; days: string[];
+    }>);
+
+    const campAssignments = assignments.filter(a => a.camp_id === campId);
+    if (campAssignments.length === 0) {
+      toast.error("No staff assigned to this camp in the roster");
+      return;
+    }
+
+    const existingCoachIds = new Set(
+      staffPoints.filter(sp => sp.camp_id === campId && sp.week_label === weekLabel).map(sp => sp.coach_id)
+    );
+
+    const newRecords = campAssignments
+      .filter(a => !existingCoachIds.has(a.coach_id))
+      .map(a => ({
+        coach_id: a.coach_id,
+        camp_id: campId,
+        week_label: weekLabel,
+        role_that_week: a.role === "head_coach" ? "head_coach" : "assistant",
+        attendance_complete: false,
+        hc_rating_score: null,
+        notes: null,
+      }));
+
+    if (newRecords.length === 0) {
+      toast.info("All rostered staff already have records");
+      return;
+    }
+
+    const { error } = await supabase.from("staff_week_points").insert(newRecords);
+    if (error) { toast.error("Failed: " + error.message); return; }
+    toast.success(`Pulled ${newRecords.length} staff from roster`);
+    fetchAll();
+  };
+
+  const pullAllFromRoster = async () => {
+    if (campScores.length === 0) { toast.error("Add camp scores first"); return; }
+    setPulling(true);
+    for (const cs of campScores) {
+      await pullFromRoster(cs.camp_id, cs.week_label);
+    }
+    setPulling(false);
+  };
   const totalBonusPayout = useMemo(() => {
     let total = 0;
     campScores.forEach(cs => {
