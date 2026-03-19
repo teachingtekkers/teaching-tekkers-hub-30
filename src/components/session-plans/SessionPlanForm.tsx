@@ -152,6 +152,12 @@ export default function SessionPlanForm({ open, onClose, categories, initialValu
             <p className="text-[11px] text-muted-foreground">You can paste a link to a session diagram or uploaded image</p>
           </div>
 
+          <div className="space-y-2">
+            <Label>Video URL</Label>
+            <Input value={form.video_url} onChange={e => set("video_url", e.target.value)} placeholder="Paste video link or leave blank" />
+            <p className="text-[11px] text-muted-foreground">Link to a session video (YouTube, Vimeo, etc.)</p>
+          </div>
+
           <Button onClick={handleSubmit} className="w-full" disabled={saving}>
             {saving ? "Saving..." : mode === "edit" ? "Save Changes" : "Create Session"}
           </Button>
