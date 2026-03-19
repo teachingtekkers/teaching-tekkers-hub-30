@@ -500,7 +500,7 @@ export default function BonusCalculatorPage() {
                 <TableBody>
                   {filteredScores.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
+                      <TableCell colSpan={10} className="text-center text-muted-foreground py-12">
                         No camp scores yet. Add one to get started.
                       </TableCell>
                     </TableRow>
