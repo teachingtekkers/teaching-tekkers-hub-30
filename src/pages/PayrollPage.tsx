@@ -242,10 +242,11 @@ const PayrollPage = () => {
   const coachSummaries = useMemo(() => payrollLines.map(line => {
     const totalPay = line.entries.reduce((s, e) => s + e.basePay, 0);
     const totalFuel = line.entries.reduce((s, e) => s + e.fuel, 0);
+    const totalCampBonus = line.entries.reduce((s, e) => s + e.campBonus, 0);
     const totalBonus = line.entries.reduce((s, e) => s + e.bonus, 0);
     const totalAdjustment = line.entries.reduce((s, e) => s + e.adjustment, 0);
     const grandTotal = line.entries.reduce((s, e) => s + e.lineTotal, 0);
-    return { coachId: line.coachId, coachName: line.coachName, entries: line.entries, totalPay, totalFuel, totalBonus, totalAdjustment, grandTotal };
+    return { coachId: line.coachId, coachName: line.coachName, entries: line.entries, totalPay, totalFuel, totalCampBonus, totalBonus, totalAdjustment, grandTotal };
   }), [payrollLines]);
 
   const campGroups = useMemo(() => {
