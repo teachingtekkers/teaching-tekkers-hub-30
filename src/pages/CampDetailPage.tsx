@@ -90,16 +90,43 @@ export default function CampDetailPage() {
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    const [cRes, pRes] = await Promise.all([
+    const [cRes, pRes, coachRes] = await Promise.all([
       supabase.from("camps").select("*").eq("id", id).single(),
       supabase
         .from("synced_bookings")
         .select("id, child_first_name, child_last_name, parent_name, parent_phone, parent_email, emergency_contact, alternate_phone, medical_condition, medical_notes, kit_size, payment_status, age, date_of_birth, camp_date, booking_date, imported_at, total_amount, amount_paid, amount_owed, sibling_discount, refund_amount, payment_type, photo_permission")
         .eq("matched_camp_id", id)
         .order("child_last_name"),
+      supabase.from("camp_coach_assignments").select("id, coach_id, role").eq("camp_id", id),
     ]);
-    if (cRes.data) setCamp(cRes.data as unknown as CampData);
+    const campData = cRes.data as unknown as CampData & { club_id?: string };
+    if (campData) {
+      setCamp(campData);
+      // Resolve club name
+      if (campData.club_id) {
+        const { data: club } = await supabase.from("clubs").select("name").eq("id", campData.club_id).single();
+        setClubName(club?.name || campData.club_name);
+      } else {
+        setClubName(campData.club_name);
+      }
+    }
     setParticipants((pRes.data as unknown as Participant[]) || []);
+    
+    // Resolve coach names
+    const assignments = (coachRes.data || []) as any[];
+    if (assignments.length > 0) {
+      const coachIds = assignments.map((a: any) => a.coach_id);
+      const { data: coaches } = await supabase.from("coaches").select("id, full_name").in("id", coachIds);
+      const nameMap = new Map((coaches || []).map((c: any) => [c.id, c.full_name]));
+      setCoachAssignments(assignments.map((a: any) => ({
+        id: a.id,
+        coach_id: a.coach_id,
+        role: a.role,
+        coach_name: nameMap.get(a.coach_id) || "Unknown",
+      })));
+    } else {
+      setCoachAssignments([]);
+    }
     setLoading(false);
   }, [id]);
 
