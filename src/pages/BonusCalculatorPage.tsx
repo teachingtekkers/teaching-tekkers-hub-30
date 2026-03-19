@@ -492,8 +492,9 @@ export default function BonusCalculatorPage() {
                     <TableHead className="text-center">Satisfaction</TableHead>
                     <TableHead className="text-center">Bonus/Staff</TableHead>
                     <TableHead className="text-center">Club Return</TableHead>
+                    <TableHead className="text-center">Staff</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="w-[80px]" />
+                    <TableHead className="w-[100px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
