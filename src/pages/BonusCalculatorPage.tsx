@@ -99,7 +99,7 @@ export default function BonusCalculatorPage() {
       supabase.from("camp_week_scores").select("*").order("week_label"),
       supabase.from("staff_week_points").select("*").order("week_label"),
       supabase.from("coaches").select("id, full_name, is_head_coach").order("full_name"),
-      supabase.from("camps").select("id, name").order("name"),
+      supabase.from("camps").select("id, name, start_date").order("name"),
     ]);
     setCampScores((csRes.data || []) as unknown as CampWeekScore[]);
     setStaffPoints((spRes.data || []) as unknown as StaffWeekPoint[]);
