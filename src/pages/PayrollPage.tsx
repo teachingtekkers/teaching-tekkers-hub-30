@@ -44,6 +44,7 @@ export interface PayrollCampEntry {
   dailyRate: number;
   basePay: number;
   fuel: number;
+  campBonus: number;
   bonus: number;
   adjustment: number;
   lineTotal: number;
@@ -57,6 +58,20 @@ export interface PayrollLine {
 }
 
 const DEFAULT_FUEL = 20;
+
+function calcSatisfaction(club: number, parent: number): number {
+  return Math.round(((club + parent) / 2) * 10) / 10;
+}
+function calcCampBonus(satisfaction: number): number {
+  if (satisfaction >= 9.0) return 20;
+  if (satisfaction >= 7.5) return 10;
+  return 0;
+}
+
+interface ApprovedCampBonus {
+  campId: string;
+  bonusPerStaff: number;
+}
 
 // ---------- Component ----------
 
@@ -96,16 +111,36 @@ const PayrollPage = () => {
         return;
       }
 
-      setCamps(campsRes.data || []);
-      setCoaches((coachesRes.data as PayrollCoach[]) || []);
+      const campsList = campsRes.data || [];
+      const coachesList = (coachesRes.data as PayrollCoach[]) || [];
+      setCamps(campsList);
+      setCoaches(coachesList);
       setRosterStatus(rosterRes.data?.status || null);
+
+      // Fetch approved camp bonuses for camps active this week
+      const campIds = campsList.map(c => c.id);
+      let approvedBonuses: ApprovedCampBonus[] = [];
+      if (campIds.length > 0) {
+        const { data: scoreData } = await supabase
+          .from("camp_week_scores")
+          .select("camp_id, club_score, parent_score_avg, status")
+          .in("camp_id", campIds)
+          .eq("status", "approved");
+        if (scoreData) {
+          approvedBonuses = scoreData.map(s => ({
+            campId: s.camp_id,
+            bonusPerStaff: calcCampBonus(calcSatisfaction(Number(s.club_score), Number(s.parent_score_avg))),
+          }));
+        }
+      }
 
       // Auto-generate payroll if a finalised roster exists
       if (rosterRes.data?.status === "finalised" && rosterRes.data.assignments) {
         buildPayroll(
           rosterRes.data.assignments as unknown as DailyAssignment[],
-          campsRes.data || [],
-          (coachesRes.data as PayrollCoach[]) || []
+          campsList,
+          coachesList,
+          approvedBonuses
         );
       }
 
@@ -114,9 +149,10 @@ const PayrollPage = () => {
     load();
   }, [selectedDate]);
 
-  const buildPayroll = useCallback((rosterAssignments: DailyAssignment[], campsList: PayrollCamp[], coachesList: PayrollCoach[]) => {
+  const buildPayroll = useCallback((rosterAssignments: DailyAssignment[], campsList: PayrollCamp[], coachesList: PayrollCoach[], approvedBonuses: ApprovedCampBonus[] = []) => {
     const coachMap = new Map(coachesList.map(c => [c.id, c]));
     const campMap = new Map(campsList.map(c => [c.id, c]));
+    const bonusMap = new Map(approvedBonuses.map(b => [b.campId, b.bonusPerStaff]));
     const linesByCoach = new Map<string, PayrollLine>();
 
     for (const asgn of rosterAssignments) {
@@ -131,11 +167,13 @@ const PayrollPage = () => {
       const dailyRate = role === "head_coach" ? coach.head_coach_daily_rate : coach.daily_rate;
       const basePay = dailyRate * daysWorked;
       const fuel = (asgn.driving_this_week && coach.fuel_allowance_eligible) ? DEFAULT_FUEL : 0;
+      const campBonus = bonusMap.get(camp.id) || 0;
 
       const entry: PayrollCampEntry = {
         campId: camp.id, campName: camp.name, clubName: camp.club_name,
         role, daysWorked, dailyRate, basePay, fuel,
-        bonus: 0, adjustment: 0, lineTotal: basePay + fuel,
+        campBonus, bonus: 0, adjustment: 0,
+        lineTotal: basePay + fuel + campBonus,
         drivingThisWeek: !!asgn.driving_this_week,
       };
 
@@ -151,6 +189,7 @@ const PayrollPage = () => {
 
   const generatePayroll = useCallback(async () => {
     const wsISO = format(weekStart, "yyyy-MM-dd");
+    const weISO = format(weekEnd, "yyyy-MM-dd");
     const { data, error } = await supabase.from("weekly_rosters")
       .select("assignments, status").eq("week_start", wsISO).maybeSingle();
 
@@ -164,9 +203,26 @@ const PayrollPage = () => {
       return;
     }
 
-    buildPayroll(data.assignments as unknown as DailyAssignment[], camps, coaches);
+    // Fetch approved bonuses
+    const campIds = camps.map(c => c.id);
+    let approvedBonuses: ApprovedCampBonus[] = [];
+    if (campIds.length > 0) {
+      const { data: scoreData } = await supabase
+        .from("camp_week_scores")
+        .select("camp_id, club_score, parent_score_avg, status")
+        .in("camp_id", campIds)
+        .eq("status", "approved");
+      if (scoreData) {
+        approvedBonuses = scoreData.map(s => ({
+          campId: s.camp_id,
+          bonusPerStaff: calcCampBonus(calcSatisfaction(Number(s.club_score), Number(s.parent_score_avg))),
+        }));
+      }
+    }
+
+    buildPayroll(data.assignments as unknown as DailyAssignment[], camps, coaches, approvedBonuses);
     sonnerToast.success("Payroll generated from finalised roster");
-  }, [weekStart, camps, coaches, buildPayroll]);
+  }, [weekStart, weekEnd, camps, coaches, buildPayroll]);
 
   const updateEntry = useCallback((coachId: string, campId: string, field: "fuel" | "bonus" | "adjustment", value: number) => {
     setPayrollLines(prev => prev.map(line => {
@@ -176,7 +232,7 @@ const PayrollPage = () => {
         entries: line.entries.map(e => {
           if (e.campId !== campId) return e;
           const updated = { ...e, [field]: value };
-          updated.lineTotal = updated.basePay + updated.fuel + updated.bonus + updated.adjustment;
+          updated.lineTotal = updated.basePay + updated.fuel + updated.campBonus + updated.bonus + updated.adjustment;
           return updated;
         }),
       };
@@ -186,10 +242,11 @@ const PayrollPage = () => {
   const coachSummaries = useMemo(() => payrollLines.map(line => {
     const totalPay = line.entries.reduce((s, e) => s + e.basePay, 0);
     const totalFuel = line.entries.reduce((s, e) => s + e.fuel, 0);
+    const totalCampBonus = line.entries.reduce((s, e) => s + e.campBonus, 0);
     const totalBonus = line.entries.reduce((s, e) => s + e.bonus, 0);
     const totalAdjustment = line.entries.reduce((s, e) => s + e.adjustment, 0);
     const grandTotal = line.entries.reduce((s, e) => s + e.lineTotal, 0);
-    return { coachId: line.coachId, coachName: line.coachName, entries: line.entries, totalPay, totalFuel, totalBonus, totalAdjustment, grandTotal };
+    return { coachId: line.coachId, coachName: line.coachName, entries: line.entries, totalPay, totalFuel, totalCampBonus, totalBonus, totalAdjustment, grandTotal };
   }), [payrollLines]);
 
   const campGroups = useMemo(() => {

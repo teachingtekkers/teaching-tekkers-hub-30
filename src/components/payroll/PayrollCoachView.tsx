@@ -12,6 +12,7 @@ interface Props {
     entries: PayrollCampEntry[];
     totalPay: number;
     totalFuel: number;
+    totalCampBonus: number;
     totalBonus: number;
     totalAdjustment: number;
     grandTotal: number;
@@ -37,7 +38,8 @@ export function PayrollCoachView({ coachSummaries, onUpdateEntry }: Props) {
                 <TableHead className="text-right">Rate</TableHead>
                 <TableHead className="text-right">Base</TableHead>
                 <TableHead className="text-right w-24">Fuel</TableHead>
-                <TableHead className="text-right w-24">Bonus</TableHead>
+                <TableHead className="text-right">Camp Bonus</TableHead>
+                <TableHead className="text-right w-24">Manual Bonus</TableHead>
                 <TableHead className="text-right w-24">Adj.</TableHead>
                 <TableHead className="text-right">Total</TableHead>
               </TableRow>
@@ -61,6 +63,13 @@ export function PayrollCoachView({ coachSummaries, onUpdateEntry }: Props) {
                       value={e.fuel}
                       onChange={(ev) => onUpdateEntry(cs.coachId, e.campId, "fuel", Number(ev.target.value))}
                     />
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {e.campBonus > 0 ? (
+                      <Badge variant="default" className="font-mono text-xs">€{e.campBonus.toFixed(2)}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <Input
@@ -86,6 +95,7 @@ export function PayrollCoachView({ coachSummaries, onUpdateEntry }: Props) {
                   <TableCell colSpan={4} className="font-semibold">Total</TableCell>
                   <TableCell className="text-right font-mono font-semibold">€{cs.totalPay.toFixed(2)}</TableCell>
                   <TableCell className="text-right font-mono font-semibold">€{cs.totalFuel.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-mono font-semibold">€{cs.totalCampBonus.toFixed(2)}</TableCell>
                   <TableCell className="text-right font-mono font-semibold">€{cs.totalBonus.toFixed(2)}</TableCell>
                   <TableCell className="text-right font-mono font-semibold">€{cs.totalAdjustment.toFixed(2)}</TableCell>
                   <TableCell className="text-right font-mono font-bold">€{cs.grandTotal.toFixed(2)}</TableCell>

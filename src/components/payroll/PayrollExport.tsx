@@ -2,11 +2,13 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { FileDown, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { PayrollCampEntry } from "@/pages/PayrollPage";
 
 interface CoachSummary {
   coachName: string;
-  entries: { campName: string; role: string; daysWorked: number; dailyRate: number; basePay: number; fuel: number; bonus: number; adjustment: number; lineTotal: number }[];
+  entries: PayrollCampEntry[];
   grandTotal: number;
+  totalCampBonus?: number;
 }
 
 interface Props {
@@ -20,17 +22,18 @@ export function PayrollExport({ coachSummaries, weekStart, weekEnd, weekTotal }:
   const { toast } = useToast();
 
   const exportCSV = () => {
-    const rows = [["Coach", "Camp", "Role", "Days", "Rate", "Base", "Fuel", "Bonus", "Adj", "Total"]];
+    const rows = [["Coach", "Camp", "Role", "Days", "Rate", "Base", "Fuel", "Camp Bonus", "Manual Bonus", "Adj", "Total"]];
     coachSummaries.forEach(cs => {
       cs.entries.forEach(e => {
         rows.push([
           cs.coachName, e.campName, e.role === "head_coach" ? "HC" : "Asst",
           String(e.daysWorked), String(e.dailyRate), e.basePay.toFixed(2),
-          e.fuel.toFixed(2), e.bonus.toFixed(2), e.adjustment.toFixed(2), e.lineTotal.toFixed(2),
+          e.fuel.toFixed(2), e.campBonus.toFixed(2), e.bonus.toFixed(2),
+          e.adjustment.toFixed(2), e.lineTotal.toFixed(2),
         ]);
       });
     });
-    rows.push(["", "", "", "", "", "", "", "", "TOTAL", weekTotal.toFixed(2)]);
+    rows.push(["", "", "", "", "", "", "", "", "", "TOTAL", weekTotal.toFixed(2)]);
     const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -56,8 +59,6 @@ th.r{text-align:right}
 td{padding:4px 6px;border-bottom:1px solid #eef0f4;font-size:9.5px}
 td.r{text-align:right;font-family:ui-monospace,monospace}
 tr:nth-child(even){background:#f9fafb}
-.coach-hdr{background:#dbeafe;font-weight:700;font-size:10px}
-.coach-hdr td{border-bottom:1px solid #93c5fd;padding:5px 6px}
 .tot{background:#f0fdf4;font-weight:700}
 .tot td{border-top:2px solid #22c55e}
 .ft{margin-top:6px;text-align:center;font-size:7.5px;color:#94a3b8}
@@ -68,18 +69,18 @@ tr:nth-child(even){background:#f9fafb}
 <div class="sub">${coachSummaries.length} Coaches · €${weekTotal.toFixed(2)} Total</div>
 </div>
 <table>
-<thead><tr><th>Coach</th><th>Camp</th><th>Role</th><th class="r">Days</th><th class="r">Rate</th><th class="r">Base</th><th class="r">Fuel</th><th class="r">Bonus</th><th class="r">Adj.</th><th class="r">Total</th></tr></thead>
+<thead><tr><th>Coach</th><th>Camp</th><th>Role</th><th class="r">Days</th><th class="r">Rate</th><th class="r">Base</th><th class="r">Fuel</th><th class="r">Camp Bonus</th><th class="r">Manual</th><th class="r">Adj.</th><th class="r">Total</th></tr></thead>
 <tbody>
 ${coachSummaries.map(cs => {
   const rows = cs.entries.map((e, i) =>
-    `<tr><td>${i === 0 ? cs.coachName : ""}</td><td>${e.campName}</td><td>${e.role === "head_coach" ? "HC" : "Asst"}</td><td class="r">${e.daysWorked}</td><td class="r">€${e.dailyRate}</td><td class="r">€${e.basePay.toFixed(2)}</td><td class="r">€${e.fuel.toFixed(2)}</td><td class="r">€${e.bonus.toFixed(2)}</td><td class="r">€${e.adjustment.toFixed(2)}</td><td class="r"><b>€${e.lineTotal.toFixed(2)}</b></td></tr>`
+    `<tr><td>${i === 0 ? cs.coachName : ""}</td><td>${e.campName}</td><td>${e.role === "head_coach" ? "HC" : "Asst"}</td><td class="r">${e.daysWorked}</td><td class="r">€${e.dailyRate}</td><td class="r">€${e.basePay.toFixed(2)}</td><td class="r">€${e.fuel.toFixed(2)}</td><td class="r">${e.campBonus > 0 ? "€" + e.campBonus.toFixed(2) : "—"}</td><td class="r">€${e.bonus.toFixed(2)}</td><td class="r">€${e.adjustment.toFixed(2)}</td><td class="r"><b>€${e.lineTotal.toFixed(2)}</b></td></tr>`
   ).join("");
   const subtotal = cs.entries.length > 1
-    ? `<tr style="background:#f0f9ff"><td colspan="9" style="text-align:right;font-weight:600">${cs.coachName} Total</td><td class="r" style="font-weight:700">€${cs.grandTotal.toFixed(2)}</td></tr>`
+    ? `<tr style="background:#f0f9ff"><td colspan="10" style="text-align:right;font-weight:600">${cs.coachName} Total</td><td class="r" style="font-weight:700">€${cs.grandTotal.toFixed(2)}</td></tr>`
     : "";
   return rows + subtotal;
 }).join("")}
-<tr class="tot"><td colspan="9" style="text-align:right;font-size:11px">Week Total</td><td class="r" style="font-size:11px">€${weekTotal.toFixed(2)}</td></tr>
+<tr class="tot"><td colspan="10" style="text-align:right;font-size:11px">Week Total</td><td class="r" style="font-size:11px">€${weekTotal.toFixed(2)}</td></tr>
 </tbody></table>
 <div class="ft">Teaching Tekkers Payroll · Generated ${format(new Date(), "d MMM yyyy HH:mm")}</div>
 </body></html>`;
