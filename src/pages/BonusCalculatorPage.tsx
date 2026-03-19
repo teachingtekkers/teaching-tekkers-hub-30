@@ -152,7 +152,7 @@ export default function BonusCalculatorPage() {
       toast.error("Staff member and camp are required");
       return;
     }
-    const payload: Record<string, unknown> = {
+    const payload = {
       coach_id: form.coach_id,
       camp_id: form.camp_id,
       week_label: form.week_label,
@@ -160,7 +160,7 @@ export default function BonusCalculatorPage() {
       parent_feedback_points: Number(form.parent_feedback_points) || 0,
       admin_adjustment: Number(form.admin_adjustment) || 0,
       notes: form.notes || null,
-      status: form.status,
+      status: form.status as "draft" | "reviewed" | "approved",
       approved_bonus_amount: Number(form.approved_bonus_amount) || 0,
       updated_at: new Date().toISOString(),
     };
@@ -169,7 +169,7 @@ export default function BonusCalculatorPage() {
       if (error) { toast.error("Failed to update: " + error.message); return; }
       toast.success("Bonus record updated");
     } else {
-      const { error } = await supabase.from("bonus_records").insert(payload);
+      const { error } = await supabase.from("bonus_records").insert([payload]);
       if (error) { toast.error("Failed to create: " + error.message); return; }
       toast.success("Bonus record created");
     }
