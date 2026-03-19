@@ -285,9 +285,10 @@ export default function TasksDeadlinesPage() {
             </div>
             <div>
               <Label>Linked Area / Module</Label>
-              <Select value={form.linked_area} onValueChange={v => setForm(f => ({ ...f, linked_area: v }))}>
+              <Select value={form.linked_area || "none"} onValueChange={v => setForm(f => ({ ...f, linked_area: v === "none" ? "" : v }))}>
                 <SelectTrigger><SelectValue placeholder="Select area…" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
                   {LINKED_AREAS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -295,20 +296,20 @@ export default function TasksDeadlinesPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Linked Camp</Label>
-                <Select value={form.linked_camp_id} onValueChange={v => setForm(f => ({ ...f, linked_camp_id: v }))}>
+                <Select value={form.linked_camp_id || "none"} onValueChange={v => setForm(f => ({ ...f, linked_camp_id: v === "none" ? "" : v }))}>
                   <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {camps.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label>Linked Staff</Label>
-                <Select value={form.linked_coach_id} onValueChange={v => setForm(f => ({ ...f, linked_coach_id: v }))}>
+                <Select value={form.linked_coach_id || "none"} onValueChange={v => setForm(f => ({ ...f, linked_coach_id: v === "none" ? "" : v }))}>
                   <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {coaches.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}
                   </SelectContent>
                 </Select>
