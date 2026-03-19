@@ -61,6 +61,7 @@ export default function SessionPlanForm({ open, onClose, categories, initialValu
           equipment: initialValues.equipment || "",
           content: initialValues.content || "",
           diagram_image_url: initialValues.diagram_image_url || "",
+          video_url: initialValues.video_url || "",
         });
       } else {
         setForm(EMPTY);
