@@ -239,7 +239,41 @@ export default function CampDetailPage() {
     );
   };
 
-  if (loading) return <div className="p-8 text-muted-foreground">Loading…</div>;
+  const openEditCamp = useCallback(() => {
+    if (!camp) return;
+    const campFull = camp as any;
+    setEditForm({
+      club_id: campFull.club_id || "",
+      start_date: camp.start_date,
+      end_date: camp.end_date,
+      price_per_child: String(campFull.price_per_child ?? ""),
+    });
+    setEditOpen(true);
+  }, [camp]);
+
+  const saveEditCamp = useCallback(async () => {
+    if (!camp) return;
+    setSaving(true);
+    const clubId = editForm.club_id || null;
+    const clubNameVal = clubId ? (clubOptions.find(c => c.id === clubId)?.name || camp.club_name) : camp.club_name;
+    const { error } = await supabase.from("camps").update({
+      club_id: clubId,
+      club_name: clubNameVal,
+      start_date: editForm.start_date,
+      end_date: editForm.end_date,
+      price_per_child: Number(editForm.price_per_child) || 0,
+    } as any).eq("id", camp.id);
+    if (error) {
+      toast({ title: "Save failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Camp updated" });
+      setEditOpen(false);
+      load();
+    }
+    setSaving(false);
+  }, [camp, editForm, clubOptions, toast, load]);
+
+
   if (!camp) return <div className="p-8 text-muted-foreground">Camp not found</div>;
 
   const payBadge = (s: string | null) => {
