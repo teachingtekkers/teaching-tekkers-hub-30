@@ -18,6 +18,7 @@ export interface SessionPlanData {
   content: string | null;
   diagram_image_url: string | null;
   created_at: string;
+  video_url: string | null;
 }
 
 interface Props {
