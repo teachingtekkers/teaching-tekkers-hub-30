@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { format, startOfWeek, endOfWeek, subWeeks, addWeeks, parseISO } from "date-fns";
+import { Link } from "react-router-dom";
 import { FileText, Plus, Wallet, Users, Tent, CalendarIcon, ChevronLeft, ChevronRight, Wand2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
