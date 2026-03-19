@@ -19,6 +19,7 @@ export interface SessionFormValues {
   equipment: string;
   content: string;
   diagram_image_url: string;
+  video_url: string;
 }
 
 interface Category {
