@@ -69,6 +69,72 @@ export type Database = {
           },
         ]
       }
+      bonus_records: {
+        Row: {
+          admin_adjustment: number
+          approved_bonus_amount: number
+          camp_id: string
+          club_feedback_points: number
+          coach_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          parent_feedback_points: number
+          payroll_linked: boolean
+          status: Database["public"]["Enums"]["bonus_status"]
+          total_points: number
+          updated_at: string
+          week_label: string
+        }
+        Insert: {
+          admin_adjustment?: number
+          approved_bonus_amount?: number
+          camp_id: string
+          club_feedback_points?: number
+          coach_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          parent_feedback_points?: number
+          payroll_linked?: boolean
+          status?: Database["public"]["Enums"]["bonus_status"]
+          total_points?: number
+          updated_at?: string
+          week_label?: string
+        }
+        Update: {
+          admin_adjustment?: number
+          approved_bonus_amount?: number
+          camp_id?: string
+          club_feedback_points?: number
+          coach_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          parent_feedback_points?: number
+          payroll_linked?: boolean
+          status?: Database["public"]["Enums"]["bonus_status"]
+          total_points?: number
+          updated_at?: string
+          week_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bonus_records_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bonus_records_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           camp_id: string
@@ -1375,6 +1441,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "head_coach"
       attendance_status: "present" | "absent"
+      bonus_status: "draft" | "reviewed" | "approved"
       coach_role: "head_coach" | "assistant"
       fixture_format: "group_stage" | "knockout" | "group_knockout"
       invoice_status: "draft" | "ready" | "sent" | "paid"
@@ -1512,6 +1579,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "head_coach"],
       attendance_status: ["present", "absent"],
+      bonus_status: ["draft", "reviewed", "approved"],
       coach_role: ["head_coach", "assistant"],
       fixture_format: ["group_stage", "knockout", "group_knockout"],
       invoice_status: ["draft", "ready", "sent", "paid"],
