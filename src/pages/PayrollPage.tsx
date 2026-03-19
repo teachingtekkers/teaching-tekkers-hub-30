@@ -232,7 +232,7 @@ const PayrollPage = () => {
         entries: line.entries.map(e => {
           if (e.campId !== campId) return e;
           const updated = { ...e, [field]: value };
-          updated.lineTotal = updated.basePay + updated.fuel + updated.bonus + updated.adjustment;
+          updated.lineTotal = updated.basePay + updated.fuel + updated.campBonus + updated.bonus + updated.adjustment;
           return updated;
         }),
       };
