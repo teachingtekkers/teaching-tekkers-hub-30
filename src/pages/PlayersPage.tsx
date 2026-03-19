@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Users, AlertCircle, Camera, CameraOff, Heart, RefreshCw, Eye, Search, TriangleAlert, CheckCircle, CircleDollarSign, CircleAlert } from "lucide-react";
+import { BookingReceiptButton } from "@/components/booking-sync/BookingReceipt";
 import { useToast } from "@/hooks/use-toast";
 import ImportErrorsDrawer from "@/components/booking-sync/ImportErrorsDrawer";
 
@@ -35,12 +36,17 @@ interface SyncedBookingRow {
   parent_phone: string | null;
   parent_email: string | null;
   camp_name: string;
+  camp_date: string | null;
+  venue: string | null;
+  imported_at: string;
   total_amount: number | null;
   sibling_discount: number | null;
   amount_paid: number | null;
   amount_owed: number | null;
   refund_amount: number | null;
   payment_type: string | null;
+  child_first_name: string;
+  child_last_name: string;
 }
 
 function derivePaymentStatus(b: SyncedBookingRow) {
@@ -118,7 +124,7 @@ export default function PlayersPage() {
       if (!batch.length) continue;
       const { data } = await supabase
         .from("synced_bookings")
-        .select("id, external_booking_id, matched_player_id, matched_camp_id, payment_status, parent_name, parent_phone, parent_email, camp_name, total_amount, sibling_discount, amount_paid, amount_owed, refund_amount, payment_type")
+        .select("id, external_booking_id, matched_player_id, matched_camp_id, payment_status, parent_name, parent_phone, parent_email, camp_name, camp_date, venue, imported_at, total_amount, sibling_discount, amount_paid, amount_owed, refund_amount, payment_type, child_first_name, child_last_name")
         .in("matched_player_id", batch);
       if (data) bookingRows = bookingRows.concat(data as SyncedBookingRow[]);
     }
@@ -377,13 +383,16 @@ export default function PlayersPage() {
                             sortedBookings.map((booking) => {
                               const fin = derivePaymentStatus(booking);
                               return (
-                                <div key={booking.id} className="inline-flex flex-col items-start">
-                                  <Link to={booking.matched_camp_id ? `/camps/${booking.matched_camp_id}` : "#"} className="hover:opacity-80">
-                                    <Badge variant={paymentVariant(fin.status.toLowerCase())} className="text-[10px] cursor-pointer" title={`Paid: €${fin.paid} · Owed: €${fin.owed}`}>
-                                      {(booking.matched_camp_id && campMap.get(booking.matched_camp_id)) || booking.camp_name || "Unknown"} • {fin.status}
-                                    </Badge>
-                                  </Link>
-                                  <span className="text-[9px] text-muted-foreground ml-1">€{fin.paid} paid · €{fin.owed} owed</span>
+                                <div key={booking.id} className="inline-flex items-center gap-1">
+                                  <div className="inline-flex flex-col items-start">
+                                    <Link to={booking.matched_camp_id ? `/camps/${booking.matched_camp_id}` : "#"} className="hover:opacity-80">
+                                      <Badge variant={paymentVariant(fin.status.toLowerCase())} className="text-[10px] cursor-pointer" title={`Paid: €${fin.paid} · Owed: €${fin.owed}`}>
+                                        {(booking.matched_camp_id && campMap.get(booking.matched_camp_id)) || booking.camp_name || "Unknown"} • {fin.status}
+                                      </Badge>
+                                    </Link>
+                                    <span className="text-[9px] text-muted-foreground ml-1">€{fin.paid} paid · €{fin.owed} owed</span>
+                                  </div>
+                                  <BookingReceiptButton booking={booking} />
                                 </div>
                               );
                             })
