@@ -107,13 +107,16 @@ export default function CampDetailPage() {
         .order("child_last_name"),
       supabase.from("camp_coach_assignments").select("id, coach_id, role").eq("camp_id", id),
     ]);
-    const campData = cRes.data as unknown as CampData & { club_id?: string };
+    const campData = cRes.data as unknown as CampData & { club_id?: string; price_per_child?: number };
+    // Load clubs for edit dropdown
+    const { data: clubsList } = await supabase.from("clubs").select("id, name").order("name");
+    setClubOptions(clubsList || []);
+    const clubMap = new Map((clubsList || []).map((c: any) => [c.id, c.name]));
     if (campData) {
       setCamp(campData);
       // Resolve club name
       if (campData.club_id) {
-        const { data: club } = await supabase.from("clubs").select("name").eq("id", campData.club_id).single();
-        setClubName(club?.name || campData.club_name);
+        setClubName(clubMap.get(campData.club_id) || campData.club_name);
       } else {
         setClubName(campData.club_name);
       }
