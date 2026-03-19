@@ -1,0 +1,1 @@
+ALTER TABLE public.session_plans ADD COLUMN IF NOT EXISTS video_url text DEFAULT NULL;
