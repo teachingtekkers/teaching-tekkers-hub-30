@@ -39,7 +39,7 @@ interface Props {
 const EMPTY: SessionFormValues = {
   title: "", category_id: "", age_group: "U8-U12", description: "",
   organisation: "", other_comments: "", coaching_points: "",
-  player_numbers: "", equipment: "", content: "", diagram_image_url: "",
+  player_numbers: "", equipment: "", content: "", diagram_image_url: "", video_url: "",
 };
 
 export default function SessionPlanForm({ open, onClose, categories, initialValues, onSave, mode }: Props) {

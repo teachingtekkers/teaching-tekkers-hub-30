@@ -71,6 +71,7 @@ const SessionPlansPage = () => {
       equipment: values.equipment || null,
       content: values.content || null,
       diagram_image_url: values.diagram_image_url || null,
+      video_url: values.video_url || null,
     };
 
     if (editId) {
