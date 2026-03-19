@@ -573,20 +573,23 @@ export default function BookingSyncPage() {
                     </TableRow>
                     {expandedBookingId === b.id && (
                       <TableRow>
-                        <TableCell colSpan={10} className="bg-muted/30 p-0">
-                          <div className="p-3 space-y-2">
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">🔍 Raw Stored Finance Values</p>
-                            <div className="grid grid-cols-3 md:grid-cols-6 gap-2 text-xs">
-                              <div><span className="text-muted-foreground">total_amount:</span><br/><span className="font-mono font-medium">€{b.total_amount ?? "null"}</span></div>
-                              <div><span className="text-muted-foreground">sibling_discount:</span><br/><span className="font-mono font-medium">€{b.sibling_discount ?? "null"}</span></div>
-                              <div><span className="text-muted-foreground">amount_paid:</span><br/><span className="font-mono font-medium">€{b.amount_paid ?? "null"}</span></div>
-                              <div><span className="text-muted-foreground">refund_amount:</span><br/><span className="font-mono font-medium">€{b.refund_amount ?? "null"}</span></div>
-                              <div><span className="text-muted-foreground">amount_owed:</span><br/><span className="font-mono font-medium">€{b.amount_owed ?? "null"}</span></div>
-                              <div><span className="text-muted-foreground">payment_status:</span><br/><span className="font-mono font-medium">{b.payment_status ?? "null"}</span></div>
-                              <div><span className="text-muted-foreground">payment_type:</span><br/><span className="font-mono font-medium">{b.payment_type ?? "null"}</span></div>
-                            </div>
-                          </div>
-                        </TableCell>
+                         <TableCell colSpan={10} className="bg-muted/30 p-0">
+                           <div className="p-3 space-y-2">
+                             <div className="flex items-center justify-between">
+                               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">🔍 Raw Stored Finance Values</p>
+                               <BookingReceiptButton booking={b} />
+                             </div>
+                             <div className="grid grid-cols-3 md:grid-cols-6 gap-2 text-xs">
+                               <div><span className="text-muted-foreground">total_amount:</span><br/><span className="font-mono font-medium">€{b.total_amount ?? "null"}</span></div>
+                               <div><span className="text-muted-foreground">sibling_discount:</span><br/><span className="font-mono font-medium">€{b.sibling_discount ?? "null"}</span></div>
+                               <div><span className="text-muted-foreground">amount_paid:</span><br/><span className="font-mono font-medium">€{b.amount_paid ?? "null"}</span></div>
+                               <div><span className="text-muted-foreground">refund_amount:</span><br/><span className="font-mono font-medium">€{b.refund_amount ?? "null"}</span></div>
+                               <div><span className="text-muted-foreground">amount_owed:</span><br/><span className="font-mono font-medium">€{b.amount_owed ?? "null"}</span></div>
+                               <div><span className="text-muted-foreground">payment_status:</span><br/><span className="font-mono font-medium">{b.payment_status ?? "null"}</span></div>
+                               <div><span className="text-muted-foreground">payment_type:</span><br/><span className="font-mono font-medium">{b.payment_type ?? "null"}</span></div>
+                             </div>
+                           </div>
+                         </TableCell>
                       </TableRow>
                     )}
                   </React.Fragment>
