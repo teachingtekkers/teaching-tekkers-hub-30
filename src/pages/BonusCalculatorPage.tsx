@@ -550,7 +550,10 @@ export default function BonusCalculatorPage() {
 
         {/* ── Tab: Staff Points ── */}
         <TabsContent value="staff-points" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button onClick={pullAllFromRoster} size="sm" variant="outline" className="gap-1" disabled={pulling}>
+              <RefreshCw className={`h-4 w-4 ${pulling ? "animate-spin" : ""}`} /> Pull All from Roster
+            </Button>
             <Button onClick={openNewStaffPoint} size="sm" className="gap-1">
               <Plus className="h-4 w-4" /> Add Staff Points
             </Button>
