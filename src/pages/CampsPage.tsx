@@ -72,7 +72,9 @@ const CampsPage = () => {
     ]);
 
     if (campsResult.error) console.error("[Camps] Camps fetch error:", campsResult.error);
-    setClubOptions((clubsResult.data || []) as ClubOption[]);
+    const clubsList = (clubsResult.data || []) as ClubOption[];
+    setClubOptions(clubsList);
+    const clubMap = new Map(clubsList.map(c => [c.id, c.name]));
 
     if (campsResult.data) {
       const campIds = campsResult.data.map((c: any) => c.id);
@@ -90,7 +92,12 @@ const CampsPage = () => {
         });
       }
 
-      setCamps(campsResult.data.map(c => ({ ...c, participant_count: countMap[c.id] || 0 })) as CampRow[]);
+      setCamps(campsResult.data.map(c => ({
+        ...c,
+        participant_count: countMap[c.id] || 0,
+        // Use linked club name as source of truth
+        club_name: c.club_id ? (clubMap.get(c.club_id) || c.club_name) : c.club_name,
+      })) as CampRow[]);
     }
     setLoading(false);
   }, []);
