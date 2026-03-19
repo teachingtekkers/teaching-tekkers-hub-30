@@ -525,6 +525,13 @@ export default function BonusCalculatorPage() {
                         <TableCell className="text-center text-sm">
                           {cs.club_would_return ? <CheckCircle2 className="h-4 w-4 text-emerald-600 mx-auto" /> : "—"}
                         </TableCell>
+                        <TableCell className="text-center text-sm">
+                          {staffCount > 0 ? (
+                            <Badge variant="secondary" className="text-[10px]">{staffCount} staff</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-[10px]">{cs.status}</Badge>
                         </TableCell>
