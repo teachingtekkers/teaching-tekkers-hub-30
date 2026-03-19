@@ -273,7 +273,7 @@ export default function CampDetailPage() {
     setSaving(false);
   }, [camp, editForm, clubOptions, toast, load]);
 
-
+  if (loading) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (!camp) return <div className="p-8 text-muted-foreground">Camp not found</div>;
 
   const payBadge = (s: string | null) => {
