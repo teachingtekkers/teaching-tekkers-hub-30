@@ -469,7 +469,11 @@ const InvoicesPage = () => {
               <Card key={clubName}>
                 <div className="p-4 border-b flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold">{clubName}</h3>
+                    <h3 className="font-semibold">
+                      {clubInvs[0]?.resolved_club_id ? (
+                        <Link to="/clubs" className="hover:underline text-primary">{clubName}</Link>
+                      ) : clubName}
+                    </h3>
                     <p className="text-xs text-muted-foreground">{clubInvs.length} payments · €{paidTotal.toFixed(2)} paid</p>
                   </div>
                   <Badge variant="secondary" className="font-mono text-sm">€{clubTotal.toFixed(2)}</Badge>
