@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
+import { startOfWeek, format } from "date-fns";
 import {
   Plus, Pencil, Trash2, Trophy, Medal, TrendingUp,
-  DollarSign, CheckCircle2, Users, Star,
+  DollarSign, CheckCircle2, Users, Star, RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
