@@ -361,7 +361,54 @@ export default function CampDetailPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Edit Camp Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Camp Details</DialogTitle>
+            <DialogDescription>Update the source-of-truth fields for this camp.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1">
+              <Label>Linked Club</Label>
+              <Select value={editForm.club_id} onValueChange={(v) => setEditForm({ ...editForm, club_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Select club…" /></SelectTrigger>
+                <SelectContent>
+                  {clubOptions.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Start Date</Label>
+                <Input type="date" value={editForm.start_date} onChange={e => setEditForm({ ...editForm, start_date: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>End Date</Label>
+                <Input type="date" value={editForm.end_date} onChange={e => setEditForm({ ...editForm, end_date: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Base Price (€)</Label>
+              <Input type="number" value={editForm.price_per_child} onChange={e => setEditForm({ ...editForm, price_per_child: e.target.value })} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+              <Button onClick={saveEditCamp} disabled={saving}>
+                {saving ? "Saving…" : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" />Club</p>
+            <p className="text-sm font-medium text-foreground">{clubName || camp.club_name}</p>
+          </CardContent>
+        </Card>
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />Venue</p>
@@ -382,8 +429,8 @@ export default function CampDetailPage() {
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-xs text-muted-foreground">Age Group</p>
-            <Badge variant="secondary" className="mt-1">{camp.age_group}</Badge>
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><Banknote className="h-3 w-3" />Base Price</p>
+            <p className="text-sm font-medium text-foreground">€{(camp as any).price_per_child || 0}</p>
           </CardContent>
         </Card>
       </div>
