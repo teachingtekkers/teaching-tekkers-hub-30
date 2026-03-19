@@ -350,7 +350,7 @@ const CampsPage = () => {
                   <TableCell className="text-sm">{camp.club_name}</TableCell>
                   <TableCell className="text-sm">{camp.county}</TableCell>
                   <TableCell className="text-sm">{camp.start_date} — {camp.end_date}</TableCell>
-                  <TableCell><Badge variant="secondary" className="text-xs">{camp.age_group}</Badge></TableCell>
+                  
                   <TableCell className="text-center text-sm">{camp.participant_count || 0}/{camp.capacity}</TableCell>
                   <TableCell className="text-right text-sm font-medium">€{camp.price_per_child}</TableCell>
                   <TableCell className="text-right">
