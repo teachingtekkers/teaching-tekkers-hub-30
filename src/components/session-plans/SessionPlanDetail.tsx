@@ -1,4 +1,4 @@
-import { X, Edit, Copy, Image, BookOpen } from "lucide-react";
+import { X, Edit, Copy, Image, BookOpen, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
