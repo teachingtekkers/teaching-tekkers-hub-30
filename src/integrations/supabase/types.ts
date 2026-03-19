@@ -1056,28 +1056,46 @@ export type Database = {
         Row: {
           age_group: string
           category_id: string | null
+          coaching_points: string | null
           content: string | null
           created_at: string
           description: string | null
+          diagram_image_url: string | null
+          equipment: string | null
           id: string
+          organisation: string | null
+          other_comments: string | null
+          player_numbers: string | null
           title: string
         }
         Insert: {
           age_group?: string
           category_id?: string | null
+          coaching_points?: string | null
           content?: string | null
           created_at?: string
           description?: string | null
+          diagram_image_url?: string | null
+          equipment?: string | null
           id?: string
+          organisation?: string | null
+          other_comments?: string | null
+          player_numbers?: string | null
           title: string
         }
         Update: {
           age_group?: string
           category_id?: string | null
+          coaching_points?: string | null
           content?: string | null
           created_at?: string
           description?: string | null
+          diagram_image_url?: string | null
+          equipment?: string | null
           id?: string
+          organisation?: string | null
+          other_comments?: string | null
+          player_numbers?: string | null
           title?: string
         }
         Relationships: [
