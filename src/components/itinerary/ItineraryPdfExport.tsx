@@ -122,46 +122,39 @@ export default function ItineraryPdfExport({ itinerary, days }: Props) {
 /* ── COVER PAGE ── */
 function drawCoverPage(doc: jsPDF, it: Itinerary, coverBg: string | null) {
   if (coverBg) {
-    // Use the real TT cover artwork as background
     doc.addImage(coverBg, "JPEG", 0, 0, PW, PH);
   } else {
-    // Fallback: solid blue
     doc.setFillColor(DARK_BLUE.r, DARK_BLUE.g, DARK_BLUE.b);
     doc.rect(0, 0, PW, PH, "F");
   }
 
-  // Dynamic text overlay — positioned below the "TEACHING TEKKERS" brand text
-  // which is baked into the background at ~y=95mm equivalent
-  doc.setTextColor(WHITE.r, WHITE.g, WHITE.b);
-
-  // Cover title (e.g. "EASTER CAMPS 2026")
+  // Single clean title line: e.g. "EASTER CAMPS 2026"
+  // The background already contains "TEACHING TEKKERS" branding + logo
+  // We only add the camp/season subtitle below it
   const coverText = (it.cover_title || it.title || "").toUpperCase();
+
+  doc.setTextColor(WHITE.r, WHITE.g, WHITE.b);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(30);
-  const titleLines = doc.splitTextToSize(coverText, CW - 20);
-  let curY = 78; // Just below where "TEACHING TEKKERS" sits in the background
+
+  // Auto-size: start at 28pt, shrink if needed to fit one or two lines
+  let fontSize = 28;
+  doc.setFontSize(fontSize);
+  let titleLines = doc.splitTextToSize(coverText, CW - 30);
+  while (titleLines.length > 2 && fontSize > 16) {
+    fontSize -= 2;
+    doc.setFontSize(fontSize);
+    titleLines = doc.splitTextToSize(coverText, CW - 30);
+  }
+
+  // Position: centered vertically between "TEACHING TEKKERS" text (~y=62)
+  // and the logo (~y=105). Target center ~y=82
+  const lineHeight = fontSize * 0.5;
+  const blockH = titleLines.length * lineHeight;
+  let startY = 82 - blockH / 2 + lineHeight * 0.6;
+
   for (const line of titleLines) {
-    doc.text(line, PW / 2, curY, { align: "center" });
-    curY += 14;
-  }
-
-  // Camp type subtitle (e.g. "EASTER CAMP")
-  if (it.camp_type) {
-    curY += 2;
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "italic");
-    doc.text(it.camp_type.toUpperCase(), PW / 2, curY, { align: "center" });
-    curY += 12;
-  }
-
-  // Team format (e.g. "Ballers League Teams")
-  if (it.team_format) {
-    curY += 2;
-    doc.setFontSize(15);
-    doc.setFont("helvetica", "italic");
-    doc.setGState(doc.GState({ opacity: 0.85 }));
-    doc.text(it.team_format, PW / 2, curY, { align: "center" });
-    doc.setGState(doc.GState({ opacity: 1 }));
+    doc.text(line, PW / 2, startY, { align: "center" });
+    startY += lineHeight;
   }
 }
 
