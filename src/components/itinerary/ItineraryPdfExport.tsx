@@ -76,21 +76,25 @@ export default function ItineraryPdfExport({ itinerary, days }: Props) {
     try {
       const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-      // Load background images
-      let coverBg: string | null = null;
+      // Load assets
+      let coverImg: string | null = null;
       let headerBg: string | null = null;
-      let logoBg: string | null = null;
       try {
-        [coverBg, headerBg, logoBg] = await Promise.all([
-          loadImage("/tt-cover-bg.jpg"),
+        [coverImg, headerBg] = await Promise.all([
+          loadImage("/tt-cover-fixed.png"),
           loadImage("/tt-day-header.jpg"),
-          loadImage("/tt-logo-cover-v2.png"),
         ]);
       } catch {
-        // Fallback to drawn version if images fail
+        // fallback
       }
 
-      drawCoverPage(doc, itinerary, coverBg, logoBg);
+      // Page 1: fixed generic branded cover — nothing else rendered on it
+      if (coverImg) {
+        doc.addImage(coverImg, "PNG", 0, 0, PW, PH);
+      } else {
+        doc.setFillColor(DARK_BLUE.r, DARK_BLUE.g, DARK_BLUE.b);
+        doc.rect(0, 0, PW, PH, "F");
+      }
 
       if (itinerary.notes) {
         doc.addPage();
@@ -119,51 +123,6 @@ export default function ItineraryPdfExport({ itinerary, days }: Props) {
       Export PDF
     </Button>
   );
-}
-
-/* ── COVER PAGE ── */
-function drawCoverPage(doc: jsPDF, it: Itinerary, coverBg: string | null, logoBg: string | null) {
-  if (coverBg) {
-    doc.addImage(coverBg, "JPEG", 0, 0, PW, PH);
-  } else {
-    doc.setFillColor(DARK_BLUE.r, DARK_BLUE.g, DARK_BLUE.b);
-    doc.rect(0, 0, PW, PH, "F");
-  }
-
-  // Layer 2: one single centered title block only
-  const rawTitle = (it.cover_title || it.title || "").trim();
-  const fullTitle = /^teaching tekkers/i.test(rawTitle)
-    ? rawTitle
-    : `Teaching Tekkers ${rawTitle}`;
-
-  doc.setTextColor(WHITE.r, WHITE.g, WHITE.b);
-  doc.setFont("helvetica", "bold");
-
-  let fontSize = 24;
-  doc.setFontSize(fontSize);
-  let titleLines = doc.splitTextToSize(fullTitle, 120);
-  while (titleLines.length > 3 && fontSize > 18) {
-    fontSize -= 1;
-    doc.setFontSize(fontSize);
-    titleLines = doc.splitTextToSize(fullTitle, 120);
-  }
-
-  const lineH = fontSize * 0.48;
-  const titleBlockH = titleLines.length * lineH;
-  const titleStartY = 88 - titleBlockH / 2;
-
-  for (let i = 0; i < titleLines.length; i++) {
-    doc.text(titleLines[i], PW / 2, titleStartY + i * lineH, { align: "center" });
-  }
-
-  // Layer 3: one single centered logo only
-  if (logoBg) {
-    const logoW = 42;
-    const logoH = 42;
-    const logoX = (PW - logoW) / 2;
-    const logoY = titleStartY + titleBlockH + 14;
-    doc.addImage(logoBg, "PNG", logoX, logoY, logoW, logoH);
-  }
 }
 
 /* ── NOTES PAGE ── */
