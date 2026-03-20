@@ -44,12 +44,11 @@ function formatTime(t: string) {
   return `${h12}:${m}${ampm}`;
 }
 
-// Brand colours matched to TT PDF reference
-const BLUE = { r: 38, g: 64, b: 190 }; // royal blue from PDF
+// Brand colours matched to TT Easter PDF reference
+const BLUE = { r: 43, g: 62, b: 175 }; // deep royal/cobalt blue from PDF
 const WHITE = { r: 255, g: 255, b: 255 };
 const DARK = { r: 30, g: 41, b: 80 };
 const MUTED = { r: 80, g: 90, b: 130 };
-const LIGHT_BLUE = { r: 230, g: 236, b: 255 };
 const ROW_ALT = { r: 245, g: 247, b: 255 };
 
 const PW = 210;
@@ -102,93 +101,101 @@ function drawCoverPage(doc: jsPDF, it: Itinerary) {
   doc.setFillColor(BLUE.r, BLUE.g, BLUE.b);
   doc.rect(0, 0, PW, PH, "F");
 
-  // Football pitch line decorations (white, semi-transparent)
+  // ── Football pitch line decorations ──
+  // Thick, clearly visible white lines matching the TT Easter PDF reference
   doc.setDrawColor(WHITE.r, WHITE.g, WHITE.b);
-  doc.setGState(doc.GState({ opacity: 0.15 }));
+  doc.setFillColor(WHITE.r, WHITE.g, WHITE.b);
 
-  // Diagonal line top-left to bottom-right
-  doc.setLineWidth(3);
-  doc.line(-20, -10, 80, 90);
+  // 1. Diagonal line from top-left area sweeping down (the curved/straight line)
+  doc.setLineWidth(5);
+  doc.setGState(doc.GState({ opacity: 0.92 }));
+  doc.line(-10, 20, 45, 110);    // left sweeping line
+  doc.line(45, 110, 30, 60);     // small return curve effect — approximate with second segment
 
-  // Centre circle (lower right area)
-  doc.setLineWidth(3);
-  doc.ellipse(160, 210, 55, 55);
+  // Simpler: single thick diagonal from top-left
+  doc.setLineWidth(5.5);
+  doc.line(-5, -15, 55, 100);
 
-  // Diagonal through circle
-  doc.line(110, 160, 210, 260);
+  // 2. Diagonal line from top-right corner going down-left
+  doc.line(155, -15, PW + 15, 55);
 
-  // Small arc top-right
-  doc.setLineWidth(2.5);
-  doc.line(PW - 10, 0, PW + 10, 50);
+  // 3. Centre circle (lower-right quadrant, large)
+  doc.setLineWidth(5);
+  const circCX = 158;
+  const circCY = 215;
+  const circRX = 52;
+  const circRY = 48;
+  doc.ellipse(circCX, circCY, circRX, circRY, "S");
+
+  // 4. Diagonal line through the centre circle
+  doc.setLineWidth(5);
+  doc.line(circCX - 65, circCY - 55, circCX + 65, circCY + 55);
 
   doc.setGState(doc.GState({ opacity: 1 }));
 
-  // Title text block — centered, stacked
-  const coverText = (it.cover_title || it.title || "").toUpperCase();
-  const centerY = 95;
-
+  // ── Title text ──
+  // Centered in the upper portion, well-spaced stacked layout
   doc.setTextColor(WHITE.r, WHITE.g, WHITE.b);
 
-  // "TEACHING TEKKERS" heading
+  // "TEACHING TEKKERS" — large, bold italic
   doc.setFont("helvetica", "bolditalic");
-  doc.setFontSize(36);
-  doc.text("TEACHING TEKKERS", PW / 2, centerY, { align: "center" });
-
-  // Camp title (e.g. "HALLOWEEN CAMPS")
   doc.setFontSize(34);
-  const titleLines = doc.splitTextToSize(coverText, CW - 10);
-  let titleY = centerY + 24;
+  const ttY = 80;
+  doc.text("TEACHING TEKKERS", PW / 2, ttY, { align: "center" });
+
+  // Cover title lines (e.g. "EASTER CAMPS" then "2026")
+  const coverText = (it.cover_title || it.title || "").toUpperCase();
+  doc.setFontSize(32);
+  const titleLines = doc.splitTextToSize(coverText, CW - 20);
+  let curY = ttY + 26;
   for (const line of titleLines) {
-    doc.text(line, PW / 2, titleY, { align: "center" });
-    titleY += 16;
+    doc.text(line, PW / 2, curY, { align: "center" });
+    curY += 18;
   }
 
-  // Camp type subtitle
+  // Camp type subtitle (e.g. "EASTER CAMP")
   if (it.camp_type) {
+    curY += 4;
     doc.setFontSize(16);
     doc.setFont("helvetica", "italic");
-    doc.setGState(doc.GState({ opacity: 0.85 }));
-    doc.text(it.camp_type.toUpperCase(), PW / 2, titleY + 6, { align: "center" });
-    doc.setGState(doc.GState({ opacity: 1 }));
-    titleY += 14;
+    doc.text(it.camp_type.toUpperCase(), PW / 2, curY, { align: "center" });
+    curY += 12;
   }
 
-  // Team format subtitle
+  // Team format subtitle (e.g. "Ballers League Teams")
   if (it.team_format) {
+    curY += 2;
     doc.setFontSize(14);
     doc.setFont("helvetica", "italic");
-    doc.setGState(doc.GState({ opacity: 0.7 }));
-    doc.text(it.team_format, PW / 2, titleY + 4, { align: "center" });
+    doc.setGState(doc.GState({ opacity: 0.8 }));
+    doc.text(it.team_format, PW / 2, curY, { align: "center" });
     doc.setGState(doc.GState({ opacity: 1 }));
   }
 
-  // Simulated logo badge (circle with "TT" text)
+  // ── Logo badge ──
+  // Circular badge centered below text, matching TT branding
   const badgeCX = PW / 2;
-  const badgeCY = 210;
-  const badgeR = 22;
+  const badgeCY = curY + 30;
+  const badgeR = 24;
 
-  // Outer ring
+  // White filled outer ring
   doc.setDrawColor(WHITE.r, WHITE.g, WHITE.b);
-  doc.setLineWidth(2);
-  doc.setGState(doc.GState({ opacity: 0.9 }));
+  doc.setFillColor(BLUE.r, BLUE.g, BLUE.b);
+  doc.setLineWidth(3);
   doc.circle(badgeCX, badgeCY, badgeR, "S");
-  doc.circle(badgeCX, badgeCY, badgeR - 3, "S");
+  doc.setLineWidth(2);
+  doc.circle(badgeCX, badgeCY, badgeR - 4, "S");
 
   // Badge text
+  doc.setTextColor(WHITE.r, WHITE.g, WHITE.b);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.setTextColor(WHITE.r, WHITE.g, WHITE.b);
-
-  // Curved "TEACHING" at top — approximate with positioned text
-  doc.setFontSize(8);
   doc.text("TEACHING", badgeCX, badgeCY - 14, { align: "center" });
-  doc.text("TEKKERS", badgeCX, badgeCY + 17, { align: "center" });
+  doc.text("TEKKERS", badgeCX, badgeCY + 18, { align: "center" });
 
-  doc.setFontSize(7);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "italic");
-  doc.text("Est. 2019", badgeCX, badgeCY + 3, { align: "center" });
-
-  doc.setGState(doc.GState({ opacity: 1 }));
+  doc.text("Est. 2019", badgeCX, badgeCY + 4, { align: "center" });
 }
 
 /* ── NOTES PAGE ── */
