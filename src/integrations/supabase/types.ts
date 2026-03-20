@@ -1078,6 +1078,401 @@ export type Database = {
         }
         Relationships: []
       }
+      private_attendance: {
+        Row: {
+          child_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          session_date: string
+          session_group_id: string
+          status: string
+        }
+        Insert: {
+          child_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          session_date: string
+          session_group_id: string
+          status?: string
+        }
+        Update: {
+          child_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          session_date?: string
+          session_group_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "private_attendance_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "private_children"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "private_attendance_session_group_id_fkey"
+            columns: ["session_group_id"]
+            isOneToOne: false
+            referencedRelation: "private_session_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      private_child_assignments: {
+        Row: {
+          child_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          payment_type: string
+          session_group_id: string
+        }
+        Insert: {
+          child_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_type?: string
+          session_group_id: string
+        }
+        Update: {
+          child_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_type?: string
+          session_group_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "private_child_assignments_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "private_children"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "private_child_assignments_session_group_id_fkey"
+            columns: ["session_group_id"]
+            isOneToOne: false
+            referencedRelation: "private_session_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      private_children: {
+        Row: {
+          created_at: string
+          date_of_birth: string | null
+          first_name: string
+          id: string
+          last_name: string
+          medical_notes: string | null
+          notes: string | null
+          parent_email: string | null
+          parent_name: string | null
+          parent_phone: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          date_of_birth?: string | null
+          first_name: string
+          id?: string
+          last_name: string
+          medical_notes?: string | null
+          notes?: string | null
+          parent_email?: string | null
+          parent_name?: string | null
+          parent_phone?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          date_of_birth?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string
+          medical_notes?: string | null
+          notes?: string | null
+          parent_email?: string | null
+          parent_name?: string | null
+          parent_phone?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      private_coach_assignments: {
+        Row: {
+          coach_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          session_group_id: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          session_group_id: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          session_group_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "private_coach_assignments_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "private_coach_assignments_session_group_id_fkey"
+            columns: ["session_group_id"]
+            isOneToOne: false
+            referencedRelation: "private_session_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      private_payments: {
+        Row: {
+          amount_due: number
+          amount_paid: number
+          balance: number
+          block_end_date: string | null
+          block_start_date: string | null
+          child_id: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          payer_type: string
+          payment_date: string | null
+          payment_status: string
+          payment_type: string
+          session_group_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_due?: number
+          amount_paid?: number
+          balance?: number
+          block_end_date?: string | null
+          block_start_date?: string | null
+          child_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payer_type?: string
+          payment_date?: string | null
+          payment_status?: string
+          payment_type?: string
+          session_group_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_due?: number
+          amount_paid?: number
+          balance?: number
+          block_end_date?: string | null
+          block_start_date?: string | null
+          child_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payer_type?: string
+          payment_date?: string | null
+          payment_status?: string
+          payment_type?: string
+          session_group_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "private_payments_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "private_children"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "private_payments_session_group_id_fkey"
+            columns: ["session_group_id"]
+            isOneToOne: false
+            referencedRelation: "private_session_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      private_session_groups: {
+        Row: {
+          age_group: string | null
+          block_price_4_week: number | null
+          block_price_6_week: number | null
+          club_pays: boolean
+          club_pays_amount: number | null
+          coach_cost_per_session: number | null
+          created_at: string
+          day_of_week: string
+          end_time: string
+          group_name: string
+          id: string
+          max_capacity: number | null
+          notes: string | null
+          payment_model: string
+          single_session_price: number | null
+          start_time: string
+          status: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          age_group?: string | null
+          block_price_4_week?: number | null
+          block_price_6_week?: number | null
+          club_pays?: boolean
+          club_pays_amount?: number | null
+          coach_cost_per_session?: number | null
+          created_at?: string
+          day_of_week?: string
+          end_time?: string
+          group_name?: string
+          id?: string
+          max_capacity?: number | null
+          notes?: string | null
+          payment_model?: string
+          single_session_price?: number | null
+          start_time?: string
+          status?: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          age_group?: string | null
+          block_price_4_week?: number | null
+          block_price_6_week?: number | null
+          club_pays?: boolean
+          club_pays_amount?: number | null
+          coach_cost_per_session?: number | null
+          created_at?: string
+          day_of_week?: string
+          end_time?: string
+          group_name?: string
+          id?: string
+          max_capacity?: number | null
+          notes?: string | null
+          payment_model?: string
+          single_session_price?: number | null
+          start_time?: string
+          status?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "private_session_groups_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "private_venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      private_session_plan_links: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          session_group_id: string
+          session_plan_id: string
+          week_date: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          session_group_id: string
+          session_plan_id: string
+          week_date: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          session_group_id?: string
+          session_plan_id?: string
+          week_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "private_session_plan_links_session_group_id_fkey"
+            columns: ["session_group_id"]
+            isOneToOne: false
+            referencedRelation: "private_session_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "private_session_plan_links_session_plan_id_fkey"
+            columns: ["session_plan_id"]
+            isOneToOne: false
+            referencedRelation: "session_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      private_venues: {
+        Row: {
+          address: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          county: string | null
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          status: string
+          updated_at: string
+          venue_cost_per_session: number | null
+        }
+        Insert: {
+          address?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          county?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          venue_cost_per_session?: number | null
+        }
+        Update: {
+          address?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          county?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          venue_cost_per_session?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           coach_id: string | null
