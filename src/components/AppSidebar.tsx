@@ -56,6 +56,8 @@ const socialMediaItems = [
 /* ── Admin: Private Coaching ── */
 const privateCoachingItems = [
   { title: "Dashboard", url: "/private/dashboard", icon: LayoutDashboard },
+  { title: "Venues", url: "/private/venues", icon: MapPin },
+  { title: "Children", url: "/private/children", icon: UserPlus },
   { title: "Sessions", url: "/private/sessions", icon: Briefcase },
   { title: "Attendance", url: "/private/attendance", icon: ClipboardCheck },
   { title: "Payments", url: "/private/payments", icon: CreditCard },
