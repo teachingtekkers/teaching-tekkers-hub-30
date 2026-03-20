@@ -79,16 +79,18 @@ export default function ItineraryPdfExport({ itinerary, days }: Props) {
       // Load background images
       let coverBg: string | null = null;
       let headerBg: string | null = null;
+      let logoBg: string | null = null;
       try {
-        [coverBg, headerBg] = await Promise.all([
+        [coverBg, headerBg, logoBg] = await Promise.all([
           loadImage("/tt-cover-bg.jpg"),
           loadImage("/tt-day-header.jpg"),
+          loadImage("/tt-logo-cover.png"),
         ]);
       } catch {
         // Fallback to drawn version if images fail
       }
 
-      drawCoverPage(doc, itinerary, coverBg);
+      drawCoverPage(doc, itinerary, coverBg, logoBg);
 
       if (itinerary.notes) {
         doc.addPage();
