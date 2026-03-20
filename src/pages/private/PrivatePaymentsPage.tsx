@@ -17,6 +17,7 @@ const PAYMENT_TYPES = [
   { value: "single", label: "Single Session" },
   { value: "4_week", label: "4-Week Block" },
   { value: "6_week", label: "6-Week Block" },
+  { value: "monthly", label: "Monthly" },
   { value: "club_paid", label: "Club Paid" },
 ];
 
