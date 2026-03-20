@@ -122,7 +122,7 @@ export default function ItineraryPdfExport({ itinerary, days }: Props) {
 }
 
 /* ── COVER PAGE ── */
-function drawCoverPage(doc: jsPDF, it: Itinerary, coverBg: string | null) {
+function drawCoverPage(doc: jsPDF, it: Itinerary, coverBg: string | null, logoBg: string | null) {
   if (coverBg) {
     doc.addImage(coverBg, "JPEG", 0, 0, PW, PH);
   } else {
@@ -130,33 +130,39 @@ function drawCoverPage(doc: jsPDF, it: Itinerary, coverBg: string | null) {
     doc.rect(0, 0, PW, PH, "F");
   }
 
-  // Single clean title line: e.g. "EASTER CAMPS 2026"
-  // The background already contains "TEACHING TEKKERS" branding + logo
-  // We only add the camp/season subtitle below it
-  const coverText = (it.cover_title || it.title || "").toUpperCase();
+  // Single title: "TEACHING TEKKERS EASTER CAMPS 2026"
+  const rawTitle = (it.cover_title || it.title || "").toUpperCase();
+  const fullTitle = rawTitle.startsWith("TEACHING TEKKERS")
+    ? rawTitle
+    : `TEACHING TEKKERS ${rawTitle}`;
 
   doc.setTextColor(WHITE.r, WHITE.g, WHITE.b);
   doc.setFont("helvetica", "bold");
 
-  // Auto-size: start at 28pt, shrink if needed to fit one or two lines
-  let fontSize = 28;
+  let fontSize = 30;
   doc.setFontSize(fontSize);
-  let titleLines = doc.splitTextToSize(coverText, CW - 30);
-  while (titleLines.length > 2 && fontSize > 16) {
+  let titleLines = doc.splitTextToSize(fullTitle, CW - 20);
+  while (titleLines.length > 3 && fontSize > 18) {
     fontSize -= 2;
     doc.setFontSize(fontSize);
-    titleLines = doc.splitTextToSize(coverText, CW - 30);
+    titleLines = doc.splitTextToSize(fullTitle, CW - 20);
   }
 
-  // Position: centered vertically between "TEACHING TEKKERS" text (~y=62)
-  // and the logo (~y=105). Target center ~y=82
-  const lineHeight = fontSize * 0.5;
-  const blockH = titleLines.length * lineHeight;
-  let startY = 82 - blockH / 2 + lineHeight * 0.6;
+  const lineH = fontSize * 0.52;
+  const titleBlockH = titleLines.length * lineH;
+  const titleStartY = 85 - titleBlockH / 2;
 
-  for (const line of titleLines) {
-    doc.text(line, PW / 2, startY, { align: "center" });
-    startY += lineHeight;
+  for (let i = 0; i < titleLines.length; i++) {
+    doc.text(titleLines[i], PW / 2, titleStartY + i * lineH, { align: "center" });
+  }
+
+  // Logo centered below title
+  if (logoBg) {
+    const logoW = 55;
+    const logoH = logoW * (580 / 800);
+    const logoX = (PW - logoW) / 2;
+    const logoY = titleStartY + titleBlockH + 8;
+    doc.addImage(logoBg, "PNG", logoX, logoY, logoW, logoH);
   }
 }
 
