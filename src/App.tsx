@@ -126,6 +126,8 @@ const App = () => (
 
               {/* Private Coaching */}
               <Route path="/private/dashboard" element={<PrivateDashboardPage />} />
+              <Route path="/private/venues" element={<PrivateVenuesPage />} />
+              <Route path="/private/children" element={<PrivateChildrenPage />} />
               <Route path="/private/sessions" element={<PrivateSessionsPage />} />
               <Route path="/private/attendance" element={<PrivateAttendancePage />} />
               <Route path="/private/payments" element={<PrivatePaymentsPage />} />
