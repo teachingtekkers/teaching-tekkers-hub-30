@@ -44,12 +44,11 @@ function formatTime(t: string) {
   return `${h12}:${m}${ampm}`;
 }
 
-// Brand colours matched to TT PDF reference
-const BLUE = { r: 38, g: 64, b: 190 }; // royal blue from PDF
+// Brand colours matched to TT Easter PDF reference
+const BLUE = { r: 43, g: 62, b: 175 }; // deep royal/cobalt blue from PDF
 const WHITE = { r: 255, g: 255, b: 255 };
 const DARK = { r: 30, g: 41, b: 80 };
 const MUTED = { r: 80, g: 90, b: 130 };
-const LIGHT_BLUE = { r: 230, g: 236, b: 255 };
 const ROW_ALT = { r: 245, g: 247, b: 255 };
 
 const PW = 210;
