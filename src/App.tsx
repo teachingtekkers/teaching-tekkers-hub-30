@@ -43,6 +43,8 @@ import AdPosterPage from "./pages/AdPosterPage";
 
 // Admin: Private Coaching
 import PrivateDashboardPage from "./pages/private/PrivateDashboardPage";
+import PrivateVenuesPage from "./pages/private/PrivateVenuesPage";
+import PrivateChildrenPage from "./pages/private/PrivateChildrenPage";
 import PrivateSessionsPage from "./pages/private/PrivateSessionsPage";
 import PrivateAttendancePage from "./pages/private/PrivateAttendancePage";
 import PrivatePaymentsPage from "./pages/private/PrivatePaymentsPage";
