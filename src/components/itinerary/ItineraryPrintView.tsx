@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer } from "lucide-react";
+import ItineraryPdfExport from "./ItineraryPdfExport";
 
 interface Block {
   start_time: string;
@@ -119,6 +120,7 @@ export default function ItineraryPrintView({ itineraryId, onBack }: Props) {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-xl font-bold flex-1">{itinerary.title}</h1>
+        <ItineraryPdfExport itinerary={itinerary} days={days} />
         <Button onClick={handlePrint} className="gap-2">
           <Printer className="h-4 w-4" /> Print
         </Button>
@@ -145,7 +147,7 @@ export default function ItineraryPrintView({ itineraryId, onBack }: Props) {
           </div>
         </div>
 
-        {/* Kit Process Page (for Summer Camps) */}
+        {/* Notes Page */}
         {itinerary.notes && (
           <div className="mb-8 print:break-after-page print:min-h-[100vh] print:mb-0">
             <div className="border rounded-xl p-8 print:border-none print:p-12">
