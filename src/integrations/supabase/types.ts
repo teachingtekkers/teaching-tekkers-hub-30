@@ -798,6 +798,157 @@ export type Database = {
           },
         ]
       }
+      itineraries: {
+        Row: {
+          camp_type: string | null
+          cover_title: string | null
+          created_at: string
+          id: string
+          is_template: boolean
+          linked_camp_id: string | null
+          notes: string | null
+          num_days: number
+          start_date: string | null
+          team_format: string | null
+          title: string
+          updated_at: string
+          venue: string | null
+        }
+        Insert: {
+          camp_type?: string | null
+          cover_title?: string | null
+          created_at?: string
+          id?: string
+          is_template?: boolean
+          linked_camp_id?: string | null
+          notes?: string | null
+          num_days?: number
+          start_date?: string | null
+          team_format?: string | null
+          title: string
+          updated_at?: string
+          venue?: string | null
+        }
+        Update: {
+          camp_type?: string | null
+          cover_title?: string | null
+          created_at?: string
+          id?: string
+          is_template?: boolean
+          linked_camp_id?: string | null
+          notes?: string | null
+          num_days?: number
+          start_date?: string | null
+          team_format?: string | null
+          title?: string
+          updated_at?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itineraries_linked_camp_id_fkey"
+            columns: ["linked_camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      itinerary_blocks: {
+        Row: {
+          block_title: string
+          created_at: string
+          day_id: string
+          description: string | null
+          end_time: string | null
+          id: string
+          linked_session_plan_id: string | null
+          notes: string | null
+          sort_order: number
+          start_time: string
+        }
+        Insert: {
+          block_title?: string
+          created_at?: string
+          day_id: string
+          description?: string | null
+          end_time?: string | null
+          id?: string
+          linked_session_plan_id?: string | null
+          notes?: string | null
+          sort_order?: number
+          start_time?: string
+        }
+        Update: {
+          block_title?: string
+          created_at?: string
+          day_id?: string
+          description?: string | null
+          end_time?: string | null
+          id?: string
+          linked_session_plan_id?: string | null
+          notes?: string | null
+          sort_order?: number
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itinerary_blocks_day_id_fkey"
+            columns: ["day_id"]
+            isOneToOne: false
+            referencedRelation: "itinerary_days"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itinerary_blocks_linked_session_plan_id_fkey"
+            columns: ["linked_session_plan_id"]
+            isOneToOne: false
+            referencedRelation: "session_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      itinerary_days: {
+        Row: {
+          created_at: string
+          day_number: number
+          id: string
+          itinerary_id: string
+          next_day_reminder: string | null
+          setup_notes: string | null
+          theme: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          day_number?: number
+          id?: string
+          itinerary_id: string
+          next_day_reminder?: string | null
+          setup_notes?: string | null
+          theme?: string | null
+          title?: string
+        }
+        Update: {
+          created_at?: string
+          day_number?: number
+          id?: string
+          itinerary_id?: string
+          next_day_reminder?: string | null
+          setup_notes?: string | null
+          theme?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itinerary_days_itinerary_id_fkey"
+            columns: ["itinerary_id"]
+            isOneToOne: false
+            referencedRelation: "itineraries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           category: string

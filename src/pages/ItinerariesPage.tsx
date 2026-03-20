@@ -1,21 +1,36 @@
-import { FileCheck } from "lucide-react";
+import { useState } from "react";
+import ItineraryList from "@/components/itinerary/ItineraryList";
+import ItineraryBuilder from "@/components/itinerary/ItineraryBuilder";
+import ItineraryPrintView from "@/components/itinerary/ItineraryPrintView";
+
+type View = "list" | "builder" | "print";
 
 export default function ItinerariesPage() {
+  const [view, setView] = useState<View>("list");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
   return (
     <div className="space-y-6">
-      <div className="page-header">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Itineraries</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage daily camp itineraries and schedules</p>
-        </div>
-      </div>
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted mb-4">
-          <FileCheck className="h-6 w-6 text-muted-foreground" />
-        </div>
-        <h3 className="text-lg font-semibold text-foreground">Coming Soon</h3>
-        <p className="text-sm text-muted-foreground mt-1 max-w-sm">Camp itinerary management will be available here.</p>
-      </div>
+      {view === "list" && (
+        <ItineraryList
+          onSelect={(id) => { setSelectedId(id); setView("builder"); }}
+          onCreate={() => { setSelectedId(null); setView("builder"); }}
+          onPrint={(id) => { setSelectedId(id); setView("print"); }}
+        />
+      )}
+      {view === "builder" && (
+        <ItineraryBuilder
+          itineraryId={selectedId}
+          onBack={() => setView("list")}
+          onSaved={() => setView("list")}
+        />
+      )}
+      {view === "print" && selectedId && (
+        <ItineraryPrintView
+          itineraryId={selectedId}
+          onBack={() => setView("list")}
+        />
+      )}
     </div>
   );
 }
