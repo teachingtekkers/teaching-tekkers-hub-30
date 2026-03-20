@@ -17,6 +17,7 @@ const PAYMENT_TYPES = [
   { value: "single", label: "Single Session" },
   { value: "4_week", label: "4-Week Block" },
   { value: "6_week", label: "6-Week Block" },
+  { value: "monthly", label: "Monthly" },
   { value: "club_paid", label: "Club Paid" },
 ];
 
@@ -244,7 +245,7 @@ export default function PrivatePaymentsPage() {
               <div><Label>Amount Due (€)</Label><Input type="number" value={form.amount_due} onChange={e => setForm(p => ({ ...p, amount_due: parseFloat(e.target.value) || 0 }))} /></div>
               <div><Label>Amount Paid (€)</Label><Input type="number" value={form.amount_paid} onChange={e => setForm(p => ({ ...p, amount_paid: parseFloat(e.target.value) || 0 }))} /></div>
             </div>
-            {(form.payment_type === "4_week" || form.payment_type === "6_week") && (
+            {(form.payment_type === "4_week" || form.payment_type === "6_week" || form.payment_type === "monthly") && (
               <div className="grid grid-cols-2 gap-4">
                 <div><Label>Block Start</Label><Input type="date" value={form.block_start_date} onChange={e => setForm(p => ({ ...p, block_start_date: e.target.value }))} /></div>
                 <div><Label>Block End</Label><Input type="date" value={form.block_end_date} onChange={e => setForm(p => ({ ...p, block_end_date: e.target.value }))} /></div>

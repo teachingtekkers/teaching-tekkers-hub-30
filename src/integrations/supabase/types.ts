@@ -1473,6 +1473,87 @@ export type Database = {
         }
         Relationships: []
       }
+      private_weekly_plan_drills: {
+        Row: {
+          created_at: string
+          custom_drill_name: string | null
+          duration_minutes: number
+          id: string
+          notes: string | null
+          practice_type: string
+          session_plan_id: string | null
+          sort_order: number
+          weekly_plan_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_drill_name?: string | null
+          duration_minutes?: number
+          id?: string
+          notes?: string | null
+          practice_type?: string
+          session_plan_id?: string | null
+          sort_order?: number
+          weekly_plan_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_drill_name?: string | null
+          duration_minutes?: number
+          id?: string
+          notes?: string | null
+          practice_type?: string
+          session_plan_id?: string | null
+          sort_order?: number
+          weekly_plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "private_weekly_plan_drills_session_plan_id_fkey"
+            columns: ["session_plan_id"]
+            isOneToOne: false
+            referencedRelation: "session_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "private_weekly_plan_drills_weekly_plan_id_fkey"
+            columns: ["weekly_plan_id"]
+            isOneToOne: false
+            referencedRelation: "private_weekly_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      private_weekly_plans: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          programme_type: string
+          updated_at: string
+          week_date: string | null
+          week_number: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          programme_type?: string
+          updated_at?: string
+          week_date?: string | null
+          week_number?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          programme_type?: string
+          updated_at?: string
+          week_date?: string | null
+          week_number?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           coach_id: string | null
