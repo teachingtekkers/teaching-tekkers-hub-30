@@ -10,7 +10,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Trash2, GripVertical, Save, Link2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ArrowLeft, Plus, Trash2, GripVertical, Save, Palette, Sparkles } from "lucide-react";
+import { DAY_THEMES, getBlocksForTheme, type ThemeTemplate, type BlockTemplate } from "./themeTemplates";
 
 interface BlockRow {
   id?: string;
@@ -52,7 +63,7 @@ interface SessionPlanOption {
 }
 
 interface Props {
-  itineraryId: string | null; // null = create new
+  itineraryId: string | null;
   onBack: () => void;
   onSaved: () => void;
 }
@@ -67,18 +78,17 @@ const TEAM_FORMATS = [
 
 const CAMP_TYPES = ["Summer Camp", "Easter Camp", "Halloween Camp", "Mid-Term Camp", "Custom"];
 
-const DEFAULT_BLOCKS: BlockRow[] = [
-  { sort_order: 0, start_time: "09:45", end_time: "10:00", block_title: "Registration & Setup", description: "Session set up while head coach finishes registration.", linked_session_plan_id: null, notes: "" },
-  { sort_order: 1, start_time: "10:00", end_time: "10:05", block_title: "Introduction", description: "Introduction of all coaches, reminder of no bullying and plan for the week.", linked_session_plan_id: null, notes: "" },
-  { sort_order: 2, start_time: "10:05", end_time: "11:30", block_title: "Morning Session", description: "Fun games (Coach's Choice) – always start with penalties.", linked_session_plan_id: null, notes: "" },
-  { sort_order: 3, start_time: "11:30", end_time: "11:45", block_title: "Small Break", description: "Set up camp games and get a small break.", linked_session_plan_id: null, notes: "" },
-  { sort_order: 4, start_time: "11:45", end_time: "12:00", block_title: "Divide into Teams", description: "Decide how many teams based off numbers on the camp.", linked_session_plan_id: null, notes: "" },
-  { sort_order: 5, start_time: "12:00", end_time: "12:50", block_title: "Camp Games", description: "", linked_session_plan_id: null, notes: "" },
-  { sort_order: 6, start_time: "12:50", end_time: "13:20", block_title: "Big Lunch", description: "Set up pitches for matches.", linked_session_plan_id: null, notes: "" },
-  { sort_order: 7, start_time: "13:20", end_time: "13:30", block_title: "Coaches Challenge", description: "", linked_session_plan_id: null, notes: "" },
-  { sort_order: 8, start_time: "13:30", end_time: "14:45", block_title: "Matches on Fixture List", description: "", linked_session_plan_id: null, notes: "" },
-  { sort_order: 9, start_time: "14:45", end_time: "15:00", block_title: "Clean Up & Home Time", description: "Ball Surfing and reminder about tomorrow.", linked_session_plan_id: null, notes: "" },
-];
+function blockTemplateToRow(bt: BlockTemplate, index: number): BlockRow {
+  return {
+    sort_order: index,
+    start_time: bt.start_time,
+    end_time: bt.end_time,
+    block_title: bt.block_title,
+    description: bt.description,
+    linked_session_plan_id: null,
+    notes: "",
+  };
+}
 
 export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props) {
   const [form, setForm] = useState<ItineraryForm>({
@@ -96,8 +106,9 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
   const [sessionPlans, setSessionPlans] = useState<SessionPlanOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [activeDay, setActiveDay] = useState("0");
+  // Theme confirmation dialog
+  const [themeConfirm, setThemeConfirm] = useState<{ dayIdx: number; theme: ThemeTemplate } | null>(null);
 
-  // Load session plans for linking
   useEffect(() => {
     supabase
       .from("session_plans")
@@ -116,25 +127,52 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
       });
   }, []);
 
-  // Load existing itinerary or initialize new
   const loadItinerary = useCallback(async () => {
     if (!itineraryId) {
-      // Create default 4 days
+      const reg = DAY_THEMES.find((t) => t.id === "registration_day")!;
+      const crazy = DAY_THEMES.find((t) => t.id === "crazy_hair")!;
+      const player = DAY_THEMES.find((t) => t.id === "player_country")!;
+      const flag = DAY_THEMES.find((t) => t.id === "flag_day")!;
+
       const defaultDays: DayRow[] = [
-        { day_number: 1, title: "Day 1", theme: "", next_day_reminder: "", setup_notes: "Arrive latest 9:30am. The whole session set up at 9:45 while head coach finishes registration.", blocks: [...DEFAULT_BLOCKS.map(b => ({...b}))] },
-        { day_number: 2, title: "Day 2", theme: "Crazy Hair Day", next_day_reminder: "", setup_notes: "Arrive latest 9:30am. Session to be set up by 9:50am, players behind poles in teams.", blocks: [...DEFAULT_BLOCKS.map(b => ({...b}))] },
-        { day_number: 3, title: "Day 3", theme: "Player from Country Day", next_day_reminder: "", setup_notes: "Arrive latest 9:30am. Session to be set up by 9:50am, players behind poles in teams.", blocks: [...DEFAULT_BLOCKS.map(b => ({...b}))] },
-        { day_number: 4, title: "Day 4 – Final Day", theme: "Flag Day", next_day_reminder: "", setup_notes: "Arrive latest 9:30am. Session to be set up by 9:50am, players behind poles in teams.", blocks: [...DEFAULT_BLOCKS.map(b => ({...b}))] },
+        {
+          day_number: 1,
+          title: "Day 1",
+          theme: "",
+          next_day_reminder: crazy.titleSuffix,
+          setup_notes: reg.setupNotes,
+          blocks: getBlocksForTheme("registration_day", 1).map(blockTemplateToRow),
+        },
+        {
+          day_number: 2,
+          title: "Day 2",
+          theme: crazy.titleSuffix,
+          next_day_reminder: player.titleSuffix,
+          setup_notes: crazy.setupNotes,
+          blocks: applyThemeToBlocks(getBlocksForTheme("crazy_hair", 2), crazy),
+        },
+        {
+          day_number: 3,
+          title: "Day 3",
+          theme: player.titleSuffix,
+          next_day_reminder: flag.titleSuffix,
+          setup_notes: player.setupNotes,
+          blocks: applyThemeToBlocks(getBlocksForTheme("player_country", 3), player),
+        },
+        {
+          day_number: 4,
+          title: "Day 4 – Final Day",
+          theme: flag.titleSuffix,
+          next_day_reminder: "",
+          setup_notes: flag.setupNotes,
+          blocks: applyThemeToBlocks(getBlocksForTheme("final_day", 4), flag),
+        },
       ];
       setDays(defaultDays);
       return;
     }
 
-    const { data: it } = await supabase
-      .from("itineraries")
-      .select("*")
-      .eq("id", itineraryId)
-      .single();
+    const { data: it } = await supabase.from("itineraries").select("*").eq("id", itineraryId).single();
     if (!it) return;
     const itData = it as any;
     setForm({
@@ -190,6 +228,78 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
 
   useEffect(() => { loadItinerary(); }, [loadItinerary]);
 
+  /** Apply theme text to "Theme Points" blocks and clean-up blocks */
+  function applyThemeToBlocks(templates: BlockTemplate[], theme: ThemeTemplate): BlockRow[] {
+    return templates.map((bt, i) => {
+      const row = blockTemplateToRow(bt, i);
+      if (bt.block_title === "Theme Points" && theme.themePointsBlock) {
+        row.block_title = theme.themePointsBlock;
+      }
+      if (bt.block_title === "Clean Up & Home Time" && theme.cleanUpNote) {
+        row.description = theme.cleanUpNote;
+      }
+      return row;
+    });
+  }
+
+  /** Handle theme selection – show confirmation, then apply */
+  const handleThemeSelect = (dayIdx: number, themeId: string) => {
+    if (themeId === "none") {
+      updateDay(dayIdx, "theme", "");
+      return;
+    }
+    const theme = DAY_THEMES.find((t) => t.id === themeId);
+    if (!theme) return;
+    setThemeConfirm({ dayIdx, theme });
+  };
+
+  const confirmThemeApply = () => {
+    if (!themeConfirm) return;
+    const { dayIdx, theme } = themeConfirm;
+    const day = days[dayIdx];
+
+    // Get appropriate block templates
+    const blockTemplates = getBlocksForTheme(theme.id, day.day_number);
+    const newBlocks = applyThemeToBlocks(blockTemplates, theme);
+
+    // Update the team format text in block descriptions
+    const teamText = form.team_format || "Teams";
+    newBlocks.forEach((b) => {
+      b.description = b.description
+        .replace(/in \w+ teams/gi, `in ${teamText}`)
+        .replace(/Set up pitches for Matches\./g, `Set up pitches for Matches in ${teamText}.`)
+        .replace(/Set up pitches for Matches$/g, `Set up pitches for Matches in ${teamText}`)
+        .replace(/Set up pitches\./g, `Set up pitches for ${teamText}.`);
+      if (b.block_title === "Finals") {
+        b.block_title = `${teamText.replace(" Teams", "")} Finals`;
+      }
+      if (b.block_title === "Penalties" && b.description.includes("in their teams")) {
+        b.description = b.description.replace("in their teams", `in their ${teamText}`);
+      }
+    });
+
+    setDays((prev) =>
+      prev.map((d, i) =>
+        i === dayIdx
+          ? {
+              ...d,
+              theme: theme.titleSuffix,
+              title: day.day_number === 4 || theme.id === "final_day"
+                ? `Day ${day.day_number} – Final Day`
+                : theme.titleSuffix
+                  ? `Day ${day.day_number}`
+                  : d.title,
+              setup_notes: theme.setupNotes,
+              blocks: newBlocks,
+            }
+          : d
+      )
+    );
+
+    setThemeConfirm(null);
+    toast({ title: `Theme "${theme.label}" applied to Day ${days[dayIdx].day_number}` });
+  };
+
   const handleSave = async () => {
     if (!form.title.trim()) {
       toast({ title: "Please enter a title", variant: "destructive" });
@@ -229,12 +339,9 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
         itId = (newIt as any).id;
       }
 
-      // Delete existing days & blocks, then re-insert
       if (itineraryId) {
         const { data: existingDays } = await supabase
-          .from("itinerary_days")
-          .select("id")
-          .eq("itinerary_id", itId!);
+          .from("itinerary_days").select("id").eq("itinerary_id", itId!);
         if (existingDays) {
           for (const d of existingDays) {
             await supabase.from("itinerary_blocks").delete().eq("day_id", (d as any).id);
@@ -243,7 +350,6 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
         }
       }
 
-      // Insert days and blocks
       for (const day of days) {
         const { data: newDay } = await supabase.from("itinerary_days").insert({
           itinerary_id: itId,
@@ -285,6 +391,7 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
 
   const addDay = () => {
     const newNum = days.length + 1;
+    const defaultBlocks = getBlocksForTheme("none", newNum).map(blockTemplateToRow);
     setDays((prev) => [
       ...prev,
       {
@@ -293,7 +400,7 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
         theme: "",
         next_day_reminder: "",
         setup_notes: "Arrive latest 9:30am. Session to be set up by 9:50am, players behind poles in teams.",
-        blocks: [...DEFAULT_BLOCKS.map(b => ({...b}))],
+        blocks: defaultBlocks,
       },
     ]);
     setForm((prev) => ({ ...prev, num_days: prev.num_days + 1 }));
@@ -311,10 +418,7 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
     setDays((prev) =>
       prev.map((d, di) =>
         di === dayIdx
-          ? {
-              ...d,
-              blocks: d.blocks.map((b, bi) => (bi === blockIdx ? { ...b, [field]: value } : b)),
-            }
+          ? { ...d, blocks: d.blocks.map((b, bi) => (bi === blockIdx ? { ...b, [field]: value } : b)) }
           : d
       )
     );
@@ -328,15 +432,7 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
               ...d,
               blocks: [
                 ...d.blocks,
-                {
-                  sort_order: d.blocks.length,
-                  start_time: "",
-                  end_time: "",
-                  block_title: "",
-                  description: "",
-                  linked_session_plan_id: null,
-                  notes: "",
-                },
+                { sort_order: d.blocks.length, start_time: "", end_time: "", block_title: "", description: "", linked_session_plan_id: null, notes: "" },
               ],
             }
           : d
@@ -347,11 +443,18 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
   const removeBlock = (dayIdx: number, blockIdx: number) => {
     setDays((prev) =>
       prev.map((d, di) =>
-        di === dayIdx
-          ? { ...d, blocks: d.blocks.filter((_, bi) => bi !== blockIdx) }
-          : d
+        di === dayIdx ? { ...d, blocks: d.blocks.filter((_, bi) => bi !== blockIdx) } : d
       )
     );
+  };
+
+  /** Find the current theme id from the day's theme text */
+  const getThemeIdForDay = (day: DayRow): string => {
+    if (!day.theme) return "none";
+    const match = DAY_THEMES.find(
+      (t) => t.titleSuffix && t.titleSuffix.toLowerCase() === day.theme.toLowerCase()
+    );
+    return match?.id || "none";
   };
 
   return (
@@ -439,40 +542,61 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
 
         {days.map((day, dayIdx) => (
           <TabsContent key={dayIdx} value={String(dayIdx)} className="space-y-4 mt-4">
-            {/* Day header */}
+            {/* Day header with theme selector */}
             <Card>
-              <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Day Title</Label>
-                  <Input
-                    value={day.title}
-                    onChange={(e) => updateDay(dayIdx, "title", e.target.value)}
-                    placeholder="e.g. Day 1"
-                  />
+              <CardContent className="pt-4 space-y-4">
+                {/* Theme selector row */}
+                <div className="flex items-end gap-3 p-3 rounded-lg bg-muted/50 border border-dashed border-primary/20">
+                  <Palette className="h-5 w-5 text-primary shrink-0 mb-1" />
+                  <div className="flex-1 space-y-1.5">
+                    <Label className="text-xs font-semibold text-primary">Day Theme</Label>
+                    <Select
+                      value={getThemeIdForDay(day)}
+                      onValueChange={(v) => handleThemeSelect(dayIdx, v)}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select a theme..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DAY_THEMES.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{t.label}</span>
+                              {t.id !== "none" && (
+                                <span className="text-[10px] text-muted-foreground">– {t.description}</span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {day.theme && (
+                    <Badge className="mb-1 shrink-0 gap-1" variant="secondary">
+                      <Sparkles className="h-3 w-3" />
+                      {day.theme}
+                    </Badge>
+                  )}
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Theme</Label>
-                  <Input
-                    value={day.theme}
-                    onChange={(e) => updateDay(dayIdx, "theme", e.target.value)}
-                    placeholder="e.g. Crazy Hair Day"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Next Day Reminder</Label>
-                  <Input
-                    value={day.next_day_reminder}
-                    onChange={(e) => updateDay(dayIdx, "next_day_reminder", e.target.value)}
-                    placeholder="e.g. Dress the Coaches"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Setup Notes</Label>
-                  <Input
-                    value={day.setup_notes}
-                    onChange={(e) => updateDay(dayIdx, "setup_notes", e.target.value)}
-                    placeholder="Arrive latest 9:30am..."
-                  />
+
+                {/* Day fields */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Day Title</Label>
+                    <Input value={day.title} onChange={(e) => updateDay(dayIdx, "title", e.target.value)} placeholder="e.g. Day 1" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Theme (editable)</Label>
+                    <Input value={day.theme} onChange={(e) => updateDay(dayIdx, "theme", e.target.value)} placeholder="e.g. Crazy Hair Day" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Next Day Reminder</Label>
+                    <Input value={day.next_day_reminder} onChange={(e) => updateDay(dayIdx, "next_day_reminder", e.target.value)} placeholder="e.g. Dress the Coaches" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Setup Notes</Label>
+                    <Input value={day.setup_notes} onChange={(e) => updateDay(dayIdx, "setup_notes", e.target.value)} placeholder="Arrive latest 9:30am..." />
+                  </div>
                 </div>
               </CardContent>
               {days.length > 1 && (
@@ -503,65 +627,33 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
                       <div className="col-span-11 sm:col-span-5 lg:col-span-2 space-y-1">
                         <Label className="text-[11px]">Time</Label>
                         <div className="flex gap-1 items-center">
-                          <Input
-                            type="time"
-                            className="text-xs h-8"
-                            value={block.start_time}
-                            onChange={(e) => updateBlock(dayIdx, blockIdx, "start_time", e.target.value)}
-                          />
+                          <Input type="time" className="text-xs h-8" value={block.start_time} onChange={(e) => updateBlock(dayIdx, blockIdx, "start_time", e.target.value)} />
                           <span className="text-muted-foreground text-xs">–</span>
-                          <Input
-                            type="time"
-                            className="text-xs h-8"
-                            value={block.end_time}
-                            onChange={(e) => updateBlock(dayIdx, blockIdx, "end_time", e.target.value)}
-                          />
+                          <Input type="time" className="text-xs h-8" value={block.end_time} onChange={(e) => updateBlock(dayIdx, blockIdx, "end_time", e.target.value)} />
                         </div>
                       </div>
                       <div className="col-span-12 sm:col-span-6 lg:col-span-3 space-y-1">
                         <Label className="text-[11px]">Block Title</Label>
-                        <Input
-                          className="text-xs h-8"
-                          value={block.block_title}
-                          onChange={(e) => updateBlock(dayIdx, blockIdx, "block_title", e.target.value)}
-                          placeholder="e.g. Morning Session"
-                        />
+                        <Input className="text-xs h-8" value={block.block_title} onChange={(e) => updateBlock(dayIdx, blockIdx, "block_title", e.target.value)} placeholder="e.g. Morning Session" />
                       </div>
                       <div className="col-span-12 lg:col-span-3 space-y-1">
                         <Label className="text-[11px]">Description</Label>
-                        <Input
-                          className="text-xs h-8"
-                          value={block.description}
-                          onChange={(e) => updateBlock(dayIdx, blockIdx, "description", e.target.value)}
-                          placeholder="Details..."
-                        />
+                        <Input className="text-xs h-8" value={block.description} onChange={(e) => updateBlock(dayIdx, blockIdx, "description", e.target.value)} placeholder="Details..." />
                       </div>
                       <div className="col-span-10 lg:col-span-2 space-y-1">
                         <Label className="text-[11px]">Linked Session</Label>
-                        <Select
-                          value={block.linked_session_plan_id || "none"}
-                          onValueChange={(v) => updateBlock(dayIdx, blockIdx, "linked_session_plan_id", v === "none" ? null : v)}
-                        >
-                          <SelectTrigger className="text-xs h-8">
-                            <SelectValue placeholder="None" />
-                          </SelectTrigger>
+                        <Select value={block.linked_session_plan_id || "none"} onValueChange={(v) => updateBlock(dayIdx, blockIdx, "linked_session_plan_id", v === "none" ? null : v)}>
+                          <SelectTrigger className="text-xs h-8"><SelectValue placeholder="None" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">None</SelectItem>
                             {sessionPlans.map((sp) => (
-                              <SelectItem key={sp.id} value={sp.id}>
-                                {sp.title}
-                              </SelectItem>
+                              <SelectItem key={sp.id} value={sp.id}>{sp.title}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="col-span-2 lg:col-span-1 flex justify-end pt-5">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive/60 hover:text-destructive"
-                          onClick={() => removeBlock(dayIdx, blockIdx)}
-                        >
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/60 hover:text-destructive" onClick={() => removeBlock(dayIdx, blockIdx)}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
@@ -573,6 +665,26 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
           </TabsContent>
         ))}
       </Tabs>
+
+      {/* Theme confirmation dialog */}
+      <AlertDialog open={!!themeConfirm} onOpenChange={(open) => !open && setThemeConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apply Theme: {themeConfirm?.theme.label}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will replace the current schedule blocks and setup notes for Day {themeConfirm ? days[themeConfirm.dayIdx]?.day_number : ""} with the suggested content for "{themeConfirm?.theme.label}".
+              <br /><br />
+              You can still manually edit everything after the theme is applied. Any linked Session Plans on existing blocks will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmThemeApply}>
+              <Sparkles className="h-4 w-4 mr-1" /> Apply Theme
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
