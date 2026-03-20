@@ -82,9 +82,9 @@ export default function ItineraryPdfExport({ itinerary, days }: Props) {
       let logoBg: string | null = null;
       try {
         [coverBg, headerBg, logoBg] = await Promise.all([
-          loadImage("/tt-cover-bg.jpg"),
+          loadImage("/tt-cover-template-v2.jpg"),
           loadImage("/tt-day-header.jpg"),
-          loadImage("/tt-logo-cover.png"),
+          loadImage("/tt-logo-cover-v2.png"),
         ]);
       } catch {
         // Fallback to drawn version if images fail
@@ -130,38 +130,38 @@ function drawCoverPage(doc: jsPDF, it: Itinerary, coverBg: string | null, logoBg
     doc.rect(0, 0, PW, PH, "F");
   }
 
-  // Single title: "TEACHING TEKKERS EASTER CAMPS 2026"
-  const rawTitle = (it.cover_title || it.title || "").toUpperCase();
-  const fullTitle = rawTitle.startsWith("TEACHING TEKKERS")
+  // Layer 2: one single centered title block only
+  const rawTitle = (it.cover_title || it.title || "").trim();
+  const fullTitle = /^teaching tekkers/i.test(rawTitle)
     ? rawTitle
-    : `TEACHING TEKKERS ${rawTitle}`;
+    : `Teaching Tekkers ${rawTitle}`;
 
   doc.setTextColor(WHITE.r, WHITE.g, WHITE.b);
   doc.setFont("helvetica", "bold");
 
-  let fontSize = 30;
+  let fontSize = 24;
   doc.setFontSize(fontSize);
-  let titleLines = doc.splitTextToSize(fullTitle, CW - 20);
+  let titleLines = doc.splitTextToSize(fullTitle, 120);
   while (titleLines.length > 3 && fontSize > 18) {
-    fontSize -= 2;
+    fontSize -= 1;
     doc.setFontSize(fontSize);
-    titleLines = doc.splitTextToSize(fullTitle, CW - 20);
+    titleLines = doc.splitTextToSize(fullTitle, 120);
   }
 
-  const lineH = fontSize * 0.52;
+  const lineH = fontSize * 0.48;
   const titleBlockH = titleLines.length * lineH;
-  const titleStartY = 85 - titleBlockH / 2;
+  const titleStartY = 88 - titleBlockH / 2;
 
   for (let i = 0; i < titleLines.length; i++) {
     doc.text(titleLines[i], PW / 2, titleStartY + i * lineH, { align: "center" });
   }
 
-  // Logo centered below title with no boxed background
+  // Layer 3: one single centered logo only
   if (logoBg) {
-    const logoW = 48;
-    const logoH = logoW;
+    const logoW = 42;
+    const logoH = 42;
     const logoX = (PW - logoW) / 2;
-    const logoY = titleStartY + titleBlockH + 10;
+    const logoY = titleStartY + titleBlockH + 14;
     doc.addImage(logoBg, "PNG", logoX, logoY, logoW, logoH);
   }
 }
