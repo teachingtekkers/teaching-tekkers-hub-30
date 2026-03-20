@@ -82,7 +82,7 @@ export default function ItineraryPdfExport({ itinerary, days }: Props) {
       let logoBg: string | null = null;
       try {
         [coverBg, headerBg, logoBg] = await Promise.all([
-          loadImage("/tt-cover-template-v2.jpg"),
+          loadImage("/tt-cover-bg.jpg"),
           loadImage("/tt-day-header.jpg"),
           loadImage("/tt-logo-cover-v2.png"),
         ]);
