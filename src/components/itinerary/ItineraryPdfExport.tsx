@@ -156,12 +156,12 @@ function drawCoverPage(doc: jsPDF, it: Itinerary, coverBg: string | null, logoBg
     doc.text(titleLines[i], PW / 2, titleStartY + i * lineH, { align: "center" });
   }
 
-  // Logo centered below title
+  // Logo centered below title with no boxed background
   if (logoBg) {
-    const logoW = 55;
-    const logoH = logoW * (580 / 800);
+    const logoW = 48;
+    const logoH = logoW;
     const logoX = (PW - logoW) / 2;
-    const logoY = titleStartY + titleBlockH + 8;
+    const logoY = titleStartY + titleBlockH + 10;
     doc.addImage(logoBg, "PNG", logoX, logoY, logoW, logoH);
   }
 }
