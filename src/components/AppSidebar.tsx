@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Tent, Users, UserCog, ClipboardCheck, Trophy, LogOut,
   CalendarClock, DollarSign, FileText, Swords, BookOpen, ListChecks,
   Briefcase, CreditCard, Calendar, FileCheck, ShieldCheck, CloudDownload, Database, Building2,
-  Calculator, ImagePlus, Sparkles, Megaphone, MapPin, UserPlus, Map,
+  Calculator, ImagePlus, Sparkles, Megaphone, MapPin, UserPlus, Map, BarChart3,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -63,6 +63,11 @@ const privateCoachingItems = [
   { title: "Attendance", url: "/private/attendance", icon: ClipboardCheck },
   { title: "Payments", url: "/private/payments", icon: CreditCard },
   { title: "Session Plans", url: "/private/session-plans", icon: BookOpen },
+];
+
+/* ── Admin: Reports ── */
+const reportsItems = [
+  { title: "Reports", url: "/reports", icon: BarChart3 },
 ];
 
 /* ── Admin: System ── */
@@ -150,6 +155,8 @@ export function AppSidebar({ role }: AppSidebarProps) {
             {renderGroup("Social Media", socialMediaItems)}
             {divider}
             {renderGroup("Private Coaching", privateCoachingItems)}
+            {divider}
+            {renderGroup("Reports", reportsItems)}
             {divider}
             {renderGroup("System", systemItems)}
           </>
