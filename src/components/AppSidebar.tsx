@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Tent, Users, UserCog, ClipboardCheck, Trophy, LogOut,
   CalendarClock, DollarSign, FileText, Swords, BookOpen, ListChecks,
   Briefcase, CreditCard, Calendar, FileCheck, ShieldCheck, CloudDownload, Database, Building2,
-  Calculator, ImagePlus, Sparkles, Megaphone, MapPin, UserPlus,
+  Calculator, ImagePlus, Sparkles, Megaphone, MapPin, UserPlus, Map,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
