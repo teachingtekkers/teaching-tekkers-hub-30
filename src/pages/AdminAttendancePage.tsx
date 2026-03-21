@@ -105,6 +105,12 @@ export default function AdminAttendancePage() {
     if (existing?.id) {
       await supabase.from("attendance").update({ status: newStatus }).eq("id", existing.id);
     } else {
+      // Use upsert-style: delete any existing rows first to avoid duplicates, then insert
+      await supabase.from("attendance")
+        .delete()
+        .eq("camp_id", selectedCamp)
+        .eq("synced_booking_id", participantId)
+        .eq("date", selectedDate);
       const { data } = await supabase
         .from("attendance")
         .insert({ camp_id: selectedCamp, synced_booking_id: participantId, date: selectedDate, status: newStatus, note: null })
