@@ -241,19 +241,40 @@ export default function CampPlanningPage() {
   const confirmMut = useMutation({
     mutationFn: async (entry: PlanningEntry) => {
       let clubId = entry.club_id;
+
       if (!clubId) {
-        const existing = clubs.find((c) => c.name.toLowerCase() === entry.club_name.toLowerCase());
-        if (existing) {
-          clubId = existing.id;
+        // Query DB directly to avoid stale cache
+        const { data: existingClubs } = await supabase
+          .from("clubs")
+          .select("id, name")
+          .ilike("name", entry.club_name);
+
+        const match = existingClubs?.find((c) => c.name.toLowerCase() === entry.club_name.toLowerCase());
+
+        if (match) {
+          clubId = match.id;
         } else {
-          const { data: newClub, error } = await supabase
+          const { data: newClub, error: clubErr } = await supabase
             .from("clubs")
             .insert({ name: entry.club_name, county: entry.county })
             .select("id")
             .single();
-          if (error) throw error;
+          if (clubErr) throw new Error(`Failed to create club: ${clubErr.message}`);
           clubId = newClub.id;
         }
+      }
+
+      // Check if camp already exists for this entry to avoid duplicates
+      if (entry.linked_camp_id) {
+        // Already has a camp — just update status and club link
+        const { error: upErr } = await supabase
+          .from("camp_planning_entries")
+          .update({ status: "confirmed", club_id: clubId })
+          .eq("id", entry.id);
+        if (upErr) throw upErr;
+        // Also ensure the camp has the correct club_id
+        await supabase.from("camps").update({ club_id: clubId }).eq("id", entry.linked_camp_id);
+        return;
       }
 
       const weekStart = parseISO(entry.week_start);
@@ -275,13 +296,16 @@ export default function CampPlanningPage() {
         })
         .select("id")
         .single();
-      if (campErr) throw campErr;
+      if (campErr) throw new Error(`Failed to create camp: ${campErr.message}`);
 
       const { error: upErr } = await supabase
         .from("camp_planning_entries")
         .update({ status: "confirmed", club_id: clubId, linked_camp_id: newCamp.id })
         .eq("id", entry.id);
       if (upErr) throw upErr;
+    },
+    onError: (err) => {
+      toast({ title: "Confirmation failed", description: String(err), variant: "destructive" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["camp-planning-entries"] });
