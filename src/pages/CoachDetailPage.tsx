@@ -506,7 +506,7 @@ export default function CoachDetailPage() {
               <div className="space-y-1.5">
                 <Label className="text-sm">Pay Band Notes</Label>
                 <p className="text-xs text-muted-foreground">Age-based pay rules, upcoming rate changes, etc.</p>
-                <Textarea value={form.pay_band_notes} onChange={e => setForm({ ...form, pay_band_notes: e.target.value })} rows={2} />
+                <Textarea value={form.pay_band_notes} onChange={e => setForm({ ...form, pay_band_notes: e.target.value })} rows={8} />
               </div>
               {age !== null && age < 20 && (
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20">
