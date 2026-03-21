@@ -65,6 +65,11 @@ const privateCoachingItems = [
   { title: "Session Plans", url: "/private/session-plans", icon: BookOpen },
 ];
 
+/* ── Admin: Reports ── */
+const reportsItems = [
+  { title: "Reports", url: "/reports", icon: BarChart3 },
+];
+
 /* ── Admin: System ── */
 const systemItems = [
   { title: "User Management", url: "/users", icon: ShieldCheck },
