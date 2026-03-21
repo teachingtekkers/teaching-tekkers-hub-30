@@ -302,6 +302,10 @@ export default function AttendancePage() {
             <Button variant="outline" size="sm" onClick={markAllPresent} disabled={participants.length === 0}>
               Mark All Present
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setWalkInOpen(true)}>
+              <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+              Add Walk-In
+            </Button>
             {autoSaveStatus !== "idle" && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground animate-in fade-in duration-200">
                 {autoSaveStatus === "saving" ? (
