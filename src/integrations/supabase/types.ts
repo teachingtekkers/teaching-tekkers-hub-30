@@ -239,9 +239,43 @@ export type Database = {
           },
         ]
       }
+      camp_planning_campaigns: {
+        Row: {
+          camp_type: string
+          created_at: string
+          id: string
+          notes: string | null
+          num_weeks: number
+          updated_at: string
+          week1_start_date: string
+          year: number
+        }
+        Insert: {
+          camp_type?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          num_weeks?: number
+          updated_at?: string
+          week1_start_date: string
+          year?: number
+        }
+        Update: {
+          camp_type?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          num_weeks?: number
+          updated_at?: string
+          week1_start_date?: string
+          year?: number
+        }
+        Relationships: []
+      }
       camp_planning_entries: {
         Row: {
           age_group: string | null
+          campaign_id: string | null
           club_id: string | null
           club_name: string
           county: string
@@ -252,10 +286,12 @@ export type Database = {
           status: string
           updated_at: string
           venue: string | null
+          week_number: number
           week_start: string
         }
         Insert: {
           age_group?: string | null
+          campaign_id?: string | null
           club_id?: string | null
           club_name: string
           county?: string
@@ -266,10 +302,12 @@ export type Database = {
           status?: string
           updated_at?: string
           venue?: string | null
+          week_number?: number
           week_start: string
         }
         Update: {
           age_group?: string | null
+          campaign_id?: string | null
           club_id?: string | null
           club_name?: string
           county?: string
@@ -280,9 +318,17 @@ export type Database = {
           status?: string
           updated_at?: string
           venue?: string | null
+          week_number?: number
           week_start?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "camp_planning_entries_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "camp_planning_campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "camp_planning_entries_club_id_fkey"
             columns: ["club_id"]
