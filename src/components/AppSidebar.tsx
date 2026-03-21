@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 /* ── Admin: Seasonal Camps ── */
 const seasonalCampsItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Camp Planning", url: "/camp-planning", icon: Map },
   { title: "Tasks & Deadlines", url: "/tasks", icon: ListChecks },
 ];
 

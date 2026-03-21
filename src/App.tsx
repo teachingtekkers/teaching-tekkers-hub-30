@@ -95,6 +95,7 @@ const App = () => (
             <Route element={<ProtectedAdminLayout />}>
               {/* Seasonal Camps */}
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/camp-planning" element={<CampPlanningPage />} />
               <Route path="/tasks" element={<TasksDeadlinesPage />} />
 
               {/* Staffing Admin */}
