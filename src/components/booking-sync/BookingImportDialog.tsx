@@ -405,18 +405,21 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         if ((!hasVenueCol || !mapped.venue) && f.detectedVenue) mapped.venue = f.detectedVenue;
         if ((!hasCountyCol || !mapped.county) && f.detectedCounty) mapped.county = f.detectedCounty;
 
-        const campKey = (mapped.camp_name || "").trim().toLowerCase().replace(/\s+/g, " ");
+        // Normalize camp key — strip trailing numbers/suffixes so "St. Anthonys" and "St. Anthonys 1" produce the same key
+        const campKey = (mapped.camp_name || "").trim().toLowerCase().replace(/\s+/g, " ")
+          .replace(/\s+\d+$/, "")  // strip trailing " 1", " 2" etc
+          .replace(/\s*\(\d+\)$/, ""); // strip trailing "(1)", "(2)" etc
 
         // Detect if external_booking_id came from a "Sr. No" style column (sequential per-file, not globally unique)
         const extIdHeader = Object.entries(mapping).find(([, field]) => field === "external_booking_id")?.[0] || "";
         const isSrNo = /^sr\.?\s*no/i.test(extIdHeader.trim());
 
         if (mapped.external_booking_id && isSrNo) {
-          // Prefix with camp name to make it unique across files
+          // Prefix with normalized camp name to make it unique across files
           mapped.external_booking_id = `${campKey}::${mapped.external_booking_id.trim().toLowerCase()}`;
         }
 
-        // Fallback external_booking_id when missing — prevents row collapse into updates
+        // Fallback external_booking_id when missing — use child identity + normalized camp name
         if (!mapped.external_booking_id) {
           const parts = [
             campKey,
@@ -424,7 +427,6 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
             (mapped.child_last_name || "").trim().toLowerCase().replace(/\s+/g, " "),
             (mapped.date_of_birth || "").trim(),
             (mapped.parent_email || "").trim().toLowerCase(),
-            (mapped.booking_date || "").trim(),
           ];
           mapped.external_booking_id = `gen::${parts.join("::")}`;
         }
