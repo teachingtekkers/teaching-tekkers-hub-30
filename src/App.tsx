@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 
 // Admin: Seasonal Camps
 import DashboardPage from "./pages/DashboardPage";
+import CampPlanningPage from "./pages/CampPlanningPage";
 import TasksDeadlinesPage from "./pages/TasksDeadlinesPage";
 
 // Admin: Staffing
@@ -94,6 +95,7 @@ const App = () => (
             <Route element={<ProtectedAdminLayout />}>
               {/* Seasonal Camps */}
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/camp-planning" element={<CampPlanningPage />} />
               <Route path="/tasks" element={<TasksDeadlinesPage />} />
 
               {/* Staffing Admin */}
