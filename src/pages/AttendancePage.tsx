@@ -9,11 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, CheckCircle, Save, Loader2, Zap, ClipboardList, Check } from "lucide-react";
+import { Users, CheckCircle, Save, Loader2, Zap, ClipboardList, Check, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import AttendanceParticipantRow, { type ParticipantData } from "@/components/attendance/AttendanceParticipantRow";
 import AttendanceSortControl, { type SortField } from "@/components/attendance/AttendanceSortControl";
 import CoachModeList from "@/components/attendance/CoachModeList";
+import AddWalkInDialog from "@/components/attendance/AddWalkInDialog";
 
 interface CampOption {
   id: string;
