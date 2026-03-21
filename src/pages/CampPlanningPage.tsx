@@ -630,9 +630,49 @@ export default function CampPlanningPage() {
                         </td>
                       );
                     })}
+                    {/* County total column */}
+                    {(() => {
+                      const countyEntries = entries.filter((e) => e.county === county && e.status !== "cancelled");
+                      const countyConfirmed = countyEntries.filter((e) => e.status === "confirmed").length;
+                      return (
+                        <td className="p-2 text-center align-middle bg-muted/30 border-r text-xs">
+                          <div className="font-bold text-foreground">{countyEntries.length}</div>
+                          {countyConfirmed > 0 && (
+                            <div className="text-[10px] text-emerald-700">{countyConfirmed} conf</div>
+                          )}
+                        </td>
+                      );
+                    })()}
                   </tr>
                 ))}
-              </tbody>
+                {/* Weekly totals row */}
+                <tr className="bg-muted/50 border-t-2">
+                  <td className="sticky left-0 z-10 bg-muted/50 p-2 font-semibold text-xs border-r">
+                    Totals
+                  </td>
+                  {campWeeks.map((w) => {
+                    const totals = getWeekTotals(w.weekNum);
+                    return (
+                      <td key={w.weekNum} className="p-2 text-center border-r text-xs">
+                        <div className="font-bold text-foreground">{totals.total}</div>
+                        <div className="flex justify-center gap-1 mt-0.5">
+                          {totals.confirmed > 0 && (
+                            <span className="text-[10px] text-emerald-700 font-medium">{totals.confirmed} ✓</span>
+                          )}
+                          {totals.tentative > 0 && (
+                            <span className="text-[10px] text-orange-700 font-medium">{totals.tentative} ~</span>
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
+                  <td className="p-2 text-center bg-muted/70 text-xs">
+                    <div className="font-bold text-foreground">{entries.filter((e) => e.status !== "cancelled").length}</div>
+                    <div className="text-[10px] text-emerald-700 font-medium">
+                      {entries.filter((e) => e.status === "confirmed").length} conf
+                    </div>
+                  </td>
+                </tr>
             </table>
           </div>
         </Card>
