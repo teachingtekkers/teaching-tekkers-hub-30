@@ -195,8 +195,14 @@ export default function AdminAttendancePage() {
   }, [filtered, sortField]);
 
   const dateSummary = useMemo(() => {
-    const map = new Map<string, { present: number; absent: number }>();
+    // Deduplicate: keep only last record per synced_booking_id+date
+    const deduped = new Map<string, any>();
     for (const r of allAttendance) {
+      const key = `${r.synced_booking_id}::${r.date}`;
+      deduped.set(key, r);
+    }
+    const map = new Map<string, { present: number; absent: number }>();
+    for (const r of deduped.values()) {
       if (!map.has(r.date)) map.set(r.date, { present: 0, absent: 0 });
       const s = map.get(r.date)!;
       if (r.status === "present") s.present++; else s.absent++;
