@@ -101,7 +101,7 @@ export default function CoachDetailPage() {
       qualification_level: (data as any).qualification_level || "",
       safeguarding_cert_expiry: (data as any).safeguarding_cert_expiry || "",
       first_aid_cert_expiry: (data as any).first_aid_cert_expiry || "",
-      pay_band_notes: (data as any).pay_band_notes || "",
+      pay_band_notes: (data as any).pay_band_notes || "U18: €50/day = €200pw\n18: €57.50/day = €230pw\n19: €65/day = €260pw\n20+ / UEFA C: €71.25/day = €285pw\nUEFA B: €80/day = €320pw\nHead Coach below UEFA B: €80/day = €360pw\nHead Coach UEFA A/B: €100/day = €400pw",
       notes: data.notes || "",
       status: (data as any).status || "active",
     });
