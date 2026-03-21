@@ -708,6 +708,56 @@ export type Database = {
         }
         Relationships: []
       }
+      expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          expense_date: string
+          id: string
+          linked_camp_id: string | null
+          linked_venue: string | null
+          notes: string | null
+          season: string | null
+          supplier: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          category?: string
+          created_at?: string
+          expense_date?: string
+          id?: string
+          linked_camp_id?: string | null
+          linked_venue?: string | null
+          notes?: string | null
+          season?: string | null
+          supplier?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          expense_date?: string
+          id?: string
+          linked_camp_id?: string | null
+          linked_venue?: string | null
+          notes?: string | null
+          season?: string | null
+          supplier?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_linked_camp_id_fkey"
+            columns: ["linked_camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fixture_matches: {
         Row: {
           away_score: number | null
