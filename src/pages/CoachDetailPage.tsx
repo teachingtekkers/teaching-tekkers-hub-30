@@ -554,7 +554,7 @@ export default function CoachDetailPage() {
               <SectionLabel>Documents</SectionLabel>
               <DocSection label="Safeguarding Certificate" category="safeguarding" files={docs.safeguarding} />
               <Separator />
-              <DocSection label="First Aid Certificate" category="first_aid" files={docs.first_aid} />
+              <DocSection label="Garda Vetting" category="first_aid" files={docs.first_aid} />
               <Separator />
               <DocSection label="ID / Other Documents" category="other" files={docs.other} />
             </CardContent>
