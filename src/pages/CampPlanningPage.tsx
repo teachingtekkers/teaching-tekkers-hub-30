@@ -673,6 +673,7 @@ export default function CampPlanningPage() {
                     </div>
                   </td>
                 </tr>
+              </tbody>
             </table>
           </div>
         </Card>
