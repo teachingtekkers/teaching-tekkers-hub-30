@@ -396,8 +396,29 @@ Deno.serve(async (req) => {
           const medNotes = b.medical_notes?.trim() || "";
           const combinedMedical = [medCondition, medNotes].filter(Boolean).join(" — ") || null;
 
+          // Server-side duplicate detection: if the external_booking_id is generated (fallback)
+          // and we have a matched camp, check if there's already a record for this child+camp
+          let resolvedExternalId = b.external_booking_id || null;
+          if (resolvedExternalId && matched_camp_id && resolvedExternalId.startsWith("gen::")) {
+            const childFirst = (b.child_first_name || "").trim().toLowerCase();
+            const childLast = (b.child_last_name || "").trim().toLowerCase();
+            const { data: existingRows } = await supabase
+              .from("synced_bookings")
+              .select("id, external_booking_id")
+              .eq("matched_camp_id", matched_camp_id)
+              .ilike("child_first_name", childFirst)
+              .ilike("child_last_name", childLast)
+              .eq("source_system", "bookings.teachingtekkers.com")
+              .limit(1);
+
+            if (existingRows && existingRows.length > 0) {
+              // Reuse the existing record's external_booking_id so upsert merges instead of duplicating
+              resolvedExternalId = existingRows[0].external_booking_id;
+            }
+          }
+
           const record: Record<string, unknown> = {
-            external_booking_id: b.external_booking_id || null,
+            external_booking_id: resolvedExternalId,
             camp_name: b.camp_name,
             camp_date: safeParseDate(b.camp_date),
             venue: b.venue || null,
