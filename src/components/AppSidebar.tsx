@@ -156,6 +156,8 @@ export function AppSidebar({ role }: AppSidebarProps) {
             {divider}
             {renderGroup("Private Coaching", privateCoachingItems)}
             {divider}
+            {renderGroup("Reports", reportsItems)}
+            {divider}
             {renderGroup("System", systemItems)}
           </>
         ) : (
