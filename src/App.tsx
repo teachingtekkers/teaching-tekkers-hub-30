@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 
 // Admin: Seasonal Camps
 import DashboardPage from "./pages/DashboardPage";
+import CampPlanningPage from "./pages/CampPlanningPage";
 import TasksDeadlinesPage from "./pages/TasksDeadlinesPage";
 
 // Admin: Staffing
