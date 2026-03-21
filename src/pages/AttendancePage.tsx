@@ -349,6 +349,17 @@ export default function AttendancePage() {
           )}
         </>
       )}
+
+      {camp && (
+        <AddWalkInDialog
+          open={walkInOpen}
+          onOpenChange={setWalkInOpen}
+          campId={selectedCamp}
+          campName={camp.name}
+          date={selectedDate}
+          onAdded={loadData}
+        />
+      )}
     </div>
   );
 }
