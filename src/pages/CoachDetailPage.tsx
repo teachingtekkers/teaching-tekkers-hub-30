@@ -539,7 +539,7 @@ export default function CoachDetailPage() {
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm">First Aid Cert Expiry</Label>
+                <Label className="text-sm">Garda Vetting Expiry</Label>
                 <Input type="date" value={form.first_aid_cert_expiry} onChange={e => setForm({ ...form, first_aid_cert_expiry: e.target.value })} />
                 {form.first_aid_cert_expiry && new Date(form.first_aid_cert_expiry) < new Date() && (
                   <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Expired</p>
