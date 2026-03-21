@@ -239,6 +239,66 @@ export type Database = {
           },
         ]
       }
+      camp_planning_entries: {
+        Row: {
+          age_group: string | null
+          club_id: string | null
+          club_name: string
+          county: string
+          created_at: string
+          id: string
+          linked_camp_id: string | null
+          notes: string | null
+          status: string
+          updated_at: string
+          venue: string | null
+          week_start: string
+        }
+        Insert: {
+          age_group?: string | null
+          club_id?: string | null
+          club_name: string
+          county?: string
+          created_at?: string
+          id?: string
+          linked_camp_id?: string | null
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          venue?: string | null
+          week_start: string
+        }
+        Update: {
+          age_group?: string | null
+          club_id?: string | null
+          club_name?: string
+          county?: string
+          created_at?: string
+          id?: string
+          linked_camp_id?: string | null
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          venue?: string | null
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camp_planning_entries_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camp_planning_entries_linked_camp_id_fkey"
+            columns: ["linked_camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       camp_week_scores: {
         Row: {
           camp_id: string
