@@ -9,11 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, CheckCircle, Save, Loader2, Zap, ClipboardList, Check } from "lucide-react";
+import { Users, CheckCircle, Save, Loader2, Zap, ClipboardList, Check, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import AttendanceParticipantRow, { type ParticipantData } from "@/components/attendance/AttendanceParticipantRow";
 import AttendanceSortControl, { type SortField } from "@/components/attendance/AttendanceSortControl";
 import CoachModeList from "@/components/attendance/CoachModeList";
+import AddWalkInDialog from "@/components/attendance/AddWalkInDialog";
 
 interface CampOption {
   id: string;
@@ -42,6 +43,7 @@ export default function AttendancePage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"admin" | "coach">("admin");
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [walkInOpen, setWalkInOpen] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
   const attendanceRef = useRef(attendance);
 
@@ -300,6 +302,10 @@ export default function AttendancePage() {
             <Button variant="outline" size="sm" onClick={markAllPresent} disabled={participants.length === 0}>
               Mark All Present
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setWalkInOpen(true)}>
+              <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+              Add Walk-In
+            </Button>
             {autoSaveStatus !== "idle" && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground animate-in fade-in duration-200">
                 {autoSaveStatus === "saving" ? (
@@ -342,6 +348,17 @@ export default function AttendancePage() {
             </div>
           )}
         </>
+      )}
+
+      {camp && (
+        <AddWalkInDialog
+          open={walkInOpen}
+          onOpenChange={setWalkInOpen}
+          campId={selectedCamp}
+          campName={camp.name}
+          date={selectedDate}
+          onAdded={loadData}
+        />
       )}
     </div>
   );
