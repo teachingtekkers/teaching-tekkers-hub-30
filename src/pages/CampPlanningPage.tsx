@@ -573,6 +573,9 @@ export default function CampPlanningPage() {
                       </th>
                     );
                   })}
+                  <th className="p-2 text-center text-xs font-semibold min-w-[80px] text-muted-foreground bg-muted/70">
+                    Total
+                  </th>
                 </tr>
               </thead>
               <tbody>
