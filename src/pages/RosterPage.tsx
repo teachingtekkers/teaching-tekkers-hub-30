@@ -568,6 +568,7 @@ const RosterPage = () => {
                   onChangeRole={changeRole}
                   onToggleDay={toggleDay}
                   onToggleDriving={toggleDrivingThisWeek}
+                  onToggleCampAccess={toggleCampAccess}
                   onDragStart={handleDragStart}
                   onDrop={() => handleDrop(camp.id)}
                   availabilitySet={availabilitySet}
