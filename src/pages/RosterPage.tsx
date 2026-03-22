@@ -228,6 +228,58 @@ const RosterPage = () => {
       return;
     }
 
+    // Sync camp access to camp_coach_assignments
+    // Collect coaches who should have access: head_coach role OR grant_camp_access=true
+    const accessPairs = new Map<string, { coach_id: string; camp_id: string; role: "head_coach" | "assistant" }>();
+    for (const a of assignments) {
+      if (a.role === "head_coach" || a.grant_camp_access) {
+        const key = `${a.coach_id}__${a.camp_id}`;
+        if (!accessPairs.has(key)) {
+          accessPairs.set(key, { coach_id: a.coach_id, camp_id: a.camp_id, role: a.role });
+        }
+      }
+    }
+
+    // For each camp in this roster, remove stale assignments and upsert current ones
+    const campIdsInRoster = [...new Set(assignments.map(a => a.camp_id))];
+    for (const campId of campIdsInRoster) {
+      const campAccess = [...accessPairs.values()].filter(p => p.camp_id === campId);
+      const coachIdsWithAccess = campAccess.map(p => p.coach_id);
+
+      // Get existing assignments for this camp
+      const { data: existing } = await supabase
+        .from("camp_coach_assignments")
+        .select("id, coach_id, role")
+        .eq("camp_id", campId);
+
+      const existingMap = new Map((existing || []).map(e => [e.coach_id, e]));
+
+      // Upsert access records
+      for (const access of campAccess) {
+        const ex = existingMap.get(access.coach_id);
+        if (ex) {
+          // Update role if changed
+          if (ex.role !== access.role) {
+            await supabase.from("camp_coach_assignments").update({ role: access.role }).eq("id", ex.id);
+          }
+        } else {
+          // Insert new
+          await supabase.from("camp_coach_assignments").insert({
+            camp_id: access.camp_id,
+            coach_id: access.coach_id,
+            role: access.role,
+          });
+        }
+      }
+
+      // Remove access for coaches no longer granted (only those that were roster-managed)
+      for (const ex of (existing || [])) {
+        if (!coachIdsWithAccess.includes(ex.coach_id)) {
+          await supabase.from("camp_coach_assignments").delete().eq("id", ex.id);
+        }
+      }
+    }
+
     setSavedRosterId(result.data.id);
     setRosterStatus(statusToSave);
     setHasUnsavedChanges(false);
