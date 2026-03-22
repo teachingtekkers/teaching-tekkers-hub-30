@@ -37,7 +37,7 @@ const EXP_LABELS: Record<ExperienceLevel, { short: string; color: string }> = {
 
 export function RosterDailyGrid({
   camp, assignments, coaches, unassignedCoaches,
-  onRemove, onAdd, onAddDay1Support, onChangeRole, onToggleDay, onToggleDriving, onDragStart, onDrop, availabilitySet
+  onRemove, onAdd, onAddDay1Support, onChangeRole, onToggleDay, onToggleDriving, onToggleCampAccess, onDragStart, onDrop, availabilitySet
 }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [day1DialogOpen, setDay1DialogOpen] = useState(false);
