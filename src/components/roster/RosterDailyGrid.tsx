@@ -111,6 +111,9 @@ export function RosterDailyGrid({
                   <th className="text-left p-2 font-semibold min-w-[150px]">Coach</th>
                   <th className="text-left p-2 font-semibold w-[90px]">Role</th>
                   <th className="text-center p-2 font-semibold w-[60px]">Drive</th>
+                  <th className="text-center p-2 font-semibold w-[50px]">
+                    <TooltipProvider><Tooltip><TooltipTrigger asChild><span className="flex items-center justify-center"><KeyRound className="h-3.5 w-3.5" /></span></TooltipTrigger><TooltipContent>Camp Access — grants Head Coach portal access</TooltipContent></Tooltip></TooltipProvider>
+                  </th>
                   {campDays.map(d => (
                     <th key={d.toISOString()} className="text-center p-2 font-semibold w-[60px]">
                       <div>{format(d, "EEE")}</div>
