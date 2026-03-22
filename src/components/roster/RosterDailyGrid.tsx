@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertTriangle, Car, CheckCircle, UserPlus, XCircle, GripVertical, Zap } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertTriangle, Car, CheckCircle, UserPlus, XCircle, GripVertical, Zap, KeyRound } from "lucide-react";
 import type { RosterCamp, DailyAssignment, RosterCoach, ExperienceLevel } from "@/pages/RosterPage";
 import { getCampDays } from "@/pages/RosterPage";
 
