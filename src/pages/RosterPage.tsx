@@ -59,6 +59,7 @@ export interface DailyAssignment {
   days: string[];
   is_day1_support?: boolean;
   driving_this_week?: boolean;
+  grant_camp_access?: boolean;
 }
 
 export type RosterStatus = "draft" | "finalised";

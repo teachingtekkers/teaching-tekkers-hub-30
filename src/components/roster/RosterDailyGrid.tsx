@@ -22,6 +22,7 @@ interface Props {
   onChangeRole: (id: string, role: "head_coach" | "assistant") => void;
   onToggleDay: (assignmentId: string, day: string) => void;
   onToggleDriving: (assignmentId: string) => void;
+  onToggleCampAccess: (assignmentId: string) => void;
   onDragStart: (coachId: string, fromCampId: string | null) => void;
   onDrop: () => void;
   availabilitySet: boolean;
