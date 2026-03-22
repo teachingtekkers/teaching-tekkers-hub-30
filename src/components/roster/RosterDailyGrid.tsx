@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertTriangle, Car, CheckCircle, UserPlus, XCircle, GripVertical, Zap } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertTriangle, Car, CheckCircle, UserPlus, XCircle, GripVertical, Zap, KeyRound } from "lucide-react";
 import type { RosterCamp, DailyAssignment, RosterCoach, ExperienceLevel } from "@/pages/RosterPage";
 import { getCampDays } from "@/pages/RosterPage";
 
@@ -22,6 +23,7 @@ interface Props {
   onChangeRole: (id: string, role: "head_coach" | "assistant") => void;
   onToggleDay: (assignmentId: string, day: string) => void;
   onToggleDriving: (assignmentId: string) => void;
+  onToggleCampAccess: (assignmentId: string) => void;
   onDragStart: (coachId: string, fromCampId: string | null) => void;
   onDrop: () => void;
   availabilitySet: boolean;
@@ -36,7 +38,7 @@ const EXP_LABELS: Record<ExperienceLevel, { short: string; color: string }> = {
 
 export function RosterDailyGrid({
   camp, assignments, coaches, unassignedCoaches,
-  onRemove, onAdd, onAddDay1Support, onChangeRole, onToggleDay, onToggleDriving, onDragStart, onDrop, availabilitySet
+  onRemove, onAdd, onAddDay1Support, onChangeRole, onToggleDay, onToggleDriving, onToggleCampAccess, onDragStart, onDrop, availabilitySet
 }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [day1DialogOpen, setDay1DialogOpen] = useState(false);
@@ -109,6 +111,9 @@ export function RosterDailyGrid({
                   <th className="text-left p-2 font-semibold min-w-[150px]">Coach</th>
                   <th className="text-left p-2 font-semibold w-[90px]">Role</th>
                   <th className="text-center p-2 font-semibold w-[60px]">Drive</th>
+                  <th className="text-center p-2 font-semibold w-[50px]">
+                    <TooltipProvider><Tooltip><TooltipTrigger asChild><span className="flex items-center justify-center"><KeyRound className="h-3.5 w-3.5" /></span></TooltipTrigger><TooltipContent>Camp Access — grants Head Coach portal access</TooltipContent></Tooltip></TooltipProvider>
+                  </th>
                   {campDays.map(d => (
                     <th key={d.toISOString()} className="text-center p-2 font-semibold w-[60px]">
                       <div>{format(d, "EEE")}</div>
@@ -174,6 +179,29 @@ export function RosterDailyGrid({
                         ) : (
                           <span className="text-[10px] text-muted-foreground">—</span>
                         )}
+                      </td>
+                      <td className="p-2 text-center">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center justify-center">
+                                <Checkbox
+                                  checked={a.role === "head_coach" || !!a.grant_camp_access}
+                                  disabled={a.role === "head_coach"}
+                                  onCheckedChange={() => onToggleCampAccess(a.id)}
+                                  className={a.role === "head_coach" ? "opacity-60" : ""}
+                                />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {a.role === "head_coach"
+                                ? "Auto-granted: Head Coach always gets camp access"
+                                : a.grant_camp_access
+                                  ? "Manual camp access granted — click to remove"
+                                  : "Grant this coach access to the camp in Head Coach portal"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </td>
                       {dayStrings.map(day => {
                         const isActive = a.days.includes(day);

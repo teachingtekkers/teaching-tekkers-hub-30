@@ -59,6 +59,7 @@ export interface DailyAssignment {
   days: string[];
   is_day1_support?: boolean;
   driving_this_week?: boolean;
+  grant_camp_access?: boolean;
 }
 
 export type RosterStatus = "draft" | "finalised";
@@ -227,6 +228,58 @@ const RosterPage = () => {
       return;
     }
 
+    // Sync camp access to camp_coach_assignments
+    // Collect coaches who should have access: head_coach role OR grant_camp_access=true
+    const accessPairs = new Map<string, { coach_id: string; camp_id: string; role: "head_coach" | "assistant" }>();
+    for (const a of assignments) {
+      if (a.role === "head_coach" || a.grant_camp_access) {
+        const key = `${a.coach_id}__${a.camp_id}`;
+        if (!accessPairs.has(key)) {
+          accessPairs.set(key, { coach_id: a.coach_id, camp_id: a.camp_id, role: a.role });
+        }
+      }
+    }
+
+    // For each camp in this roster, remove stale assignments and upsert current ones
+    const campIdsInRoster = [...new Set(assignments.map(a => a.camp_id))];
+    for (const campId of campIdsInRoster) {
+      const campAccess = [...accessPairs.values()].filter(p => p.camp_id === campId);
+      const coachIdsWithAccess = campAccess.map(p => p.coach_id);
+
+      // Get existing assignments for this camp
+      const { data: existing } = await supabase
+        .from("camp_coach_assignments")
+        .select("id, coach_id, role")
+        .eq("camp_id", campId);
+
+      const existingMap = new Map((existing || []).map(e => [e.coach_id, e]));
+
+      // Upsert access records
+      for (const access of campAccess) {
+        const ex = existingMap.get(access.coach_id);
+        if (ex) {
+          // Update role if changed
+          if (ex.role !== access.role) {
+            await supabase.from("camp_coach_assignments").update({ role: access.role }).eq("id", ex.id);
+          }
+        } else {
+          // Insert new
+          await supabase.from("camp_coach_assignments").insert({
+            camp_id: access.camp_id,
+            coach_id: access.coach_id,
+            role: access.role,
+          });
+        }
+      }
+
+      // Remove access for coaches no longer granted (only those that were roster-managed)
+      for (const ex of (existing || [])) {
+        if (!coachIdsWithAccess.includes(ex.coach_id)) {
+          await supabase.from("camp_coach_assignments").delete().eq("id", ex.id);
+        }
+      }
+    }
+
     setSavedRosterId(result.data.id);
     setRosterStatus(statusToSave);
     setHasUnsavedChanges(false);
@@ -273,7 +326,7 @@ const RosterPage = () => {
         .sort((a, b) => b.score - a.score);
       const headCoach = hcCandidates[0]?.coach;
       if (headCoach) {
-        newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: headCoach.id, role: "head_coach", days: campDays, driving_this_week: headCoach.can_drive });
+        newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: headCoach.id, role: "head_coach", days: campDays, driving_this_week: headCoach.can_drive, grant_camp_access: true });
         used.add(headCoach.id);
       }
     }
@@ -381,7 +434,7 @@ const RosterPage = () => {
     markDirty();
   };
 
-  const changeRole = (id: string, role: "head_coach" | "assistant") => { setAssignments(prev => prev.map(a => a.id === id ? { ...a, role } : a)); markDirty(); };
+  const changeRole = (id: string, role: "head_coach" | "assistant") => { setAssignments(prev => prev.map(a => a.id === id ? { ...a, role, grant_camp_access: role === "head_coach" ? true : a.grant_camp_access } : a)); markDirty(); };
 
   const toggleDay = (id: string, day: string) => {
     setAssignments(prev => prev.map(a => {
@@ -405,6 +458,16 @@ const RosterPage = () => {
 
   const toggleDrivingThisWeek = (id: string) => {
     setAssignments(prev => prev.map(a => a.id === id ? { ...a, driving_this_week: !a.driving_this_week } : a));
+    markDirty();
+  };
+
+  const toggleCampAccess = (id: string) => {
+    setAssignments(prev => prev.map(a => {
+      if (a.id !== id) return a;
+      // Head coaches always have access, don't toggle
+      if (a.role === "head_coach") return a;
+      return { ...a, grant_camp_access: !a.grant_camp_access };
+    }));
     markDirty();
   };
 
@@ -557,6 +620,7 @@ const RosterPage = () => {
                   onChangeRole={changeRole}
                   onToggleDay={toggleDay}
                   onToggleDriving={toggleDrivingThisWeek}
+                  onToggleCampAccess={toggleCampAccess}
                   onDragStart={handleDragStart}
                   onDrop={() => handleDrop(camp.id)}
                   availabilitySet={availabilitySet}
