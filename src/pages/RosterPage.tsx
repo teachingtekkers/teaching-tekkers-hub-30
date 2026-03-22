@@ -409,6 +409,16 @@ const RosterPage = () => {
     markDirty();
   };
 
+  const toggleCampAccess = (id: string) => {
+    setAssignments(prev => prev.map(a => {
+      if (a.id !== id) return a;
+      // Head coaches always have access, don't toggle
+      if (a.role === "head_coach") return a;
+      return { ...a, grant_camp_access: !a.grant_camp_access };
+    }));
+    markDirty();
+  };
+
   const handleDragStart = (coachId: string, fromCampId: string | null) => setDragCoach({ coachId, fromCampId });
 
   const handleDrop = (toCampId: string) => {
