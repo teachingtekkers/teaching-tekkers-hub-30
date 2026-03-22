@@ -180,6 +180,29 @@ export function RosterDailyGrid({
                           <span className="text-[10px] text-muted-foreground">—</span>
                         )}
                       </td>
+                      <td className="p-2 text-center">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center justify-center">
+                                <Checkbox
+                                  checked={a.role === "head_coach" || !!a.grant_camp_access}
+                                  disabled={a.role === "head_coach"}
+                                  onCheckedChange={() => onToggleCampAccess(a.id)}
+                                  className={a.role === "head_coach" ? "opacity-60" : ""}
+                                />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {a.role === "head_coach"
+                                ? "Auto-granted: Head Coach always gets camp access"
+                                : a.grant_camp_access
+                                  ? "Manual camp access granted — click to remove"
+                                  : "Grant this coach access to the camp in Head Coach portal"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </td>
                       {dayStrings.map(day => {
                         const isActive = a.days.includes(day);
                         return (
