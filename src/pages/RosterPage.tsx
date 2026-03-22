@@ -326,7 +326,7 @@ const RosterPage = () => {
         .sort((a, b) => b.score - a.score);
       const headCoach = hcCandidates[0]?.coach;
       if (headCoach) {
-        newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: headCoach.id, role: "head_coach", days: campDays, driving_this_week: headCoach.can_drive });
+        newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: headCoach.id, role: "head_coach", days: campDays, driving_this_week: headCoach.can_drive, grant_camp_access: true });
         used.add(headCoach.id);
       }
     }
