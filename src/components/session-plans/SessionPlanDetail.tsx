@@ -39,7 +39,7 @@ function DetailSection({ label, children }: { label: string; children: React.Rea
   );
 }
 
-export default function SessionPlanDetail({ plan, open, onClose, onEdit, onDuplicate }: Props) {
+export default function SessionPlanDetail({ plan, open, onClose, onEdit, onDuplicate, readOnly }: Props) {
   if (!plan) return null;
 
   return (
