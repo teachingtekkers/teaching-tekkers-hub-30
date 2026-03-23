@@ -27,6 +27,7 @@ interface Props {
   onClose: () => void;
   onEdit: (plan: SessionPlanData) => void;
   onDuplicate: (plan: SessionPlanData) => void;
+  readOnly?: boolean;
 }
 
 function DetailSection({ label, children }: { label: string; children: React.ReactNode }) {
@@ -38,7 +39,7 @@ function DetailSection({ label, children }: { label: string; children: React.Rea
   );
 }
 
-export default function SessionPlanDetail({ plan, open, onClose, onEdit, onDuplicate }: Props) {
+export default function SessionPlanDetail({ plan, open, onClose, onEdit, onDuplicate, readOnly }: Props) {
   if (!plan) return null;
 
   return (
@@ -63,7 +64,7 @@ export default function SessionPlanDetail({ plan, open, onClose, onEdit, onDupli
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
+            {!readOnly && <div className="flex items-center gap-1 shrink-0">
               <Button
                 size="icon"
                 variant="ghost"
@@ -80,7 +81,7 @@ export default function SessionPlanDetail({ plan, open, onClose, onEdit, onDupli
               >
                 <Copy className="h-4 w-4" />
               </Button>
-            </div>
+            </div>}
           </div>
         </div>
 

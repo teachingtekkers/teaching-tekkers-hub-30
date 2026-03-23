@@ -1,176 +1,150 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect, useCallback } from "react";
+import { BookOpen, Search, Tag } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BookOpen, Loader2, Search } from "lucide-react";
+import { StatCard } from "@/components/StatCard";
+import { supabase } from "@/integrations/supabase/client";
+import SessionPlanCard from "@/components/session-plans/SessionPlanCard";
+import SessionPlanDetail, { type SessionPlanData } from "@/components/session-plans/SessionPlanDetail";
 
-interface SessionPlanRow {
-  id: string;
-  title: string;
-  age_group: string;
-  description: string | null;
-  content: string | null;
-  coaching_points: string | null;
-  equipment: string | null;
-  organisation: string | null;
-  player_numbers: string | null;
-  diagram_image_url: string | null;
-  video_url: string | null;
-  category_id: string | null;
-  other_comments: string | null;
-}
-
-interface CategoryRow {
-  id: string;
-  name: string;
-}
+interface Category { id: string; name: string; }
 
 export default function CoachSessionPlansPage() {
-  const [viewPlan, setViewPlan] = useState<SessionPlanRow | null>(null);
+  const [plans, setPlans] = useState<SessionPlanData[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [viewPlan, setViewPlan] = useState<SessionPlanData | null>(null);
 
-  const { data: plans = [], isLoading: plansLoading } = useQuery({
-    queryKey: ["all-session-plans"],
-    queryFn: async () => {
-      const { data } = await supabase.from("session_plans").select("*").order("title");
-      return (data || []) as unknown as SessionPlanRow[];
-    },
-  });
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const [catsRes, plansRes] = await Promise.all([
+      supabase.from("session_plan_categories").select("*").order("name"),
+      supabase.from("session_plans").select("*, session_plan_categories(name)").order("title"),
+    ]);
+    if (catsRes.data) setCategories(catsRes.data);
+    if (plansRes.data) {
+      setPlans(plansRes.data.map((p: any) => ({
+        id: p.id,
+        title: p.title,
+        category_id: p.category_id,
+        category_name: p.session_plan_categories?.name || "Uncategorised",
+        age_group: p.age_group,
+        description: p.description,
+        organisation: p.organisation,
+        other_comments: p.other_comments,
+        coaching_points: p.coaching_points,
+        player_numbers: p.player_numbers,
+        equipment: p.equipment,
+        content: p.content,
+        diagram_image_url: p.diagram_image_url,
+        video_url: p.video_url,
+        created_at: p.created_at,
+      })));
+    }
+    setLoading(false);
+  }, []);
 
-  const { data: categories = [] } = useQuery({
-    queryKey: ["session-plan-categories"],
-    queryFn: async () => {
-      const { data } = await supabase.from("session_plan_categories").select("id, name");
-      return (data || []) as CategoryRow[];
-    },
-  });
-
-  const getCategoryName = (catId: string | null) => {
-    if (!catId) return "Uncategorised";
-    return categories.find(c => c.id === catId)?.name || "Uncategorised";
-  };
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = plans.filter(p => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return p.title.toLowerCase().includes(q) || getCategoryName(p.category_id).toLowerCase().includes(q);
+    const matchSearch = !search || p.title.toLowerCase().includes(search.toLowerCase()) ||
+      p.category_name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.description || "").toLowerCase().includes(search.toLowerCase());
+    const matchCategory = filterCategory === "all" || p.category_id === filterCategory;
+    return matchSearch && matchCategory;
   });
 
-  // Group by category
-  const grouped = filtered.reduce<Record<string, SessionPlanRow[]>>((acc, p) => {
-    const cat = getCategoryName(p.category_id);
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(p);
-    return acc;
-  }, {});
+  const categoryCounts = categories.map(c => ({
+    ...c,
+    count: plans.filter(p => p.category_id === c.id).length,
+  }));
 
-  if (plansLoading) {
-    return <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
-  }
+  // No-op handlers for read-only mode
+  const noop = () => {};
 
   return (
     <div className="space-y-6">
-      <div className="page-header">
-        <h1 className="text-xl font-bold text-foreground">Session Plans</h1>
-        <p className="text-sm text-muted-foreground">Browse all coaching drills and session plans</p>
+      <div className="page-header flex-row items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Session Plans</h1>
+          <p className="text-muted-foreground text-sm">Teaching Tekkers coaching session library</p>
+        </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search plans…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+      <div className="stat-grid">
+        <StatCard label="Total Sessions" value={plans.length} icon={BookOpen} />
+        <StatCard label="Categories" value={categories.length} icon={Tag} />
       </div>
 
-      {filtered.length === 0 ? (
+      <div className="space-y-3">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Search sessions..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge
+            variant={filterCategory === "all" ? "default" : "outline"}
+            className="cursor-pointer"
+            onClick={() => setFilterCategory("all")}
+          >
+            All ({plans.length})
+          </Badge>
+          {categoryCounts.map(cat => (
+            <Badge
+              key={cat.id}
+              variant={filterCategory === cat.id ? "default" : "outline"}
+              className="cursor-pointer"
+              onClick={() => setFilterCategory(cat.id)}
+            >
+              {cat.name} ({cat.count})
+            </Badge>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <Card><CardContent className="py-16 text-center text-muted-foreground">Loading...</CardContent></Card>
+      ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
             <BookOpen className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="text-muted-foreground font-medium">No session plans found</p>
+            <p className="text-muted-foreground font-medium">
+              {search || filterCategory !== "all" ? "No sessions match your filters" : "No session plans yet"}
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-8">
-          {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([cat, catPlans]) => (
-            <div key={cat}>
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">{cat} ({catPlans.length})</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {catPlans.map(plan => (
-                  <Card key={plan.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setViewPlan(plan)}>
-                    <CardContent className="p-4 space-y-2">
-                      <h3 className="font-semibold text-sm">{plan.title}</h3>
-                      <Badge variant="secondary" className="text-xs">{plan.age_group}</Badge>
-                      {plan.description && <p className="text-sm text-muted-foreground line-clamp-2">{plan.description}</p>}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filtered.map(plan => (
+            <SessionPlanCard
+              key={plan.id}
+              title={plan.title}
+              category={plan.category_name}
+              ageGroup={plan.age_group}
+              description={plan.description}
+              diagramUrl={plan.diagram_image_url}
+              onClick={() => setViewPlan(plan)}
+            />
           ))}
         </div>
       )}
 
-      <Dialog open={!!viewPlan} onOpenChange={() => setViewPlan(null)}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          {viewPlan && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{viewPlan.title}</DialogTitle>
-                <div className="flex items-center gap-2 pt-1">
-                  <Badge variant="secondary">{viewPlan.age_group}</Badge>
-                  <Badge variant="outline">{getCategoryName(viewPlan.category_id)}</Badge>
-                </div>
-              </DialogHeader>
-              <div className="space-y-4 pt-2">
-                {viewPlan.diagram_image_url && (
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Diagram</p>
-                    <img src={viewPlan.diagram_image_url} alt={viewPlan.title} className="w-full rounded-lg border" />
-                  </div>
-                )}
-                {viewPlan.description && (
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Description</p>
-                    <p className="text-sm text-muted-foreground">{viewPlan.description}</p>
-                  </div>
-                )}
-                {viewPlan.content && (
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Session Content</p>
-                    <div className="rounded-lg border p-4 bg-muted/30">
-                      <pre className="text-sm whitespace-pre-wrap font-sans">{viewPlan.content}</pre>
-                    </div>
-                  </div>
-                )}
-                {viewPlan.coaching_points && (
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Coaching Points</p>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{viewPlan.coaching_points}</p>
-                  </div>
-                )}
-                {viewPlan.organisation && (
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Organisation</p>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{viewPlan.organisation}</p>
-                  </div>
-                )}
-                {viewPlan.equipment && (
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Equipment</p>
-                    <p className="text-sm text-muted-foreground">{viewPlan.equipment}</p>
-                  </div>
-                )}
-                {viewPlan.video_url && (
-                  <div>
-                    <a href={viewPlan.video_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">Watch Video</a>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <SessionPlanDetail
+        plan={viewPlan}
+        open={!!viewPlan}
+        onClose={() => setViewPlan(null)}
+        onEdit={noop}
+        onDuplicate={noop}
+        readOnly
+      />
     </div>
   );
 }
