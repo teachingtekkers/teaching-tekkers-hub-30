@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BookOpen, Calendar, Loader2 } from "lucide-react";
+import { BookOpen, Loader2, Search } from "lucide-react";
 
 interface SessionPlanRow {
   id: string;
@@ -19,19 +20,7 @@ interface SessionPlanRow {
   diagram_image_url: string | null;
   video_url: string | null;
   category_id: string | null;
-}
-
-interface AssignmentRow {
-  id: string;
-  camp_id: string;
-  session_plan_id: string;
-  camp_day: string | null;
-}
-
-interface CampRow {
-  id: string;
-  name: string;
-  club_name: string;
+  other_comments: string | null;
 }
 
 interface CategoryRow {
@@ -40,59 +29,45 @@ interface CategoryRow {
 }
 
 export default function CoachSessionPlansPage() {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
   const [viewPlan, setViewPlan] = useState<SessionPlanRow | null>(null);
-  const [groups, setGroups] = useState<{ camp: CampRow; plans: { assignment: AssignmentRow; plan: SessionPlanRow }[] }[]>([]);
-  const [categories, setCategories] = useState<CategoryRow[]>([]);
+  const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      const { data: profile } = await supabase.from("profiles").select("coach_id").eq("id", user.id).single();
-      if (!profile?.coach_id) { setLoading(false); return; }
+  const { data: plans = [], isLoading: plansLoading } = useQuery({
+    queryKey: ["all-session-plans"],
+    queryFn: async () => {
+      const { data } = await supabase.from("session_plans").select("*").order("title");
+      return (data || []) as unknown as SessionPlanRow[];
+    },
+  });
 
-      const { data: assignments } = await supabase.from("camp_coach_assignments").select("camp_id").eq("coach_id", profile.coach_id);
-      const campIds = (assignments || []).map(a => a.camp_id);
-      if (campIds.length === 0) { setLoading(false); return; }
-
-      const [campsRes, spAssignRes, catsRes] = await Promise.all([
-        supabase.from("camps").select("id, name, club_name").in("id", campIds),
-        supabase.from("session_plan_assignments").select("id, camp_id, session_plan_id, camp_day").in("camp_id", campIds),
-        supabase.from("session_plan_categories").select("id, name"),
-      ]);
-
-      const campsMap = new Map((campsRes.data || []).map(c => [c.id, c as CampRow]));
-      setCategories((catsRes.data || []) as CategoryRow[]);
-
-      const spIds = [...new Set((spAssignRes.data || []).map(a => a.session_plan_id))];
-      let plansMap = new Map<string, SessionPlanRow>();
-      if (spIds.length > 0) {
-        const { data: plans } = await supabase.from("session_plans").select("*").in("id", spIds);
-        plansMap = new Map((plans || []).map(p => [p.id, p as unknown as SessionPlanRow]));
-      }
-
-      const result: typeof groups = [];
-      for (const campId of campIds) {
-        const camp = campsMap.get(campId);
-        if (!camp) continue;
-        const campAssigns = (spAssignRes.data || []).filter(a => a.camp_id === campId) as AssignmentRow[];
-        const planItems = campAssigns
-          .map(a => ({ assignment: a, plan: plansMap.get(a.session_plan_id)! }))
-          .filter(x => x.plan);
-        if (planItems.length > 0) result.push({ camp, plans: planItems });
-      }
-      setGroups(result);
-      setLoading(false);
-    })();
-  }, [user]);
+  const { data: categories = [] } = useQuery({
+    queryKey: ["session-plan-categories"],
+    queryFn: async () => {
+      const { data } = await supabase.from("session_plan_categories").select("id, name");
+      return (data || []) as CategoryRow[];
+    },
+  });
 
   const getCategoryName = (catId: string | null) => {
     if (!catId) return "Uncategorised";
     return categories.find(c => c.id === catId)?.name || "Uncategorised";
   };
 
-  if (loading) {
+  const filtered = plans.filter(p => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return p.title.toLowerCase().includes(q) || getCategoryName(p.category_id).toLowerCase().includes(q);
+  });
+
+  // Group by category
+  const grouped = filtered.reduce<Record<string, SessionPlanRow[]>>((acc, p) => {
+    const cat = getCategoryName(p.category_id);
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(p);
+    return acc;
+  }, {});
+
+  if (plansLoading) {
     return <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
 
@@ -100,36 +75,32 @@ export default function CoachSessionPlansPage() {
     <div className="space-y-6">
       <div className="page-header">
         <h1 className="text-xl font-bold text-foreground">Session Plans</h1>
-        <p className="text-sm text-muted-foreground">Your assigned camp session plans</p>
+        <p className="text-sm text-muted-foreground">Browse all coaching drills and session plans</p>
       </div>
 
-      {groups.length === 0 ? (
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Search plans…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+      </div>
+
+      {filtered.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
             <BookOpen className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="text-muted-foreground font-medium">No session plans assigned yet</p>
-            <p className="text-sm text-muted-foreground/70 mt-1">Plans will appear here when assigned to your camps</p>
+            <p className="text-muted-foreground font-medium">No session plans found</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-8">
-          {groups.map(({ camp, plans }) => (
-            <div key={camp.id}>
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">{camp.name} — {camp.club_name}</p>
+          {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([cat, catPlans]) => (
+            <div key={cat}>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">{cat} ({catPlans.length})</p>
               <div className="grid gap-3 sm:grid-cols-2">
-                {plans.map(({ assignment, plan }) => (
-                  <Card key={assignment.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setViewPlan(plan)}>
+                {catPlans.map(plan => (
+                  <Card key={plan.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setViewPlan(plan)}>
                     <CardContent className="p-4 space-y-2">
                       <h3 className="font-semibold text-sm">{plan.title}</h3>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">{plan.age_group}</Badge>
-                        <Badge variant="outline" className="text-xs">{getCategoryName(plan.category_id)}</Badge>
-                      </div>
-                      {assignment.camp_day && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Calendar className="h-3 w-3" /> {assignment.camp_day}
-                        </div>
-                      )}
+                      <Badge variant="secondary" className="text-xs">{plan.age_group}</Badge>
                       {plan.description && <p className="text-sm text-muted-foreground line-clamp-2">{plan.description}</p>}
                     </CardContent>
                   </Card>
@@ -172,10 +143,21 @@ export default function CoachSessionPlansPage() {
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap">{viewPlan.coaching_points}</p>
                   </div>
                 )}
+                {viewPlan.organisation && (
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Organisation</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{viewPlan.organisation}</p>
+                  </div>
+                )}
                 {viewPlan.equipment && (
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Equipment</p>
                     <p className="text-sm text-muted-foreground">{viewPlan.equipment}</p>
+                  </div>
+                )}
+                {viewPlan.video_url && (
+                  <div>
+                    <a href={viewPlan.video_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">Watch Video</a>
                   </div>
                 )}
               </div>
