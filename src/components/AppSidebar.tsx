@@ -81,7 +81,7 @@ const headCoachItems = [
   { title: "My Camps", url: "/coach/my-camps", icon: Trophy },
   { title: "Attendance", url: "/coach/attendance", icon: ClipboardCheck },
   { title: "Session Plans", url: "/coach/session-plans", icon: BookOpen },
-  { title: "Fixtures Generator", url: "/fixtures", icon: Swords },
+  { title: "Fixtures Generator", url: "/coach/fixtures", icon: Swords },
   { title: "Camp Itinerary", url: "/coach/itinerary", icon: FileCheck },
 ];
 
