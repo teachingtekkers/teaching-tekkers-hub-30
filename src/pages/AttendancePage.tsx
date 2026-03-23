@@ -177,7 +177,7 @@ export default function AttendancePage() {
     persistAttendance(participantId, newStatus);
   }, [persistAttendance]);
 
-  const markAllPresent = useCallback(async () => {
+  const markAll = useCallback(async (status: "present" | "absent") => {
     if (!selectedCamp) return;
     setAutoSaveStatus("saving");
     clearTimeout(autoSaveTimer.current);
@@ -187,11 +187,11 @@ export default function AttendancePage() {
     const inserts: any[] = [];
     for (const p of participants) {
       const existing = attendanceRef.current.get(p.id);
-      newMap.set(p.id, { id: existing?.id, synced_booking_id: p.id, status: "present", note: existing?.note || null });
+      newMap.set(p.id, { id: existing?.id, synced_booking_id: p.id, status, note: existing?.note || null });
       if (existing?.id) {
-        upserts.push({ id: existing.id, camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status: "present", note: existing.note });
+        upserts.push({ id: existing.id, camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status, note: existing.note });
       } else {
-        inserts.push({ camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status: "present", note: null });
+        inserts.push({ camp_id: selectedCamp, synced_booking_id: p.id, date: selectedDate, status, note: null });
       }
     }
     setAttendance(newMap);
@@ -299,8 +299,11 @@ export default function AttendancePage() {
           </div>
 
           <div className="flex items-center gap-2 px-1">
-            <Button variant="outline" size="sm" onClick={markAllPresent} disabled={participants.length === 0}>
+            <Button variant="outline" size="sm" onClick={() => markAll("present")} disabled={participants.length === 0}>
               Mark All Present
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => markAll("absent")} disabled={participants.length === 0}>
+              Mark All Absent
             </Button>
             <Button variant="outline" size="sm" onClick={() => setWalkInOpen(true)}>
               <UserPlus className="h-3.5 w-3.5 mr-1.5" />
