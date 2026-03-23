@@ -81,7 +81,7 @@ export default function SessionPlanDetail({ plan, open, onClose, onEdit, onDupli
               >
                 <Copy className="h-4 w-4" />
               </Button>
-            </div>
+            </div>}
           </div>
         </div>
 
