@@ -299,8 +299,11 @@ export default function AttendancePage() {
           </div>
 
           <div className="flex items-center gap-2 px-1">
-            <Button variant="outline" size="sm" onClick={markAllPresent} disabled={participants.length === 0}>
+            <Button variant="outline" size="sm" onClick={() => markAll("present")} disabled={participants.length === 0}>
               Mark All Present
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => markAll("absent")} disabled={participants.length === 0}>
+              Mark All Absent
             </Button>
             <Button variant="outline" size="sm" onClick={() => setWalkInOpen(true)}>
               <UserPlus className="h-3.5 w-3.5 mr-1.5" />
