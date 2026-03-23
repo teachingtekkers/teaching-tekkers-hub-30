@@ -64,7 +64,7 @@ export default function SessionPlanDetail({ plan, open, onClose, onEdit, onDupli
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
+            {!readOnly && <div className="flex items-center gap-1 shrink-0">
               <Button
                 size="icon"
                 variant="ghost"
