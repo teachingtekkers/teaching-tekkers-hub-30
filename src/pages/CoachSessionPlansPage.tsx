@@ -123,6 +123,12 @@ export default function CoachSessionPlansPage() {
                 </div>
               </DialogHeader>
               <div className="space-y-4 pt-2">
+                {viewPlan.diagram_image_url && (
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Diagram</p>
+                    <img src={viewPlan.diagram_image_url} alt={viewPlan.title} className="w-full rounded-lg border" />
+                  </div>
+                )}
                 {viewPlan.description && (
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Description</p>
