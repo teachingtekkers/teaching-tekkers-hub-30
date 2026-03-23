@@ -27,6 +27,7 @@ interface Props {
   onClose: () => void;
   onEdit: (plan: SessionPlanData) => void;
   onDuplicate: (plan: SessionPlanData) => void;
+  readOnly?: boolean;
 }
 
 function DetailSection({ label, children }: { label: string; children: React.ReactNode }) {
