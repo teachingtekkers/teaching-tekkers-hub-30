@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,6 +78,64 @@ const TEAM_FORMATS = [
 
 const CAMP_TYPES = ["Summer Camp", "Easter Camp", "Halloween Camp", "Mid-Term Camp", "Custom"];
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getTeamFormatStem(value: string) {
+  return value.replace(/\s+teams?$/i, "").trim();
+}
+
+function replaceTeamFormatText(value: string, oldFormat: string, newFormat: string) {
+  if (!value || !oldFormat || oldFormat === newFormat) return value;
+
+  const oldFull = oldFormat.trim();
+  const newFull = newFormat.trim();
+  const oldStem = getTeamFormatStem(oldFull);
+  const newStem = getTeamFormatStem(newFull);
+
+  let nextValue = value;
+
+  nextValue = nextValue.replace(new RegExp(`\\b${escapeRegExp(oldFull)}\\b`, "gi"), newFull);
+
+  if (oldStem) {
+    nextValue = nextValue
+      .replace(new RegExp(`\\b${escapeRegExp(oldStem)}\\s+teams\\b`, "gi"), newFull)
+      .replace(new RegExp(`\\b${escapeRegExp(oldStem)}\\b`, "gi"), newStem);
+  }
+
+  return nextValue;
+}
+
+function applyTeamFormatToBlock(block: BlockRow, teamFormat: string): BlockRow {
+  const normalizedFormat = teamFormat || "Teams";
+  const formatStem = getTeamFormatStem(normalizedFormat);
+
+  let title = block.block_title;
+  let description = block.description;
+
+  description = description
+    .replace(/in their teams/gi, `in their ${normalizedFormat}`)
+    .replace(/in teams/gi, `in ${normalizedFormat}`)
+    .replace(/Set up pitches for Matches\./gi, `Set up pitches for Matches in ${normalizedFormat}.`)
+    .replace(/Set up pitches for Matches$/gi, `Set up pitches for Matches in ${normalizedFormat}`)
+    .replace(/Set up pitches\./gi, `Set up pitches for ${normalizedFormat}.`);
+
+  if (title === "Finals") {
+    title = `${formatStem} Finals`;
+  }
+
+  if (title === "Divide into Teams") {
+    title = `Divide into ${normalizedFormat}`;
+  }
+
+  return {
+    ...block,
+    block_title: title,
+    description,
+  };
+}
+
 function blockTemplateToRow(bt: BlockTemplate, index: number): BlockRow {
   return {
     sort_order: index,
@@ -106,8 +164,8 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
   const [sessionPlans, setSessionPlans] = useState<SessionPlanOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [activeDay, setActiveDay] = useState("0");
-  // Theme confirmation dialog
   const [themeConfirm, setThemeConfirm] = useState<{ dayIdx: number; theme: ThemeTemplate } | null>(null);
+  const previousTeamFormatRef = useRef<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -127,12 +185,27 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
       });
   }, []);
 
+  /** Apply theme text to "Theme Points" blocks and clean-up blocks */
+  function applyThemeToBlocks(templates: BlockTemplate[], theme: ThemeTemplate, teamFormat: string): BlockRow[] {
+    return templates.map((bt, i) => {
+      const row = blockTemplateToRow(bt, i);
+      if (bt.block_title === "Theme Points" && theme.themePointsBlock) {
+        row.block_title = theme.themePointsBlock;
+      }
+      if (bt.block_title === "Clean Up & Home Time" && theme.cleanUpNote) {
+        row.description = theme.cleanUpNote;
+      }
+      return applyTeamFormatToBlock(row, teamFormat);
+    });
+  }
+
   const loadItinerary = useCallback(async () => {
     if (!itineraryId) {
       const reg = DAY_THEMES.find((t) => t.id === "registration_day")!;
       const crazy = DAY_THEMES.find((t) => t.id === "crazy_hair")!;
       const player = DAY_THEMES.find((t) => t.id === "player_country")!;
       const flag = DAY_THEMES.find((t) => t.id === "flag_day")!;
+      const defaultTeamFormat = "World Cup Teams";
 
       const defaultDays: DayRow[] = [
         {
@@ -141,7 +214,9 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
           theme: "",
           next_day_reminder: crazy.titleSuffix,
           setup_notes: reg.setupNotes,
-          blocks: getBlocksForTheme("registration_day", 1).map(blockTemplateToRow),
+          blocks: getBlocksForTheme("registration_day", 1)
+            .map(blockTemplateToRow)
+            .map((block) => applyTeamFormatToBlock(block, defaultTeamFormat)),
         },
         {
           day_number: 2,
@@ -149,7 +224,7 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
           theme: crazy.titleSuffix,
           next_day_reminder: player.titleSuffix,
           setup_notes: crazy.setupNotes,
-          blocks: applyThemeToBlocks(getBlocksForTheme("crazy_hair", 2), crazy),
+          blocks: applyThemeToBlocks(getBlocksForTheme("crazy_hair", 2), crazy, defaultTeamFormat),
         },
         {
           day_number: 3,
@@ -157,7 +232,7 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
           theme: player.titleSuffix,
           next_day_reminder: flag.titleSuffix,
           setup_notes: player.setupNotes,
-          blocks: applyThemeToBlocks(getBlocksForTheme("player_country", 3), player),
+          blocks: applyThemeToBlocks(getBlocksForTheme("player_country", 3), player, defaultTeamFormat),
         },
         {
           day_number: 4,
@@ -165,9 +240,10 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
           theme: flag.titleSuffix,
           next_day_reminder: "",
           setup_notes: flag.setupNotes,
-          blocks: applyThemeToBlocks(getBlocksForTheme("final_day", 4), flag),
+          blocks: applyThemeToBlocks(getBlocksForTheme("final_day", 4), flag, defaultTeamFormat),
         },
       ];
+      previousTeamFormatRef.current = defaultTeamFormat;
       setDays(defaultDays);
       return;
     }
@@ -175,13 +251,16 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
     const { data: it } = await supabase.from("itineraries").select("*").eq("id", itineraryId).single();
     if (!it) return;
     const itData = it as any;
+    const loadedTeamFormat = itData.team_format || "World Cup Teams";
+    previousTeamFormatRef.current = loadedTeamFormat;
+
     setForm({
       title: itData.title || "",
       camp_type: itData.camp_type || "",
       venue: itData.venue || "",
       start_date: itData.start_date || "",
       num_days: itData.num_days || 4,
-      team_format: itData.team_format || "",
+      team_format: loadedTeamFormat,
       notes: itData.notes || "",
       cover_title: itData.cover_title || "",
       is_template: itData.is_template || false,
@@ -226,62 +305,40 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
     }
   }, [itineraryId]);
 
-  useEffect(() => { loadItinerary(); }, [loadItinerary]);
-
-  // When team_format changes, update all existing block descriptions to use the new format
-  const prevTeamFormat = useState<string | null>(null);
   useEffect(() => {
-    const [prev, setPrev] = prevTeamFormat;
-    if (prev === null) {
-      // First render – just record the initial value
-      setPrev(form.team_format);
+    loadItinerary();
+  }, [loadItinerary]);
+
+  useEffect(() => {
+    const previousFormat = previousTeamFormatRef.current;
+    const nextFormat = form.team_format;
+
+    if (!nextFormat) return;
+    if (!previousFormat) {
+      previousTeamFormatRef.current = nextFormat;
       return;
     }
-    if (prev === form.team_format) return;
-    const oldText = prev || "Teams";
-    const newText = form.team_format || "Teams";
-    setPrev(form.team_format);
+    if (previousFormat === nextFormat) return;
 
     setDays((currentDays) =>
       currentDays.map((day) => ({
         ...day,
-        blocks: day.blocks.map((b) => {
-          let desc = b.description;
-          let title = b.block_title;
-
-          // Replace old format references in descriptions
-          if (oldText) {
-            const oldEscaped = oldText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-            desc = desc.replace(new RegExp(oldEscaped, "gi"), newText);
-            // Also handle the "X Finals" pattern in titles
-            const oldStem = oldText.replace(/ Teams$/i, "");
-            const newStem = newText.replace(/ Teams$/i, "");
-            if (oldStem && title.includes(oldStem)) {
-              title = title.replace(new RegExp(oldStem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), newStem);
-            }
-          }
-
-          return { ...b, description: desc, block_title: title };
-        }),
+        title: replaceTeamFormatText(day.title, previousFormat, nextFormat),
+        theme: replaceTeamFormatText(day.theme, previousFormat, nextFormat),
+        next_day_reminder: replaceTeamFormatText(day.next_day_reminder, previousFormat, nextFormat),
+        setup_notes: replaceTeamFormatText(day.setup_notes, previousFormat, nextFormat),
+        blocks: day.blocks.map((block) => ({
+          ...block,
+          block_title: replaceTeamFormatText(block.block_title, previousFormat, nextFormat),
+          description: replaceTeamFormatText(block.description, previousFormat, nextFormat),
+          notes: replaceTeamFormatText(block.notes, previousFormat, nextFormat),
+        })),
       }))
     );
 
-    toast({ title: `Team format updated to "${newText}"` });
+    previousTeamFormatRef.current = nextFormat;
+    toast({ title: `Team format updated to "${nextFormat}"` });
   }, [form.team_format]);
-
-  /** Apply theme text to "Theme Points" blocks and clean-up blocks */
-  function applyThemeToBlocks(templates: BlockTemplate[], theme: ThemeTemplate): BlockRow[] {
-    return templates.map((bt, i) => {
-      const row = blockTemplateToRow(bt, i);
-      if (bt.block_title === "Theme Points" && theme.themePointsBlock) {
-        row.block_title = theme.themePointsBlock;
-      }
-      if (bt.block_title === "Clean Up & Home Time" && theme.cleanUpNote) {
-        row.description = theme.cleanUpNote;
-      }
-      return row;
-    });
-  }
 
   /** Handle theme selection – show confirmation, then apply */
   const handleThemeSelect = (dayIdx: number, themeId: string) => {
@@ -299,25 +356,8 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
     const { dayIdx, theme } = themeConfirm;
     const day = days[dayIdx];
 
-    // Get appropriate block templates
     const blockTemplates = getBlocksForTheme(theme.id, day.day_number);
-    const newBlocks = applyThemeToBlocks(blockTemplates, theme);
-
-    // Update the team format text in block descriptions
-    const teamText = form.team_format || "Teams";
-    newBlocks.forEach((b) => {
-      b.description = b.description
-        .replace(/in \w+ teams/gi, `in ${teamText}`)
-        .replace(/Set up pitches for Matches\./g, `Set up pitches for Matches in ${teamText}.`)
-        .replace(/Set up pitches for Matches$/g, `Set up pitches for Matches in ${teamText}`)
-        .replace(/Set up pitches\./g, `Set up pitches for ${teamText}.`);
-      if (b.block_title === "Finals") {
-        b.block_title = `${teamText.replace(" Teams", "")} Finals`;
-      }
-      if (b.block_title === "Penalties" && b.description.includes("in their teams")) {
-        b.description = b.description.replace("in their teams", `in their ${teamText}`);
-      }
-    });
+    const newBlocks = applyThemeToBlocks(blockTemplates, theme, form.team_format || "World Cup Teams");
 
     setDays((prev) =>
       prev.map((d, i) =>
@@ -432,7 +472,9 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
 
   const addDay = () => {
     const newNum = days.length + 1;
-    const defaultBlocks = getBlocksForTheme("none", newNum).map(blockTemplateToRow);
+    const defaultBlocks = getBlocksForTheme("none", newNum)
+      .map(blockTemplateToRow)
+      .map((block) => applyTeamFormatToBlock(block, form.team_format || "World Cup Teams"));
     setDays((prev) => [
       ...prev,
       {
