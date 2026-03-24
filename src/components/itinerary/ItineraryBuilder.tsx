@@ -228,6 +228,47 @@ export default function ItineraryBuilder({ itineraryId, onBack, onSaved }: Props
 
   useEffect(() => { loadItinerary(); }, [loadItinerary]);
 
+  // When team_format changes, update all existing block descriptions to use the new format
+  const prevTeamFormat = useState<string | null>(null);
+  useEffect(() => {
+    const [prev, setPrev] = prevTeamFormat;
+    if (prev === null) {
+      // First render – just record the initial value
+      setPrev(form.team_format);
+      return;
+    }
+    if (prev === form.team_format) return;
+    const oldText = prev || "Teams";
+    const newText = form.team_format || "Teams";
+    setPrev(form.team_format);
+
+    setDays((currentDays) =>
+      currentDays.map((day) => ({
+        ...day,
+        blocks: day.blocks.map((b) => {
+          let desc = b.description;
+          let title = b.block_title;
+
+          // Replace old format references in descriptions
+          if (oldText) {
+            const oldEscaped = oldText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            desc = desc.replace(new RegExp(oldEscaped, "gi"), newText);
+            // Also handle the "X Finals" pattern in titles
+            const oldStem = oldText.replace(/ Teams$/i, "");
+            const newStem = newText.replace(/ Teams$/i, "");
+            if (oldStem && title.includes(oldStem)) {
+              title = title.replace(new RegExp(oldStem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), newStem);
+            }
+          }
+
+          return { ...b, description: desc, block_title: title };
+        }),
+      }))
+    );
+
+    toast({ title: `Team format updated to "${newText}"` });
+  }, [form.team_format]);
+
   /** Apply theme text to "Theme Points" blocks and clean-up blocks */
   function applyThemeToBlocks(templates: BlockTemplate[], theme: ThemeTemplate): BlockRow[] {
     return templates.map((bt, i) => {
