@@ -27,6 +27,7 @@ export function RosterUnassignedPool({ coaches, onDragStart }: Props) {
               <span className="font-medium">{c.full_name}</span>
               {c.can_drive && <Car className="h-3 w-3 text-[hsl(var(--success))]" />}
               {(c.is_head_coach || c.role_type === "head_coach") && <span title="HC eligible">⭐</span>}
+              {c.role_type === "helper" && <span className="text-[10px] text-muted-foreground font-medium">[H]</span>}
               <span className="text-[10px] text-muted-foreground">[{EXP_SHORT[c.experience_level] || "St"}]</span>
               {c.county && <span className="text-muted-foreground text-[10px]">({c.county})</span>}
             </div>
