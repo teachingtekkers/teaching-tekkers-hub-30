@@ -18,9 +18,9 @@ interface Props {
   coaches: RosterCoach[];
   unassignedCoaches: RosterCoach[];
   onRemove: (id: string) => void;
-  onAdd: (campId: string, coachId: string, role: "head_coach" | "assistant") => void;
+  onAdd: (campId: string, coachId: string, role: "head_coach" | "assistant" | "helper") => void;
   onAddDay1Support: (campId: string, coachId: string) => void;
-  onChangeRole: (id: string, role: "head_coach" | "assistant") => void;
+  onChangeRole: (id: string, role: "head_coach" | "assistant" | "helper") => void;
   onToggleDay: (assignmentId: string, day: string) => void;
   onToggleDriving: (assignmentId: string) => void;
   onToggleCampAccess: (assignmentId: string) => void;

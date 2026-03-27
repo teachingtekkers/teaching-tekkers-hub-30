@@ -55,7 +55,7 @@ export interface DailyAssignment {
   id: string;
   camp_id: string;
   coach_id: string;
-  role: "head_coach" | "assistant";
+  role: "head_coach" | "assistant" | "helper";
   days: string[];
   is_day1_support?: boolean;
   driving_this_week?: boolean;
