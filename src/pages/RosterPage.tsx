@@ -378,7 +378,7 @@ const RosterPage = () => {
       const day1Coach = availableCoaches.filter(c => !used.has(c.id))
         .map(c => ({ coach: c, score: campFitScore(c, camp) })).sort((a, b) => b.score - a.score)[0]?.coach;
       if (day1Coach) {
-        newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: day1Coach.id, role: "assistant", days: [campDays[0]], is_day1_support: true, driving_this_week: false });
+        newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: day1Coach.id, role: day1Coach.role_type === "helper" ? "helper" : "assistant", days: [campDays[0]], is_day1_support: true, driving_this_week: false });
         used.add(day1Coach.id);
       }
     }
