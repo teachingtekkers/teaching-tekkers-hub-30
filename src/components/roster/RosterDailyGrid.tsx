@@ -149,11 +149,12 @@ export function RosterDailyGrid({
                         {coach.county && <span className="text-[10px] text-muted-foreground">{coach.county}</span>}
                       </td>
                       <td className="p-2">
-                        <Select value={a.role} onValueChange={(v) => onChangeRole(a.id, v as "head_coach" | "assistant")}>
+                        <Select value={a.role} onValueChange={(v) => onChangeRole(a.id, v as "head_coach" | "assistant" | "helper")}>
                           <SelectTrigger className="h-6 w-[80px] text-[10px]"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="head_coach">Head Coach</SelectItem>
                             <SelectItem value="assistant">Assistant</SelectItem>
+                            <SelectItem value="helper">Helper</SelectItem>
                           </SelectContent>
                         </Select>
                       </td>
