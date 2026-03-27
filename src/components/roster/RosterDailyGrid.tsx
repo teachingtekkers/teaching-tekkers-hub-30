@@ -272,11 +272,12 @@ export function RosterDailyGrid({
                   </div>
                   <div className="space-y-2">
                     <Label>Role</Label>
-                    <Select value={selRole} onValueChange={(v) => setSelRole(v as "head_coach" | "assistant")}>
+                    <Select value={selRole} onValueChange={(v) => setSelRole(v as "head_coach" | "assistant" | "helper")}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="head_coach">Head Coach</SelectItem>
                         <SelectItem value="assistant">Assistant</SelectItem>
+                        <SelectItem value="helper">Helper</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
