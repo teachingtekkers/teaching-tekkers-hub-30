@@ -364,7 +364,7 @@ const RosterPage = () => {
             return { coach: c, score };
           }).sort((a, b) => b.score - a.score)[0]?.coach;
         if (coach) {
-          newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: coach.id, role: "assistant", days: campDays, driving_this_week: false });
+          newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: coach.id, role: coach.role_type === "helper" ? "helper" : "assistant", days: campDays, driving_this_week: false });
           used.add(coach.id);
         }
       }
