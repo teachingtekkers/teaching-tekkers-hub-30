@@ -406,7 +406,7 @@ const RosterPage = () => {
   // ---- Assignment editing handlers ----
   const removeAssignment = (id: string) => { setAssignments(prev => prev.filter(a => a.id !== id)); markDirty(); };
 
-  const addAssignment = (campId: string, coachId: string, role: "head_coach" | "assistant") => {
+  const addAssignment = (campId: string, coachId: string, role: "head_coach" | "assistant" | "helper") => {
     const camp = camps.find(c => c.id === campId);
     if (!camp) return;
     const campDays = getCampDays(camp).map(d => format(d, "yyyy-MM-dd"));
