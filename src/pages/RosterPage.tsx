@@ -55,7 +55,7 @@ export interface DailyAssignment {
   id: string;
   camp_id: string;
   coach_id: string;
-  role: "head_coach" | "assistant";
+  role: "head_coach" | "assistant" | "helper";
   days: string[];
   is_day1_support?: boolean;
   driving_this_week?: boolean;
@@ -230,7 +230,7 @@ const RosterPage = () => {
 
     // Sync camp access to camp_coach_assignments
     // Collect coaches who should have access: head_coach role OR grant_camp_access=true
-    const accessPairs = new Map<string, { coach_id: string; camp_id: string; role: "head_coach" | "assistant" }>();
+    const accessPairs = new Map<string, { coach_id: string; camp_id: string; role: "head_coach" | "assistant" | "helper" }>();
     for (const a of assignments) {
       if (a.role === "head_coach" || a.grant_camp_access) {
         const key = `${a.coach_id}__${a.camp_id}`;
@@ -341,7 +341,7 @@ const RosterPage = () => {
         const driver = availableCoaches.filter(c => !used.has(c.id) && c.can_drive)
           .map(c => ({ coach: c, score: campFitScore(c, camp) })).sort((a, b) => b.score - a.score)[0]?.coach;
         if (driver) {
-          newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: driver.id, role: "assistant", days: campDays, driving_this_week: true });
+          newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: driver.id, role: driver.role_type === "helper" ? "helper" : "assistant", days: campDays, driving_this_week: true });
           used.add(driver.id);
         }
       }
@@ -364,7 +364,7 @@ const RosterPage = () => {
             return { coach: c, score };
           }).sort((a, b) => b.score - a.score)[0]?.coach;
         if (coach) {
-          newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: coach.id, role: "assistant", days: campDays, driving_this_week: false });
+          newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: coach.id, role: coach.role_type === "helper" ? "helper" : "assistant", days: campDays, driving_this_week: false });
           used.add(coach.id);
         }
       }
@@ -378,7 +378,7 @@ const RosterPage = () => {
       const day1Coach = availableCoaches.filter(c => !used.has(c.id))
         .map(c => ({ coach: c, score: campFitScore(c, camp) })).sort((a, b) => b.score - a.score)[0]?.coach;
       if (day1Coach) {
-        newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: day1Coach.id, role: "assistant", days: [campDays[0]], is_day1_support: true, driving_this_week: false });
+        newAssignments.push({ id: String(nextId++), camp_id: camp.id, coach_id: day1Coach.id, role: day1Coach.role_type === "helper" ? "helper" : "assistant", days: [campDays[0]], is_day1_support: true, driving_this_week: false });
         used.add(day1Coach.id);
       }
     }
@@ -406,7 +406,7 @@ const RosterPage = () => {
   // ---- Assignment editing handlers ----
   const removeAssignment = (id: string) => { setAssignments(prev => prev.filter(a => a.id !== id)); markDirty(); };
 
-  const addAssignment = (campId: string, coachId: string, role: "head_coach" | "assistant") => {
+  const addAssignment = (campId: string, coachId: string, role: "head_coach" | "assistant" | "helper") => {
     const camp = camps.find(c => c.id === campId);
     if (!camp) return;
     const campDays = getCampDays(camp).map(d => format(d, "yyyy-MM-dd"));
@@ -434,7 +434,7 @@ const RosterPage = () => {
     markDirty();
   };
 
-  const changeRole = (id: string, role: "head_coach" | "assistant") => { setAssignments(prev => prev.map(a => a.id === id ? { ...a, role, grant_camp_access: role === "head_coach" ? true : a.grant_camp_access } : a)); markDirty(); };
+  const changeRole = (id: string, role: "head_coach" | "assistant" | "helper") => { setAssignments(prev => prev.map(a => a.id === id ? { ...a, role, grant_camp_access: role === "head_coach" ? true : a.grant_camp_access } : a)); markDirty(); };
 
   const toggleDay = (id: string, day: string) => {
     setAssignments(prev => prev.map(a => {

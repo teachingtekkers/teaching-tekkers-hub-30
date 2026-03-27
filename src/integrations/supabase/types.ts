@@ -2304,7 +2304,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "head_coach"
       attendance_status: "present" | "absent"
-      coach_role: "head_coach" | "assistant"
+      coach_role: "head_coach" | "assistant" | "helper"
       fixture_format: "group_stage" | "knockout" | "group_knockout"
       invoice_status: "draft" | "ready" | "sent" | "paid"
       payment_status: "paid" | "pending" | "refunded"
@@ -2441,7 +2441,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "head_coach"],
       attendance_status: ["present", "absent"],
-      coach_role: ["head_coach", "assistant"],
+      coach_role: ["head_coach", "assistant", "helper"],
       fixture_format: ["group_stage", "knockout", "group_knockout"],
       invoice_status: ["draft", "ready", "sent", "paid"],
       payment_status: ["paid", "pending", "refunded"],

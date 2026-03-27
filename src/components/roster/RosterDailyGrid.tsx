@@ -18,9 +18,9 @@ interface Props {
   coaches: RosterCoach[];
   unassignedCoaches: RosterCoach[];
   onRemove: (id: string) => void;
-  onAdd: (campId: string, coachId: string, role: "head_coach" | "assistant") => void;
+  onAdd: (campId: string, coachId: string, role: "head_coach" | "assistant" | "helper") => void;
   onAddDay1Support: (campId: string, coachId: string) => void;
-  onChangeRole: (id: string, role: "head_coach" | "assistant") => void;
+  onChangeRole: (id: string, role: "head_coach" | "assistant" | "helper") => void;
   onToggleDay: (assignmentId: string, day: string) => void;
   onToggleDriving: (assignmentId: string) => void;
   onToggleCampAccess: (assignmentId: string) => void;
@@ -43,7 +43,7 @@ export function RosterDailyGrid({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [day1DialogOpen, setDay1DialogOpen] = useState(false);
   const [selCoach, setSelCoach] = useState("");
-  const [selRole, setSelRole] = useState<"head_coach" | "assistant">("assistant");
+  const [selRole, setSelRole] = useState<"head_coach" | "assistant" | "helper">("assistant");
   const [dragOver, setDragOver] = useState(false);
 
   const campDays = getCampDays(camp);
@@ -149,11 +149,12 @@ export function RosterDailyGrid({
                         {coach.county && <span className="text-[10px] text-muted-foreground">{coach.county}</span>}
                       </td>
                       <td className="p-2">
-                        <Select value={a.role} onValueChange={(v) => onChangeRole(a.id, v as "head_coach" | "assistant")}>
+                        <Select value={a.role} onValueChange={(v) => onChangeRole(a.id, v as "head_coach" | "assistant" | "helper")}>
                           <SelectTrigger className="h-6 w-[80px] text-[10px]"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="head_coach">Head Coach</SelectItem>
                             <SelectItem value="assistant">Assistant</SelectItem>
+                            <SelectItem value="helper">Helper</SelectItem>
                           </SelectContent>
                         </Select>
                       </td>
@@ -271,11 +272,12 @@ export function RosterDailyGrid({
                   </div>
                   <div className="space-y-2">
                     <Label>Role</Label>
-                    <Select value={selRole} onValueChange={(v) => setSelRole(v as "head_coach" | "assistant")}>
+                    <Select value={selRole} onValueChange={(v) => setSelRole(v as "head_coach" | "assistant" | "helper")}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="head_coach">Head Coach</SelectItem>
                         <SelectItem value="assistant">Assistant</SelectItem>
+                        <SelectItem value="helper">Helper</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
