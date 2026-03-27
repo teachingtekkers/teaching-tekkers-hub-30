@@ -230,7 +230,7 @@ const RosterPage = () => {
 
     // Sync camp access to camp_coach_assignments
     // Collect coaches who should have access: head_coach role OR grant_camp_access=true
-    const accessPairs = new Map<string, { coach_id: string; camp_id: string; role: "head_coach" | "assistant" }>();
+    const accessPairs = new Map<string, { coach_id: string; camp_id: string; role: "head_coach" | "assistant" | "helper" }>();
     for (const a of assignments) {
       if (a.role === "head_coach" || a.grant_camp_access) {
         const key = `${a.coach_id}__${a.camp_id}`;

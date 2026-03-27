@@ -39,7 +39,7 @@ export interface PayrollCampEntry {
   campId: string;
   campName: string;
   clubName: string;
-  role: "head_coach" | "assistant";
+  role: "head_coach" | "assistant" | "helper";
   daysWorked: number;
   dailyRate: number;
   basePay: number;
