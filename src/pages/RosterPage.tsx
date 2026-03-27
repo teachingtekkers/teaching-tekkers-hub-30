@@ -195,6 +195,17 @@ const RosterPage = () => {
     });
   }, [availableCoaches, getCoachBusyDays, weekDays]);
 
+  // Active coaches not in the availability pool
+  const notInPoolCoaches = useMemo(
+    () => allCoaches.filter(c => !availableCoachIds.includes(c.id)),
+    [allCoaches, availableCoachIds]
+  );
+
+  const addToPool = useCallback((coachId: string) => {
+    setAvailableCoachIds(prev => [...prev, coachId]);
+    setHasUnsavedChanges(true);
+  }, []);
+
   // Mark changes as unsaved whenever assignments change after initial load
   const markDirty = useCallback(() => setHasUnsavedChanges(true), []);
 
