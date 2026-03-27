@@ -590,8 +590,13 @@ const RosterPage = () => {
             </div>
           )}
 
-          {availabilitySet && unassignedCoaches.length > 0 && (
-            <RosterUnassignedPool coaches={unassignedCoaches} onDragStart={handleDragStart} />
+          {availabilitySet && (unassignedCoaches.length > 0 || notInPoolCoaches.length > 0) && (
+            <RosterUnassignedPool
+              coaches={unassignedCoaches}
+              onDragStart={handleDragStart}
+              notInPool={notInPoolCoaches}
+              onAddToPool={addToPool}
+            />
           )}
 
           {/* Multi-venue conflict summary */}
