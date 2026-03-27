@@ -43,7 +43,7 @@ export function RosterDailyGrid({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [day1DialogOpen, setDay1DialogOpen] = useState(false);
   const [selCoach, setSelCoach] = useState("");
-  const [selRole, setSelRole] = useState<"head_coach" | "assistant">("assistant");
+  const [selRole, setSelRole] = useState<"head_coach" | "assistant" | "helper">("assistant");
   const [dragOver, setDragOver] = useState(false);
 
   const campDays = getCampDays(camp);
