@@ -434,7 +434,7 @@ const RosterPage = () => {
     markDirty();
   };
 
-  const changeRole = (id: string, role: "head_coach" | "assistant") => { setAssignments(prev => prev.map(a => a.id === id ? { ...a, role, grant_camp_access: role === "head_coach" ? true : a.grant_camp_access } : a)); markDirty(); };
+  const changeRole = (id: string, role: "head_coach" | "assistant" | "helper") => { setAssignments(prev => prev.map(a => a.id === id ? { ...a, role, grant_camp_access: role === "head_coach" ? true : a.grant_camp_access } : a)); markDirty(); };
 
   const toggleDay = (id: string, day: string) => {
     setAssignments(prev => prev.map(a => {
