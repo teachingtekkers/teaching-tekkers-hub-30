@@ -419,16 +419,19 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
           mapped.external_booking_id = `${campKey}::${mapped.external_booking_id.trim().toLowerCase()}`;
         }
 
-        // Fallback external_booking_id when missing — use child identity + normalized camp name
+        // Fallback external_booking_id when missing — use child identity + normalized camp name + row index for uniqueness
         if (!mapped.external_booking_id) {
           const parts = [
             campKey,
             (mapped.child_first_name || "").trim().toLowerCase().replace(/\s+/g, " "),
             (mapped.child_last_name || "").trim().toLowerCase().replace(/\s+/g, " "),
             (mapped.date_of_birth || "").trim(),
-            (mapped.parent_email || "").trim().toLowerCase(),
+            (mapped.parent_email || mapped.parent_phone || "").trim().toLowerCase(),
           ];
-          mapped.external_booking_id = `gen::${parts.join("::")}`;
+          const baseKey = `gen::${parts.join("::")}`;
+          // If key fields are sparse, append file+row index to guarantee uniqueness
+          const hasIdentity = (mapped.date_of_birth || "").trim() || (mapped.parent_email || "").trim() || (mapped.parent_phone || "").trim();
+          mapped.external_booking_id = hasIdentity ? baseKey : `${baseKey}::${f.name}::${rowIdx}`;
         }
 
         allMapped.push(mapped);
