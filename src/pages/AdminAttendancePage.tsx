@@ -149,20 +149,41 @@ export default function AdminAttendancePage() {
 
   const handleFieldUpdate = useCallback(async (id: string, field: string, value: any) => {
     setParticipants((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
-    await supabase.from("synced_bookings").update({ [field]: value }).eq("id", id);
+    await supabase.from("synced_bookings").update({ [field]: value } as never).eq("id", id);
   }, []);
 
   const handlePaymentUpdate = useCallback(async (bookingId: string, updates: Record<string, any>) => {
     setParticipants((prev) => prev.map((p) => (p.id === bookingId ? { ...p, ...updates } : p)));
-    const { error } = await supabase.from("synced_bookings").update(updates).eq("id", bookingId);
+    const { error } = await supabase.from("synced_bookings").update(updates as never).eq("id", bookingId);
     if (error) toast.error("Failed to save payment update");
     else toast.success("Payment updated");
   }, []);
 
   const handleToggleKitGiven = useCallback(async (id: string, given: boolean) => {
     setKitGivenMap((prev) => { const n = new Map(prev); n.set(id, given); return n; });
-    await supabase.from("synced_bookings").update({ kit_given: given }).eq("id", id);
+    await supabase.from("synced_bookings").update({ kit_given: given } as never).eq("id", id);
   }, []);
+
+  const markAllPaid = useCallback(async () => {
+    if (!selectedCamp || participants.length === 0) return;
+    const unpaid = participants.filter((p) => (p.payment_status ?? "pending") !== "paid");
+    if (unpaid.length === 0) { toast.info("All participants already marked paid"); return; }
+    const updatedIds: string[] = [];
+    for (const p of unpaid) {
+      const totalCost = Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+      const { error } = await supabase
+        .from("synced_bookings")
+        .update({ amount_paid: totalCost, amount_owed: 0, payment_status: "paid" } as never)
+        .eq("id", p.id);
+      if (!error) updatedIds.push(p.id);
+    }
+    setParticipants((prev) => prev.map((p) => {
+      if (!updatedIds.includes(p.id)) return p;
+      const totalCost = Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+      return { ...p, amount_paid: totalCost, amount_owed: 0, payment_status: "paid" };
+    }));
+    toast.success(`Marked ${updatedIds.length} as paid`);
+  }, [selectedCamp, participants]);
 
   const getStatus = (id: string): "present" | "absent" => attendance.get(id)?.status || "absent";
 

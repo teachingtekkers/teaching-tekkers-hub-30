@@ -208,7 +208,7 @@ export default function AttendancePage() {
     );
     const { error } = await supabase
       .from("synced_bookings")
-      .update(updates)
+      .update(updates as never)
       .eq("id", bookingId);
     if (error) {
       toast.error("Failed to save payment update");
@@ -216,6 +216,35 @@ export default function AttendancePage() {
       toast.success("Payment updated");
     }
   }, []);
+
+  const markAllPaid = useCallback(async () => {
+    if (!selectedCamp || participants.length === 0) return;
+    const unpaid = participants.filter((p) => (p.payment_status ?? "pending") !== "paid");
+    if (unpaid.length === 0) {
+      toast.info("All participants already marked paid");
+      return;
+    }
+    setAutoSaveStatus("saving");
+    const updatedIds: string[] = [];
+    for (const p of unpaid) {
+      const totalCost = Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+      const { error } = await supabase
+        .from("synced_bookings")
+        .update({ amount_paid: totalCost, amount_owed: 0, payment_status: "paid" } as never)
+        .eq("id", p.id);
+      if (!error) updatedIds.push(p.id);
+    }
+    setParticipants((prev) =>
+      prev.map((p) => {
+        if (!updatedIds.includes(p.id)) return p;
+        const totalCost = Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+        return { ...p, amount_paid: totalCost, amount_owed: 0, payment_status: "paid" };
+      })
+    );
+    setAutoSaveStatus("saved");
+    autoSaveTimer.current = setTimeout(() => setAutoSaveStatus("idle"), 1500);
+    toast.success(`Marked ${updatedIds.length} as paid`);
+  }, [selectedCamp, participants]);
 
 
   const getStatus = (id: string): "present" | "absent" => attendance.get(id)?.status || "absent";
