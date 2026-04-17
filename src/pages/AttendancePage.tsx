@@ -208,7 +208,7 @@ export default function AttendancePage() {
     );
     const { error } = await supabase
       .from("synced_bookings")
-      .update(updates)
+      .update(updates as never)
       .eq("id", bookingId);
     if (error) {
       toast.error("Failed to save payment update");
@@ -216,6 +216,35 @@ export default function AttendancePage() {
       toast.success("Payment updated");
     }
   }, []);
+
+  const markAllPaid = useCallback(async () => {
+    if (!selectedCamp || participants.length === 0) return;
+    const unpaid = participants.filter((p) => (p.payment_status ?? "pending") !== "paid");
+    if (unpaid.length === 0) {
+      toast.info("All participants already marked paid");
+      return;
+    }
+    setAutoSaveStatus("saving");
+    const updatedIds: string[] = [];
+    for (const p of unpaid) {
+      const totalCost = Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+      const { error } = await supabase
+        .from("synced_bookings")
+        .update({ amount_paid: totalCost, amount_owed: 0, payment_status: "paid" } as never)
+        .eq("id", p.id);
+      if (!error) updatedIds.push(p.id);
+    }
+    setParticipants((prev) =>
+      prev.map((p) => {
+        if (!updatedIds.includes(p.id)) return p;
+        const totalCost = Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+        return { ...p, amount_paid: totalCost, amount_owed: 0, payment_status: "paid" };
+      })
+    );
+    setAutoSaveStatus("saved");
+    autoSaveTimer.current = setTimeout(() => setAutoSaveStatus("idle"), 1500);
+    toast.success(`Marked ${updatedIds.length} as paid`);
+  }, [selectedCamp, participants]);
 
 
   const getStatus = (id: string): "present" | "absent" => attendance.get(id)?.status || "absent";
@@ -298,12 +327,21 @@ export default function AttendancePage() {
             {viewMode === "admin" && <AttendanceSortControl value={sortField} onChange={setSortField} />}
           </div>
 
-          <div className="flex items-center gap-2 px-1">
+          <div className="flex flex-wrap items-center gap-2 px-1">
             <Button variant="outline" size="sm" onClick={() => markAll("present")} disabled={participants.length === 0}>
               Mark All Present
             </Button>
             <Button variant="outline" size="sm" onClick={() => markAll("absent")} disabled={participants.length === 0}>
               Mark All Absent
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={markAllPaid}
+              disabled={participants.length === 0}
+              className="text-emerald-600 border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+            >
+              Mark All Paid
             </Button>
             <Button variant="outline" size="sm" onClick={() => setWalkInOpen(true)}>
               <UserPlus className="h-3.5 w-3.5 mr-1.5" />

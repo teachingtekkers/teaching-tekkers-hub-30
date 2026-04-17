@@ -181,7 +181,7 @@ const InvoicesPage = () => {
 
   // Update invoice field
   const updateInvoice = useCallback(async (id: string, updates: Record<string, unknown>) => {
-    const { error } = await supabase.from("club_invoices").update(updates).eq("id", id);
+    const { error } = await supabase.from("club_invoices").update(updates as never).eq("id", id);
     if (error) {
       toast({ title: "Error updating", description: error.message, variant: "destructive" });
     } else {
