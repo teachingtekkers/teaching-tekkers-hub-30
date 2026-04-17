@@ -327,12 +327,21 @@ export default function AttendancePage() {
             {viewMode === "admin" && <AttendanceSortControl value={sortField} onChange={setSortField} />}
           </div>
 
-          <div className="flex items-center gap-2 px-1">
+          <div className="flex flex-wrap items-center gap-2 px-1">
             <Button variant="outline" size="sm" onClick={() => markAll("present")} disabled={participants.length === 0}>
               Mark All Present
             </Button>
             <Button variant="outline" size="sm" onClick={() => markAll("absent")} disabled={participants.length === 0}>
               Mark All Absent
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={markAllPaid}
+              disabled={participants.length === 0}
+              className="text-emerald-600 border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+            >
+              Mark All Paid
             </Button>
             <Button variant="outline" size="sm" onClick={() => setWalkInOpen(true)}>
               <UserPlus className="h-3.5 w-3.5 mr-1.5" />
