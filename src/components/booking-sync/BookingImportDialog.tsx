@@ -443,20 +443,36 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
   const handleImport = useCallback(async () => {
     setStep("importing");
     const bookings = getMappedRows();
+
+    // Chunk bookings into smaller batches to avoid edge function 150s idle timeout.
+    // Each row may trigger several sequential DB lookups server-side (draft camp, duplicate check),
+    // so we keep batches small enough to comfortably finish within the limit.
+    const CLIENT_BATCH_SIZE = 100;
+    const totals: ImportResult = { processed: 0, created: 0, updated: 0, failed: 0 };
+
     try {
-      const { data, error } = await supabase.functions.invoke("booking-intake", {
-        body: { bookings },
-      });
-      if (error) throw error;
-      setResult({ ...(data.summary as ImportResult) });
+      for (let i = 0; i < bookings.length; i += CLIENT_BATCH_SIZE) {
+        const chunk = bookings.slice(i, i + CLIENT_BATCH_SIZE);
+        const { data, error } = await supabase.functions.invoke("booking-intake", {
+          body: { bookings: chunk },
+        });
+        if (error) throw error;
+        const s = data?.summary || {};
+        totals.processed += s.processed || 0;
+        totals.created += s.created || 0;
+        totals.updated += s.updated || 0;
+        totals.failed += s.failed || 0;
+      }
+
+      setResult(totals);
       setStep("done");
       toast({
         title: "Batch import complete",
-        description: `${files.length} file(s) — ${data.summary.created} created, ${data.summary.updated} updated, ${data.summary.failed} failed`,
+        description: `${files.length} file(s) — ${totals.created} created, ${totals.updated} updated, ${totals.failed} failed`,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      toast({ title: "Import failed", description: message, variant: "destructive" });
+      toast({ title: "Import failed", description: `${message} (partial: ${totals.created} created so far)`, variant: "destructive" });
       setStep("preview");
     }
   }, [getMappedRows, toast, files.length]);
