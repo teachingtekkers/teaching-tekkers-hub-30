@@ -728,6 +728,7 @@ export default function CampDetailPage() {
           onOpenChange={setSheetUploadOpen}
           campId={camp.id}
           campName={camp.name}
+          campDate={camp.start_date}
           participants={participants.map((p) => ({
             id: p.id,
             child_first_name: p.child_first_name,

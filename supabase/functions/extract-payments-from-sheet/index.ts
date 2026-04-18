@@ -1,5 +1,5 @@
-// Extracts player payment rows from photos of printed camp sheets
-// using the Lovable AI Gateway (Gemini vision via tool calling).
+// Extracts player rows from photos of printed camp sheets and detects
+// MANUAL tick/check marks (the primary signal) using Lovable AI vision.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,11 +9,15 @@ const corsHeaders = {
 
 interface ExtractedRow {
   child_name: string;
-  payment_status: "paid" | "unpaid" | "unknown";
+  // Manual tick detection — the PRIMARY signal
+  attended_tick: "ticked" | "not_ticked" | "unclear";
+  paid_tick: "ticked" | "not_ticked" | "unclear";
+  tick_confidence: "high" | "medium" | "low";
+  tick_notes?: string | null;
+  // Secondary signals (printed text / numbers, may be ignored)
+  printed_payment_status?: "paid" | "unpaid" | "unknown";
   amount_paid?: number | null;
   amount_owed?: number | null;
-  cash_marked?: boolean;
-  notes?: string | null;
 }
 
 Deno.serve(async (req) => {
@@ -45,12 +49,12 @@ Deno.serve(async (req) => {
           {
             role: "system",
             content:
-              "You read photos of printed football camp attendance/payment sheets. Extract each player row. Detect payment status from columns labelled Paid/Cash/Owed or visible tick/check marks. If a row has a tick/check or 'P' in a paid column, mark paid. If 'unpaid', 'owed', 'no', cross, or empty paid column, mark unpaid. If unclear, mark unknown. Read amounts only if printed clearly.",
+              "You are reading photos of printed football camp attendance/payment sheets. Each row is a player. The PRIMARY signal you must detect is MANUAL handwritten marks on the sheet — pen/marker ticks, check marks (✓), Xs, slashes, dots, circles, scribbles, or highlighter marks added by hand beside or inside columns. The printed Paid/Unpaid text is SECONDARY — do NOT rely on it as the main signal.\n\nFor every player row, decide:\n- attended_tick: was there a handwritten mark in the attendance/present column or beside the name?\n- paid_tick: was there a handwritten mark in the paid/cash column?\nUse 'ticked' for clear handwritten marks, 'not_ticked' for visibly empty, 'unclear' if you cannot tell (smudged, partial, ambiguous).\nSet tick_confidence to 'high' only when the mark is unambiguous. Use 'low' for faint or ambiguous marks.\nAlso capture printed_payment_status and any printed amounts if visible, but these are secondary.",
           },
           {
             role: "user",
             content: [
-              { type: "text", text: "Extract every player row from this camp sheet." },
+              { type: "text", text: "Extract every player row from this camp sheet. Focus on detecting MANUAL tick/check marks added by hand." },
               { type: "image_url", image_url: { url: imageDataUrl } },
             ],
           },
@@ -60,7 +64,7 @@ Deno.serve(async (req) => {
             type: "function",
             function: {
               name: "submit_rows",
-              description: "Submit the extracted player payment rows.",
+              description: "Submit the extracted player rows with manual tick detection.",
               parameters: {
                 type: "object",
                 properties: {
@@ -70,16 +74,30 @@ Deno.serve(async (req) => {
                       type: "object",
                       properties: {
                         child_name: { type: "string", description: "Full child name as written" },
-                        payment_status: {
+                        attended_tick: {
+                          type: "string",
+                          enum: ["ticked", "not_ticked", "unclear"],
+                          description: "Handwritten tick in attendance column / beside name",
+                        },
+                        paid_tick: {
+                          type: "string",
+                          enum: ["ticked", "not_ticked", "unclear"],
+                          description: "Handwritten tick in paid/cash column",
+                        },
+                        tick_confidence: {
+                          type: "string",
+                          enum: ["high", "medium", "low"],
+                        },
+                        tick_notes: { type: "string", description: "Brief description of the mark seen, e.g. 'pen tick', 'highlighter', 'scribble'" },
+                        printed_payment_status: {
                           type: "string",
                           enum: ["paid", "unpaid", "unknown"],
+                          description: "Secondary: printed text status",
                         },
                         amount_paid: { type: "number" },
                         amount_owed: { type: "number" },
-                        cash_marked: { type: "boolean" },
-                        notes: { type: "string" },
                       },
-                      required: ["child_name", "payment_status"],
+                      required: ["child_name", "attended_tick", "paid_tick", "tick_confidence"],
                       additionalProperties: false,
                     },
                   },
