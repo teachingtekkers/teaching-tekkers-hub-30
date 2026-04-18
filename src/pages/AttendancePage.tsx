@@ -416,6 +416,7 @@ export default function AttendancePage() {
           onOpenChange={setSheetUploadOpen}
           campId={selectedCamp}
           campName={camp.name}
+          campDate={selectedDate}
           participants={participants.map((p) => ({
             id: p.id,
             child_first_name: p.child_first_name,

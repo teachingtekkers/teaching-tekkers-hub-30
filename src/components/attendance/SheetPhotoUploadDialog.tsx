@@ -231,13 +231,18 @@ export default function SheetPhotoUploadDialog({
 
       // Attendance update — attended tick means "present"
       if (r.applyAttendance && campDate) {
-        // Get player_id from the synced booking if matched
         const { data: sb } = await supabase
           .from("synced_bookings")
           .select("matched_player_id")
           .eq("id", r.matchId)
           .maybeSingle();
         const playerId = (sb as { matched_player_id?: string } | null)?.matched_player_id ?? null;
+
+        if (!playerId) {
+          // Cannot record attendance without a linked player
+          failed++;
+          continue;
+        }
 
         const { error } = await supabase
           .from("attendance")
@@ -248,7 +253,7 @@ export default function SheetPhotoUploadDialog({
             date: campDate,
             status: "present",
             note: `From sheet photo tick on ${ts}`,
-          } as never, { onConflict: "camp_id,synced_booking_id,date" } as never);
+          } as never, { onConflict: "camp_id,player_id,date" } as never);
         if (error) failed++; else okAtt++;
       }
     }
