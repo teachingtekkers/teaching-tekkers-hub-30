@@ -11,9 +11,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Users, MapPin, Calendar, Heart, Banknote, Check, AlertTriangle, Settings, Archive, Trash2, ClipboardCheck, UserCog, Building2, FileText, ExternalLink, Pencil } from "lucide-react";
+import { ArrowLeft, Users, MapPin, Calendar, Heart, Banknote, Check, AlertTriangle, Settings, Archive, Trash2, ClipboardCheck, UserCog, Building2, FileText, ExternalLink, Pencil, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CampFinancialOverview from "@/components/camp/CampFinancialOverview";
+import SheetPhotoUploadDialog from "@/components/attendance/SheetPhotoUploadDialog";
 
 interface CampData {
   id: string;
@@ -88,6 +89,7 @@ export default function CampDetailPage() {
   const [purgeCamps, setPurgeCamps] = useState(false);
   const [purgeConfirm, setPurgeConfirm] = useState("");
   const [purging, setPurging] = useState(false);
+  const [sheetUploadOpen, setSheetUploadOpen] = useState(false);
 
   // Edit camp modal state
   const [editOpen, setEditOpen] = useState(false);
@@ -501,8 +503,17 @@ export default function CampDetailPage() {
 
         <TabsContent value="participants" className="mt-4">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex-row items-center justify-between">
               <CardTitle className="text-lg">Participants (Synced Bookings)</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSheetUploadOpen(true)}
+                disabled={participants.length === 0}
+              >
+                <Camera className="h-3.5 w-3.5 mr-1.5" />
+                Update Payments from Sheet
+              </Button>
             </CardHeader>
             <CardContent className="p-0">
               {participants.length === 0 ? (
