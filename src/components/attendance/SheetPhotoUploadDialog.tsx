@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Loader2, Upload, Camera, ImagePlus, AlertTriangle, CheckCircle2, X } from "lucide-react";
+import { Loader2, Upload, Camera, ImagePlus, AlertTriangle, CheckCircle2, X, Check } from "lucide-react";
 
 interface CampParticipant {
   id: string;
@@ -15,13 +15,17 @@ interface CampParticipant {
   payment_status?: string | null;
 }
 
+type TickState = "ticked" | "not_ticked" | "unclear";
+
 interface ExtractedRow {
   child_name: string;
-  payment_status: "paid" | "unpaid" | "unknown";
+  attended_tick: TickState;
+  paid_tick: TickState;
+  tick_confidence: "high" | "medium" | "low";
+  tick_notes?: string | null;
+  printed_payment_status?: "paid" | "unpaid" | "unknown";
   amount_paid?: number | null;
   amount_owed?: number | null;
-  cash_marked?: boolean;
-  notes?: string | null;
 }
 
 interface ReviewRow {
@@ -30,7 +34,8 @@ interface ReviewRow {
   matchName: string | null;
   matchScore: number;
   confident: boolean;
-  apply: boolean;
+  applyAttendance: boolean;
+  applyPayment: boolean;
 }
 
 interface Props {
@@ -38,6 +43,7 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   campId: string;
   campName: string;
+  campDate?: string; // YYYY-MM-DD — used for attendance updates
   participants: CampParticipant[];
   onApplied?: () => void;
 }
@@ -46,7 +52,6 @@ function normalize(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
 }
 
-// Levenshtein distance (small inputs only)
 function lev(a: string, b: string): number {
   if (a === b) return 0;
   if (!a.length) return b.length;
@@ -71,11 +76,8 @@ function score(extracted: string, candidate: string): number {
   if (e === c) return 100;
   const eParts = e.split(" ");
   const cParts = c.split(" ");
-  // exact token-set equality regardless of order
   if (eParts.length === cParts.length && eParts.every((p) => cParts.includes(p))) return 95;
-  // all extracted tokens appear in candidate
   if (eParts.every((p) => cParts.some((cp) => cp === p))) return 88;
-  // levenshtein-based
   const dist = lev(e, c);
   const maxLen = Math.max(e.length, c.length);
   const sim = 1 - dist / maxLen;
@@ -91,8 +93,14 @@ async function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+function tickBadge(state: TickState) {
+  if (state === "ticked") return <Badge className="bg-emerald-600 hover:bg-emerald-600 text-xs gap-1"><Check className="h-3 w-3" />Ticked</Badge>;
+  if (state === "not_ticked") return <Badge variant="outline" className="text-xs">No tick</Badge>;
+  return <Badge variant="destructive" className="text-xs gap-1"><AlertTriangle className="h-3 w-3" />Unclear</Badge>;
+}
+
 export default function SheetPhotoUploadDialog({
-  open, onOpenChange, campId, campName, participants, onApplied,
+  open, onOpenChange, campId, campName, campDate, participants, onApplied,
 }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -121,25 +129,28 @@ export default function SheetPhotoUploadDialog({
 
   const threshold = strict ? 90 : 70;
 
-  const matchExtracted = useCallback((rows: ExtractedRow[]): ReviewRow[] => {
-    return rows.map((row) => {
-      let best = { id: "", name: "", score: 0 };
-      for (const p of participants) {
-        const candidate = `${p.child_first_name} ${p.child_last_name}`;
-        const s = score(row.child_name, candidate);
-        if (s > best.score) best = { id: p.id, name: candidate, score: s };
-      }
-      const confident = best.score >= threshold;
-      return {
-        extracted: row,
-        matchId: confident ? best.id : null,
-        matchName: best.name || null,
-        matchScore: best.score,
-        confident,
-        apply: confident && row.payment_status !== "unknown",
-      };
-    });
-  }, [participants, threshold]);
+  const buildRow = useCallback((row: ExtractedRow, ths: number): ReviewRow => {
+    let best = { id: "", name: "", score: 0 };
+    for (const p of participants) {
+      const candidate = `${p.child_first_name} ${p.child_last_name}`;
+      const s = score(row.child_name, candidate);
+      if (s > best.score) best = { id: p.id, name: candidate, score: s };
+    }
+    const confident = best.score >= ths;
+    // Auto-apply only when match is confident, tick is clearly "ticked", and tick_confidence is acceptable
+    const tickConfOk = row.tick_confidence !== "low";
+    const applyAttendance = confident && tickConfOk && row.attended_tick === "ticked";
+    const applyPayment = confident && tickConfOk && row.paid_tick === "ticked";
+    return {
+      extracted: row,
+      matchId: confident ? best.id : null,
+      matchName: best.name || null,
+      matchScore: best.score,
+      confident,
+      applyAttendance,
+      applyPayment,
+    };
+  }, [participants]);
 
   const handleExtract = useCallback(async () => {
     if (previews.length === 0) { toast.error("Add at least one photo"); return; }
@@ -155,79 +166,109 @@ export default function SheetPhotoUploadDialog({
         setExtracting(false);
         return;
       }
-      setReviewRows(matchExtracted(rows));
+      setReviewRows(rows.map((r) => buildRow(r, threshold)));
     } catch (e) {
       console.error(e);
       toast.error(e instanceof Error ? e.message : "Extraction failed");
     } finally {
       setExtracting(false);
     }
-  }, [previews, matchExtracted]);
+  }, [previews, buildRow, threshold]);
 
-  // Re-match when strict toggle changes
   const onStrictChange = (v: boolean) => {
     setStrict(v);
     if (reviewRows) {
       const newThreshold = v ? 90 : 70;
-      setReviewRows(reviewRows.map((r) => {
-        const confident = r.matchScore >= newThreshold;
-        return { ...r, confident, apply: confident && r.extracted.payment_status !== "unknown" };
-      }));
+      setReviewRows(reviewRows.map((r) => buildRow(r.extracted, newThreshold)));
     }
   };
 
-  const toggleApply = (idx: number) => {
+  const toggleAttendance = (idx: number) => {
     if (!reviewRows) return;
-    setReviewRows(reviewRows.map((r, i) => i === idx ? { ...r, apply: !r.apply } : r));
+    setReviewRows(reviewRows.map((r, i) => i === idx ? { ...r, applyAttendance: !r.applyAttendance } : r));
+  };
+
+  const togglePayment = (idx: number) => {
+    if (!reviewRows) return;
+    setReviewRows(reviewRows.map((r, i) => i === idx ? { ...r, applyPayment: !r.applyPayment } : r));
   };
 
   const setMatch = (idx: number, participantId: string) => {
     if (!reviewRows) return;
     const p = participants.find((x) => x.id === participantId);
     setReviewRows(reviewRows.map((r, i) => i === idx
-      ? { ...r, matchId: participantId, matchName: p ? `${p.child_first_name} ${p.child_last_name}` : null, confident: true, apply: r.extracted.payment_status !== "unknown" }
+      ? { ...r, matchId: participantId, matchName: p ? `${p.child_first_name} ${p.child_last_name}` : null, confident: true }
       : r));
   };
 
   const summary = useMemo(() => {
     if (!reviewRows) return null;
-    const willApply = reviewRows.filter((r) => r.apply && r.matchId);
-    const paid = willApply.filter((r) => r.extracted.payment_status === "paid").length;
-    const unpaid = willApply.filter((r) => r.extracted.payment_status === "unpaid").length;
-    const flagged = reviewRows.filter((r) => !r.confident || r.extracted.payment_status === "unknown").length;
-    return { total: reviewRows.length, willApply: willApply.length, paid, unpaid, flagged };
+    const attendanceUpdates = reviewRows.filter((r) => r.applyAttendance && r.matchId).length;
+    const paymentUpdates = reviewRows.filter((r) => r.applyPayment && r.matchId).length;
+    const flagged = reviewRows.filter((r) => !r.confident || r.extracted.tick_confidence === "low" || r.extracted.attended_tick === "unclear" || r.extracted.paid_tick === "unclear").length;
+    const ticksFound = reviewRows.filter((r) => r.extracted.attended_tick === "ticked" || r.extracted.paid_tick === "ticked").length;
+    return { total: reviewRows.length, ticksFound, attendanceUpdates, paymentUpdates, flagged };
   }, [reviewRows]);
 
   const handleApply = useCallback(async () => {
     if (!reviewRows) return;
-    const toApply = reviewRows.filter((r) => r.apply && r.matchId && r.extracted.payment_status !== "unknown");
-    if (toApply.length === 0) { toast.error("Nothing selected to apply"); return; }
-    setApplying(true);
-    let ok = 0; let failed = 0;
     const ts = new Date().toISOString().slice(0, 16).replace("T", " ");
-    for (const r of toApply) {
-      const status = r.extracted.payment_status;
-      const note = `Updated from sheet photo on ${ts} (status: ${status})`;
-      const { error } = await supabase
-        .from("synced_bookings")
-        .update({ payment_status: status, staff_notes: note } as never)
-        .eq("id", r.matchId!);
-      if (error) failed++; else ok++;
+    setApplying(true);
+    let okPay = 0, okAtt = 0, failed = 0;
+
+    for (const r of reviewRows) {
+      if (!r.matchId) continue;
+
+      // Payment update — paid tick means "paid"
+      if (r.applyPayment) {
+        const note = `Marked PAID from sheet photo tick on ${ts}`;
+        const { error } = await supabase
+          .from("synced_bookings")
+          .update({ payment_status: "paid", staff_notes: note } as never)
+          .eq("id", r.matchId);
+        if (error) failed++; else okPay++;
+      }
+
+      // Attendance update — attended tick means "present"
+      if (r.applyAttendance && campDate) {
+        // Get player_id from the synced booking if matched
+        const { data: sb } = await supabase
+          .from("synced_bookings")
+          .select("matched_player_id")
+          .eq("id", r.matchId)
+          .maybeSingle();
+        const playerId = (sb as { matched_player_id?: string } | null)?.matched_player_id ?? null;
+
+        const { error } = await supabase
+          .from("attendance")
+          .upsert({
+            camp_id: campId,
+            player_id: playerId,
+            synced_booking_id: r.matchId,
+            date: campDate,
+            status: "present",
+            note: `From sheet photo tick on ${ts}`,
+          } as never, { onConflict: "camp_id,synced_booking_id,date" } as never);
+        if (error) failed++; else okAtt++;
+      }
     }
+
     setApplying(false);
-    if (ok > 0) toast.success(`Updated ${ok} player${ok === 1 ? "" : "s"}`);
+    if (okPay > 0) toast.success(`Marked ${okPay} as paid`);
+    if (okAtt > 0) toast.success(`Marked ${okAtt} as attended`);
+    if (okPay === 0 && okAtt === 0 && failed === 0) toast.error("Nothing selected to apply");
     if (failed > 0) toast.error(`${failed} update${failed === 1 ? "" : "s"} failed`);
     onApplied?.();
     handleClose(false);
-  }, [reviewRows, onApplied, handleClose]);
+  }, [reviewRows, campId, campDate, onApplied, handleClose]);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Update Payments from Sheet Photo</DialogTitle>
+          <DialogTitle>Update from Sheet Photo (Tick Detection)</DialogTitle>
           <DialogDescription>
-            {campName} — upload printed sheet photos to auto-update Paid/Unpaid status.
+            {campName} — upload printed sheet photos. The system reads MANUAL tick marks added by hand to update attended / paid status.
           </DialogDescription>
         </DialogHeader>
 
@@ -238,8 +279,8 @@ export default function SheetPhotoUploadDialog({
               className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-8 cursor-pointer hover:bg-accent/50 transition"
             >
               <ImagePlus className="h-10 w-10 text-muted-foreground mb-2" />
-              <p className="text-sm font-medium">Click to add photos</p>
-              <p className="text-xs text-muted-foreground mt-1">JPG/PNG, multiple supported</p>
+              <p className="text-sm font-medium">Click to add photos of the printed sheet</p>
+              <p className="text-xs text-muted-foreground mt-1">Tick marks (✓), highlighter, or pen marks will be detected</p>
               <input
                 id="sheet-upload" type="file" accept="image/*" multiple capture="environment"
                 className="hidden"
@@ -267,7 +308,7 @@ export default function SheetPhotoUploadDialog({
             <DialogFooter>
               <Button variant="outline" onClick={() => handleClose(false)}>Cancel</Button>
               <Button onClick={handleExtract} disabled={previews.length === 0 || extracting}>
-                {extracting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Reading sheet…</> : <><Camera className="h-4 w-4 mr-2" />Extract & Review</>}
+                {extracting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Reading ticks…</> : <><Camera className="h-4 w-4 mr-2" />Detect Ticks & Review</>}
               </Button>
             </DialogFooter>
           </div>
@@ -275,15 +316,15 @@ export default function SheetPhotoUploadDialog({
 
         {reviewRows && summary && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-3">
+            <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-3 flex-wrap gap-2">
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                <Badge variant="secondary">{summary.total} detected</Badge>
-                <Badge className="bg-emerald-600 hover:bg-emerald-600">{summary.paid} paid</Badge>
-                <Badge variant="outline">{summary.unpaid} unpaid</Badge>
+                <Badge variant="secondary">{summary.total} rows read</Badge>
+                <Badge className="bg-emerald-600 hover:bg-emerald-600 gap-1"><Check className="h-3 w-3" />{summary.ticksFound} ticks found</Badge>
                 {summary.flagged > 0 && (
                   <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />{summary.flagged} need review</Badge>
                 )}
-                <Badge variant="default">{summary.willApply} will be applied</Badge>
+                <Badge variant="default">{summary.attendanceUpdates} attended</Badge>
+                <Badge variant="default">{summary.paymentUpdates} paid</Badge>
               </div>
               <div className="flex items-center gap-2">
                 <Label htmlFor="strict-mode" className="text-xs">Strict matching</Label>
@@ -291,62 +332,80 @@ export default function SheetPhotoUploadDialog({
               </div>
             </div>
 
+            {!campDate && (
+              <div className="text-xs rounded-md border border-amber-300 bg-amber-50/60 p-2 text-amber-900">
+                No camp date provided — attendance updates will be skipped. Payment updates will still apply.
+              </div>
+            )}
+
             <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-              {reviewRows.map((r, i) => (
-                <div
-                  key={i}
-                  className={`border rounded-md p-3 text-sm ${!r.confident || r.extracted.payment_status === "unknown" ? "border-amber-300 bg-amber-50/50" : ""}`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{r.extracted.child_name}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
-                        {r.extracted.payment_status === "paid" && <Badge className="bg-emerald-600 hover:bg-emerald-600 text-xs">Paid</Badge>}
-                        {r.extracted.payment_status === "unpaid" && <Badge variant="outline" className="text-xs">Unpaid</Badge>}
-                        {r.extracted.payment_status === "unknown" && <Badge variant="destructive" className="text-xs">Unknown</Badge>}
-                        {r.extracted.cash_marked && <span>• cash</span>}
-                        {r.extracted.amount_paid != null && <span>• paid €{r.extracted.amount_paid}</span>}
-                        {r.extracted.amount_owed != null && <span>• owed €{r.extracted.amount_owed}</span>}
+              {reviewRows.map((r, i) => {
+                const flagged = !r.confident || r.extracted.tick_confidence === "low" || r.extracted.attended_tick === "unclear" || r.extracted.paid_tick === "unclear";
+                return (
+                  <div
+                    key={i}
+                    className={`border rounded-md p-3 text-sm ${flagged ? "border-amber-300 bg-amber-50/50" : ""}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{r.extracted.child_name}</div>
+                        <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-foreground">Attend:</span> {tickBadge(r.extracted.attended_tick)}
+                          <span className="font-medium text-foreground ml-2">Paid:</span> {tickBadge(r.extracted.paid_tick)}
+                          <Badge variant="outline" className="text-[10px]">conf: {r.extracted.tick_confidence}</Badge>
+                          {r.extracted.tick_notes && <span className="italic">"{r.extracted.tick_notes}"</span>}
+                        </div>
+                        <div className="mt-2">
+                          <select
+                            value={r.matchId || ""}
+                            onChange={(e) => setMatch(i, e.target.value)}
+                            className="w-full text-xs border rounded px-2 py-1 bg-background"
+                          >
+                            <option value="">— No match (skip) —</option>
+                            {participants.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.child_first_name} {p.child_last_name}
+                              </option>
+                            ))}
+                          </select>
+                          {r.matchName && (
+                            <div className="text-[11px] text-muted-foreground mt-1">
+                              {r.confident ? <CheckCircle2 className="inline h-3 w-3 text-emerald-600 mr-1" /> : <AlertTriangle className="inline h-3 w-3 text-amber-600 mr-1" />}
+                              Match: {r.matchName} ({r.matchScore}%)
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="mt-2">
-                        <select
-                          value={r.matchId || ""}
-                          onChange={(e) => setMatch(i, e.target.value)}
-                          className="w-full text-xs border rounded px-2 py-1 bg-background"
-                        >
-                          <option value="">— No match (skip) —</option>
-                          {participants.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.child_first_name} {p.child_last_name}
-                            </option>
-                          ))}
-                        </select>
-                        {r.matchName && (
-                          <div className="text-[11px] text-muted-foreground mt-1">
-                            {r.confident ? <CheckCircle2 className="inline h-3 w-3 text-emerald-600 mr-1" /> : <AlertTriangle className="inline h-3 w-3 text-amber-600 mr-1" />}
-                            Match: {r.matchName} ({r.matchScore}%)
-                          </div>
-                        )}
+                      <div className="flex flex-col gap-2 items-end shrink-0">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-[11px]">Mark attended</Label>
+                          <Switch
+                            checked={r.applyAttendance}
+                            onCheckedChange={() => toggleAttendance(i)}
+                            disabled={!r.matchId || !campDate}
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-[11px]">Mark paid</Label>
+                          <Switch
+                            checked={r.applyPayment}
+                            onCheckedChange={() => togglePayment(i)}
+                            disabled={!r.matchId}
+                          />
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center">
-                      <Switch
-                        checked={r.apply}
-                        onCheckedChange={() => toggleApply(i)}
-                        disabled={!r.matchId || r.extracted.payment_status === "unknown"}
-                      />
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <DialogFooter>
               <Button variant="outline" onClick={() => setReviewRows(null)} disabled={applying}>
                 <Upload className="h-4 w-4 mr-2" />Back
               </Button>
-              <Button onClick={handleApply} disabled={applying || summary.willApply === 0}>
-                {applying ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Applying…</> : `Apply ${summary.willApply} update${summary.willApply === 1 ? "" : "s"}`}
+              <Button onClick={handleApply} disabled={applying || (summary.attendanceUpdates === 0 && summary.paymentUpdates === 0)}>
+                {applying ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Applying…</> : `Apply ${summary.attendanceUpdates + summary.paymentUpdates} update${summary.attendanceUpdates + summary.paymentUpdates === 1 ? "" : "s"}`}
               </Button>
             </DialogFooter>
           </div>
