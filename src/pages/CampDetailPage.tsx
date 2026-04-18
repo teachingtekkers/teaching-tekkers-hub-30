@@ -721,6 +721,22 @@ export default function CampDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {camp && (
+        <SheetPhotoUploadDialog
+          open={sheetUploadOpen}
+          onOpenChange={setSheetUploadOpen}
+          campId={camp.id}
+          campName={camp.name}
+          participants={participants.map((p) => ({
+            id: p.id,
+            child_first_name: p.child_first_name,
+            child_last_name: p.child_last_name,
+            payment_status: p.payment_status ?? null,
+          }))}
+          onApplied={load}
+        />
+      )}
     </div>
   );
 }
