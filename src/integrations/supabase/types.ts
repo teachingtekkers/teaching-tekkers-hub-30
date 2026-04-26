@@ -1894,6 +1894,72 @@ export type Database = {
           },
         ]
       }
+      sheet_upload_audits: {
+        Row: {
+          admin_overrode: boolean
+          camp_date: string | null
+          camp_id: string | null
+          confidence_score: number | null
+          created_at: string
+          evidence_type: string | null
+          id: string
+          is_walk_in: boolean
+          new_amount_owed: number | null
+          new_attendance_status: string | null
+          new_payment_status: string | null
+          notes: string | null
+          original_amount_owed: number | null
+          original_attendance_status: string | null
+          original_payment_status: string | null
+          participant_id: string | null
+          participant_name: string | null
+          uploaded_by_email: string | null
+          uploaded_by_user_id: string | null
+        }
+        Insert: {
+          admin_overrode?: boolean
+          camp_date?: string | null
+          camp_id?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          evidence_type?: string | null
+          id?: string
+          is_walk_in?: boolean
+          new_amount_owed?: number | null
+          new_attendance_status?: string | null
+          new_payment_status?: string | null
+          notes?: string | null
+          original_amount_owed?: number | null
+          original_attendance_status?: string | null
+          original_payment_status?: string | null
+          participant_id?: string | null
+          participant_name?: string | null
+          uploaded_by_email?: string | null
+          uploaded_by_user_id?: string | null
+        }
+        Update: {
+          admin_overrode?: boolean
+          camp_date?: string | null
+          camp_id?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          evidence_type?: string | null
+          id?: string
+          is_walk_in?: boolean
+          new_amount_owed?: number | null
+          new_attendance_status?: string | null
+          new_payment_status?: string | null
+          notes?: string | null
+          original_amount_owed?: number | null
+          original_attendance_status?: string | null
+          original_payment_status?: string | null
+          participant_id?: string | null
+          participant_name?: string | null
+          uploaded_by_email?: string | null
+          uploaded_by_user_id?: string | null
+        }
+        Relationships: []
+      }
       staff_week_points: {
         Row: {
           attendance_complete: boolean
@@ -1993,6 +2059,7 @@ export type Database = {
           alternate_phone: string | null
           amount_owed: number | null
           amount_paid: number | null
+          attendance_source: string | null
           booking_date: string | null
           booking_status: string | null
           camp_date: string | null
@@ -2004,6 +2071,7 @@ export type Database = {
           date_of_birth: string | null
           duplicate_warning: boolean
           emergency_contact: string | null
+          evidence_type: string | null
           external_booking_id: string | null
           id: string
           imported_at: string
@@ -2019,6 +2087,7 @@ export type Database = {
           matched_player_id: string | null
           medical_condition: string | null
           medical_notes: string | null
+          needs_admin_review: boolean
           notes: string | null
           parent_email: string | null
           parent_name: string | null
@@ -2028,6 +2097,7 @@ export type Database = {
           photo_permission: boolean | null
           refund_amount: number | null
           sibling_discount: number | null
+          sign_in_confidence: number | null
           source_system: string
           staff_notes: string | null
           sync_log_id: string | null
@@ -2039,6 +2109,7 @@ export type Database = {
           alternate_phone?: string | null
           amount_owed?: number | null
           amount_paid?: number | null
+          attendance_source?: string | null
           booking_date?: string | null
           booking_status?: string | null
           camp_date?: string | null
@@ -2050,6 +2121,7 @@ export type Database = {
           date_of_birth?: string | null
           duplicate_warning?: boolean
           emergency_contact?: string | null
+          evidence_type?: string | null
           external_booking_id?: string | null
           id?: string
           imported_at?: string
@@ -2065,6 +2137,7 @@ export type Database = {
           matched_player_id?: string | null
           medical_condition?: string | null
           medical_notes?: string | null
+          needs_admin_review?: boolean
           notes?: string | null
           parent_email?: string | null
           parent_name?: string | null
@@ -2074,6 +2147,7 @@ export type Database = {
           photo_permission?: boolean | null
           refund_amount?: number | null
           sibling_discount?: number | null
+          sign_in_confidence?: number | null
           source_system?: string
           staff_notes?: string | null
           sync_log_id?: string | null
@@ -2085,6 +2159,7 @@ export type Database = {
           alternate_phone?: string | null
           amount_owed?: number | null
           amount_paid?: number | null
+          attendance_source?: string | null
           booking_date?: string | null
           booking_status?: string | null
           camp_date?: string | null
@@ -2096,6 +2171,7 @@ export type Database = {
           date_of_birth?: string | null
           duplicate_warning?: boolean
           emergency_contact?: string | null
+          evidence_type?: string | null
           external_booking_id?: string | null
           id?: string
           imported_at?: string
@@ -2111,6 +2187,7 @@ export type Database = {
           matched_player_id?: string | null
           medical_condition?: string | null
           medical_notes?: string | null
+          needs_admin_review?: boolean
           notes?: string | null
           parent_email?: string | null
           parent_name?: string | null
@@ -2120,6 +2197,7 @@ export type Database = {
           photo_permission?: boolean | null
           refund_amount?: number | null
           sibling_discount?: number | null
+          sign_in_confidence?: number | null
           source_system?: string
           staff_notes?: string | null
           sync_log_id?: string | null
