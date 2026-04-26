@@ -1,5 +1,7 @@
-// Extracts player rows from photos of printed camp sheets and detects
-// MANUAL tick/check marks (the primary signal) using Lovable AI vision.
+// Extracts player rows from photos of printed coach sign-in sheets and
+// detects ANY coach mark (ticks, cash notes, "paid", "walk-in", initials,
+// handwritten amounts, etc.) connected to each printed row. Also extracts
+// handwritten walk-in names that appear in margins or blank spaces.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,15 +11,20 @@ const corsHeaders = {
 
 interface ExtractedRow {
   child_name: string;
-  // Manual tick detection — the PRIMARY signal
-  attended_tick: "ticked" | "not_ticked" | "unclear";
-  paid_tick: "ticked" | "not_ticked" | "unclear";
-  tick_confidence: "high" | "medium" | "low";
-  tick_notes?: string | null;
-  // Secondary signals (printed text / numbers, may be ignored)
-  printed_payment_status?: "paid" | "unpaid" | "unknown";
-  amount_paid?: number | null;
-  amount_owed?: number | null;
+  // Did the coach mark this row in any way?
+  signed_in: "yes" | "no" | "unclear";
+  // Best evidence the coach left for this child.
+  // tick_on_row | cash_note | paid_note | paid_online_note | paid_revolut_note |
+  // handwritten_amount | initials | unpaid_note | none | other
+  evidence_type: string;
+  // Free-text description of what was seen
+  evidence_notes?: string | null;
+  // Did the coach explicitly write "unpaid", "owes", "not paid", "outstanding"?
+  marked_unpaid: boolean;
+  // Confidence 0..1
+  confidence: number;
+  // Is this a handwritten walk-in (not a printed row)?
+  is_walk_in: boolean;
 }
 
 Deno.serve(async (req) => {
@@ -49,12 +56,12 @@ Deno.serve(async (req) => {
           {
             role: "system",
             content:
-              "You are reading photos of printed football camp attendance/payment sheets. Each row is a player. The PRIMARY signal you must detect is MANUAL handwritten marks on the sheet — pen/marker ticks, check marks (✓), Xs, slashes, dots, circles, scribbles, or highlighter marks added by hand beside or inside columns. The printed Paid/Unpaid text is SECONDARY — do NOT rely on it as the main signal.\n\nFor every player row, decide:\n- attended_tick: was there a handwritten mark in the attendance/present column or beside the name?\n- paid_tick: was there a handwritten mark in the paid/cash column?\nUse 'ticked' for clear handwritten marks, 'not_ticked' for visibly empty, 'unclear' if you cannot tell (smudged, partial, ambiguous).\nSet tick_confidence to 'high' only when the mark is unambiguous. Use 'low' for faint or ambiguous marks.\nAlso capture printed_payment_status and any printed amounts if visible, but these are secondary.",
+              "You are reading a photo of a printed football camp COACH SIGN-IN SHEET. Each printed row is a child. Coaches mark sheets messily — they may tick beside the name, tick anywhere on the row, write 'cash', 'paid', 'paid online', 'paid revolut', 'walk', initials, or amounts in any column or margin.\n\nRULE: Signed in = attended. For every printed row, scan LEFT TO RIGHT across the whole row AND nearby margin notes. If there is ANY clear coach mark connected to that child, set signed_in = 'yes'. Ignore the printed 'Paid/Unpaid' text — only handwritten coach marks count.\n\nEvidence types to recognise: tick_on_row, cash_note, paid_note, paid_online_note, paid_revolut_note, handwritten_amount, initials, unpaid_note, other. Use 'none' if no mark.\n\nIf the coach explicitly wrote 'unpaid', 'not paid', 'owes', or 'outstanding' for a child, set marked_unpaid = true (the child still attended).\n\nAlso look for HANDWRITTEN WALK-IN NAMES — names written by hand in blank spaces, margins, or extra rows that are NOT part of the printed list. Return each as a row with is_walk_in = true.\n\nConfidence: 0.9+ for unambiguous marks, 0.6-0.8 for likely, below 0.5 if you are guessing.",
           },
           {
             role: "user",
             content: [
-              { type: "text", text: "Extract every player row from this camp sheet. Focus on detecting MANUAL tick/check marks added by hand." },
+              { type: "text", text: "Extract every printed child row AND every handwritten walk-in name from this coach sign-in sheet. For each, report whether the coach signed them in and what evidence you saw." },
               { type: "image_url", image_url: { url: imageDataUrl } },
             ],
           },
@@ -64,7 +71,7 @@ Deno.serve(async (req) => {
             type: "function",
             function: {
               name: "submit_rows",
-              description: "Submit the extracted player rows with manual tick detection.",
+              description: "Submit every child row found on the sheet, including handwritten walk-ins.",
               parameters: {
                 type: "object",
                 properties: {
@@ -74,30 +81,32 @@ Deno.serve(async (req) => {
                       type: "object",
                       properties: {
                         child_name: { type: "string", description: "Full child name as written" },
-                        attended_tick: {
+                        signed_in: {
                           type: "string",
-                          enum: ["ticked", "not_ticked", "unclear"],
-                          description: "Handwritten tick in attendance column / beside name",
+                          enum: ["yes", "no", "unclear"],
+                          description: "Did the coach mark this child as present in any way?",
                         },
-                        paid_tick: {
+                        evidence_type: {
                           type: "string",
-                          enum: ["ticked", "not_ticked", "unclear"],
-                          description: "Handwritten tick in paid/cash column",
+                          enum: [
+                            "tick_on_row",
+                            "cash_note",
+                            "paid_note",
+                            "paid_online_note",
+                            "paid_revolut_note",
+                            "handwritten_amount",
+                            "initials",
+                            "unpaid_note",
+                            "other",
+                            "none",
+                          ],
                         },
-                        tick_confidence: {
-                          type: "string",
-                          enum: ["high", "medium", "low"],
-                        },
-                        tick_notes: { type: "string", description: "Brief description of the mark seen, e.g. 'pen tick', 'highlighter', 'scribble'" },
-                        printed_payment_status: {
-                          type: "string",
-                          enum: ["paid", "unpaid", "unknown"],
-                          description: "Secondary: printed text status",
-                        },
-                        amount_paid: { type: "number" },
-                        amount_owed: { type: "number" },
+                        evidence_notes: { type: "string", description: "Plain-English description of the mark" },
+                        marked_unpaid: { type: "boolean", description: "Coach explicitly wrote unpaid/owes/outstanding" },
+                        confidence: { type: "number", description: "0.0 to 1.0" },
+                        is_walk_in: { type: "boolean", description: "Handwritten name not on the printed list" },
                       },
-                      required: ["child_name", "attended_tick", "paid_tick", "tick_confidence"],
+                      required: ["child_name", "signed_in", "evidence_type", "marked_unpaid", "confidence", "is_walk_in"],
                       additionalProperties: false,
                     },
                   },
