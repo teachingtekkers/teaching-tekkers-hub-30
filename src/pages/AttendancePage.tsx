@@ -9,13 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, CheckCircle, Save, Loader2, Zap, ClipboardList, Check, UserPlus, Camera } from "lucide-react";
+import { Users, CheckCircle, Save, Loader2, Zap, ClipboardList, Check, UserPlus, Camera, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 import AttendanceParticipantRow, { type ParticipantData } from "@/components/attendance/AttendanceParticipantRow";
 import AttendanceSortControl, { type SortField } from "@/components/attendance/AttendanceSortControl";
 import CoachModeList from "@/components/attendance/CoachModeList";
 import AddWalkInDialog from "@/components/attendance/AddWalkInDialog";
 import SheetPhotoUploadDialog from "@/components/attendance/SheetPhotoUploadDialog";
+import BulkMarkPaidDialog from "@/components/attendance/BulkMarkPaidDialog";
 
 interface CampOption {
   id: string;
@@ -46,6 +47,7 @@ export default function AttendancePage() {
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [sheetUploadOpen, setSheetUploadOpen] = useState(false);
+  const [bulkPaidOpen, setBulkPaidOpen] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
   const attendanceRef = useRef(attendance);
 
@@ -349,6 +351,10 @@ export default function AttendancePage() {
               <UserPlus className="h-3.5 w-3.5 mr-1.5" />
               Add Walk-In
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setBulkPaidOpen(true)}>
+              <ListChecks className="h-3.5 w-3.5 mr-1.5" />
+              Bulk Mark Paid
+            </Button>
             {viewMode === "admin" && (
               <Button variant="outline" size="sm" onClick={() => setSheetUploadOpen(true)} disabled={participants.length === 0}>
                 <Camera className="h-3.5 w-3.5 mr-1.5" />
@@ -422,6 +428,25 @@ export default function AttendancePage() {
             child_first_name: p.child_first_name,
             child_last_name: p.child_last_name,
             payment_status: p.payment_status ?? null,
+          }))}
+          onApplied={loadData}
+        />
+      )}
+
+      {camp && (
+        <BulkMarkPaidDialog
+          open={bulkPaidOpen}
+          onOpenChange={setBulkPaidOpen}
+          campId={selectedCamp}
+          campName={camp.name}
+          date={selectedDate}
+          participants={participants.map((p) => ({
+            id: p.id,
+            child_first_name: p.child_first_name,
+            child_last_name: p.child_last_name,
+            payment_status: p.payment_status ?? null,
+            total_amount: p.total_amount ?? null,
+            sibling_discount: p.sibling_discount ?? null,
           }))}
           onApplied={loadData}
         />
