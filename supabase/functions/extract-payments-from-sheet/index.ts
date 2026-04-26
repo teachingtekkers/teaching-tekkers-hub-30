@@ -25,6 +25,11 @@ interface ExtractedRow {
   confidence: number;
   // Is this a handwritten walk-in (not a printed row)?
   is_walk_in: boolean;
+  // Index into the uploaded images array (which photo this row came from)
+  image_index?: number;
+  // Approximate bounding box of the relevant evidence area, normalized 0..1
+  // {x, y, w, h} where x/y is the top-left of the box on the source image
+  evidence_bbox?: { x: number; y: number; w: number; h: number } | null;
 }
 
 Deno.serve(async (req) => {
@@ -49,14 +54,15 @@ Deno.serve(async (req) => {
 
     const allRows: ExtractedRow[] = [];
 
-    for (const imageDataUrl of images) {
+    for (let imgIdx = 0; imgIdx < images.length; imgIdx++) {
+      const imageDataUrl = images[imgIdx];
       const body = {
         model: "google/gemini-2.5-flash",
         messages: [
           {
             role: "system",
             content:
-              "You are reading a photo of a printed football camp COACH SIGN-IN SHEET. Each printed row is a child. Coaches mark sheets messily — they may tick beside the name, tick anywhere on the row, write 'cash', 'paid', 'paid online', 'paid revolut', 'walk', initials, or amounts in any column or margin.\n\nRULE: Signed in = attended. For every printed row, scan LEFT TO RIGHT across the whole row AND nearby margin notes. If there is ANY clear coach mark connected to that child, set signed_in = 'yes'. Ignore the printed 'Paid/Unpaid' text — only handwritten coach marks count.\n\nEvidence types to recognise: tick_on_row, cash_note, paid_note, paid_online_note, paid_revolut_note, handwritten_amount, initials, unpaid_note, other. Use 'none' if no mark.\n\nIf the coach explicitly wrote 'unpaid', 'not paid', 'owes', or 'outstanding' for a child, set marked_unpaid = true (the child still attended).\n\nAlso look for HANDWRITTEN WALK-IN NAMES — names written by hand in blank spaces, margins, or extra rows that are NOT part of the printed list. Return each as a row with is_walk_in = true.\n\nConfidence: 0.9+ for unambiguous marks, 0.6-0.8 for likely, below 0.5 if you are guessing.",
+              "You are reading a photo of a printed football camp COACH SIGN-IN SHEET. Each printed row is a child. Coaches mark sheets messily — they may tick beside the name, tick anywhere on the row, write 'cash', 'paid', 'paid online', 'paid revolut', 'walk', initials, or amounts in any column or margin.\n\nRULE: Signed in = attended. For every printed row, scan LEFT TO RIGHT across the whole row AND nearby margin notes. If there is ANY clear coach mark connected to that child, set signed_in = 'yes'. Ignore the printed 'Paid/Unpaid' text — only handwritten coach marks count.\n\nEvidence types to recognise: tick_on_row, cash_note, paid_note, paid_online_note, paid_revolut_note, handwritten_amount, initials, unpaid_note, other. Use 'none' if no mark.\n\nIf the coach explicitly wrote 'unpaid', 'not paid', 'owes', or 'outstanding' for a child, set marked_unpaid = true (the child still attended).\n\nAlso look for HANDWRITTEN WALK-IN NAMES — names written by hand in blank spaces, margins, or extra rows that are NOT part of the printed list. Return each as a row with is_walk_in = true.\n\nFor EVERY row you return, ALSO return evidence_bbox: an approximate bounding box of the row + nearby evidence on the image, using NORMALIZED coordinates from 0 to 1 (x=left, y=top, w=width, h=height). For printed rows, the box should cover the full row width and a bit of vertical padding. For walk-ins, the box should tightly cover the handwritten name and any nearby mark. Be generous with width so the admin can see the full row context. If you genuinely cannot estimate, return null.\n\nConfidence: 0.9+ for unambiguous marks, 0.6-0.8 for likely, below 0.5 if you are guessing.",
           },
           {
             role: "user",
@@ -105,6 +111,18 @@ Deno.serve(async (req) => {
                         marked_unpaid: { type: "boolean", description: "Coach explicitly wrote unpaid/owes/outstanding" },
                         confidence: { type: "number", description: "0.0 to 1.0" },
                         is_walk_in: { type: "boolean", description: "Handwritten name not on the printed list" },
+                        evidence_bbox: {
+                          type: "object",
+                          description: "Approximate bounding box of the row/evidence on the image, normalized 0..1",
+                          properties: {
+                            x: { type: "number", description: "Left edge, 0..1" },
+                            y: { type: "number", description: "Top edge, 0..1" },
+                            w: { type: "number", description: "Width, 0..1" },
+                            h: { type: "number", description: "Height, 0..1" },
+                          },
+                          required: ["x", "y", "w", "h"],
+                          additionalProperties: false,
+                        },
                       },
                       required: ["child_name", "signed_in", "evidence_type", "marked_unpaid", "confidence", "is_walk_in"],
                       additionalProperties: false,
@@ -156,7 +174,11 @@ Deno.serve(async (req) => {
       if (argsStr) {
         try {
           const parsed = JSON.parse(argsStr);
-          if (Array.isArray(parsed?.rows)) allRows.push(...parsed.rows);
+          if (Array.isArray(parsed?.rows)) {
+            for (const r of parsed.rows) {
+              allRows.push({ ...r, image_index: imgIdx });
+            }
+          }
         } catch (e) {
           console.error("Failed to parse tool args", e);
         }
