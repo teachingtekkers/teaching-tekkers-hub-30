@@ -20,6 +20,9 @@ import AttendanceExport from "@/components/attendance/AttendanceExport";
 import AttendanceFinancialSummary from "@/components/attendance/AttendanceFinancialSummary";
 import AttendanceKitSummary from "@/components/attendance/AttendanceKitSummary";
 import AttendanceFamilyGroups from "@/components/attendance/AttendanceFamilyGroups";
+import CoachSignInUploadDialog from "@/components/attendance/CoachSignInUploadDialog";
+import { Button } from "@/components/ui/button";
+import { Upload } from "lucide-react";
 
 interface CampOption { id: string; name: string; club_name: string; start_date: string; end_date: string; }
 interface AttendanceRow { id?: string; synced_booking_id: string; status: "present" | "absent"; note: string | null; }
@@ -43,6 +46,7 @@ export default function AdminAttendancePage() {
   const [kitGivenMap, setKitGivenMap] = useState<Map<string, boolean>>(new Map());
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
   const attendanceRef = useRef(attendance);
+  const [sheetUploadOpen, setSheetUploadOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -304,6 +308,10 @@ export default function AdminAttendancePage() {
                 <AttendanceFilters filters={filters} onChange={setFilters} />
                 <div className="flex items-center gap-2">
                   <AttendanceExport participants={sorted} getStatus={getStatus} campName={camp.name} selectedDate={selectedDate} />
+                  <Button size="sm" variant="outline" onClick={() => setSheetUploadOpen(true)} className="gap-1.5">
+                    <Upload className="h-3.5 w-3.5" />
+                    Upload Coach Sign-In Sheet
+                  </Button>
                   <AttendanceSortControl value={sortField} onChange={setSortField} />
                   {autoSaveStatus !== "idle" && (
                     <span className="flex items-center gap-1 text-xs text-muted-foreground animate-in fade-in duration-200">
@@ -400,6 +408,25 @@ export default function AdminAttendancePage() {
             </TabsContent>
           </Tabs>
         </>
+      )}
+      {camp && (
+        <CoachSignInUploadDialog
+          open={sheetUploadOpen}
+          onOpenChange={setSheetUploadOpen}
+          campId={camp.id}
+          campName={`${camp.name} — ${camp.club_name}`}
+          campDate={selectedDate}
+          participants={participants.map((p) => ({
+            id: p.id,
+            child_first_name: p.child_first_name,
+            child_last_name: p.child_last_name,
+            payment_status: p.payment_status ?? null,
+            amount_owed: p.amount_owed ?? null,
+            total_amount: p.total_amount ?? null,
+            sibling_discount: p.sibling_discount ?? null,
+          }))}
+          onApplied={() => { loadDayData(); loadSummary(); }}
+        />
       )}
     </div>
   );
