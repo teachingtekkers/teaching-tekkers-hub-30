@@ -465,6 +465,26 @@ export default function AttendancePage() {
           onApplied={loadData}
         />
       )}
+
+      {camp && (
+        <CoachSignInUploadDialog
+          open={coachSignInOpen}
+          onOpenChange={setCoachSignInOpen}
+          campId={selectedCamp}
+          campName={camp.name}
+          campDate={selectedDate}
+          participants={participants.map((p) => ({
+            id: p.id,
+            child_first_name: p.child_first_name,
+            child_last_name: p.child_last_name,
+            payment_status: p.payment_status ?? null,
+            amount_owed: p.amount_owed ?? null,
+            total_amount: p.total_amount ?? null,
+            sibling_discount: p.sibling_discount ?? null,
+          }))}
+          onApplied={loadData}
+        />
+      )}
     </div>
   );
 }
