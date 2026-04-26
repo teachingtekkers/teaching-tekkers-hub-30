@@ -33,6 +33,8 @@ interface ExtractedRow {
   marked_unpaid: boolean;
   confidence: number;
   is_walk_in: boolean;
+  image_index?: number;
+  evidence_bbox?: { x: number; y: number; w: number; h: number } | null;
 }
 
 type ReviewBucket = "signed_in" | "unpaid_to_paid" | "paid_but_absent" | "walk_ins" | "needs_review";
@@ -148,6 +150,24 @@ function evidenceLabel(t: string): string {
   }
 }
 
+function sortName(p: ParticipantLite): string {
+  return `${(p.child_last_name || "").toLowerCase().trim()} ${(p.child_first_name || "").toLowerCase().trim()}`;
+}
+
+function itemSortKey(it: ReviewItem): string {
+  if (it.participant) return sortName(it.participant);
+  // walk-in / unmatched — sort by handwritten/extracted name
+  const name =
+    `${(it.walkInLastName || "").toLowerCase().trim()} ${(it.walkInFirstName || "").toLowerCase().trim()}`.trim() ||
+    (it.extracted?.child_name || "").toLowerCase().trim();
+  // Push walk-ins/unmatched after surname-keyed items by prefixing nothing — use name as-is.
+  return name;
+}
+
+const sortedParticipants = (participants: ParticipantLite[]): ParticipantLite[] => {
+  return [...participants].sort((a, b) => sortName(a).localeCompare(sortName(b)));
+};
+
 /* ------------------------------- component ------------------------------- */
 
 export default function CoachSignInUploadDialog({
@@ -163,6 +183,7 @@ export default function CoachSignInUploadDialog({
   const [activeTab, setActiveTab] = useState<ReviewBucket>("signed_in");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [zoomBbox, setZoomBbox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
@@ -360,6 +381,10 @@ export default function CoachSignInUploadDialog({
       if (it.bucket === "signed_in" && it.suggestedStatus === "absent") continue; // hide from signed_in tab
       out[it.bucket].push(it);
     }
+    // Alphabetical sort within every tab (surname → first name)
+    (Object.keys(out) as ReviewBucket[]).forEach((k) => {
+      out[k].sort((a, b) => itemSortKey(a).localeCompare(itemSortKey(b)));
+    });
     return out;
   }, [items]);
 
@@ -665,7 +690,18 @@ export default function CoachSignInUploadDialog({
                     <div className="text-sm text-muted-foreground py-8 text-center">Nothing in this tab.</div>
                   ) : (
                     buckets[b].map((it) => (
-                      <ReviewRow key={it.key} item={it} onChange={(patch) => updateItem(it.key, patch)} participants={participants} />
+                      <ReviewRow
+                        key={it.key}
+                        item={it}
+                        onChange={(patch) => updateItem(it.key, patch)}
+                        participants={participants}
+                        previews={previews}
+                        onZoom={(imgIdx, bbox) => {
+                          setPreviewIndex(imgIdx);
+                          setZoomBbox(bbox);
+                          setPreviewOpen(true);
+                        }}
+                      />
                     ))
                   )}
                 </TabsContent>
@@ -696,9 +732,29 @@ export default function CoachSignInUploadDialog({
         {previewOpen && previews[previewIndex] && (
           <div
             className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-            onClick={() => setPreviewOpen(false)}
+            onClick={() => { setPreviewOpen(false); setZoomBbox(null); }}
           >
-            <img src={previews[previewIndex]} alt="Sheet" className="max-h-full max-w-full object-contain" />
+            <div className="relative max-h-full max-w-full" onClick={(e) => e.stopPropagation()}>
+              <img src={previews[previewIndex]} alt="Sheet" className="max-h-[88vh] max-w-[92vw] object-contain block" />
+              {zoomBbox && (
+                <div
+                  className="absolute border-2 border-amber-400 ring-2 ring-amber-400/40 rounded-sm pointer-events-none"
+                  style={{
+                    left: `${zoomBbox.x * 100}%`,
+                    top: `${zoomBbox.y * 100}%`,
+                    width: `${zoomBbox.w * 100}%`,
+                    height: `${zoomBbox.h * 100}%`,
+                  }}
+                />
+              )}
+              <button
+                type="button"
+                className="absolute top-2 right-2 rounded-full bg-background/90 p-1.5"
+                onClick={() => { setPreviewOpen(false); setZoomBbox(null); }}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
             {previews.length > 1 && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
                 {previews.map((_, i) => (
@@ -736,20 +792,55 @@ function SummaryChip({ label, count, variant = "default" }: { label: string; cou
 }
 
 function ReviewRow({
-  item, onChange, participants,
+  item, onChange, participants, previews, onZoom,
 }: {
   item: ReviewItem;
   onChange: (patch: Partial<ReviewItem>) => void;
   participants: ParticipantLite[];
+  previews: string[];
+  onZoom: (imgIdx: number, bbox: { x: number; y: number; w: number; h: number } | null) => void;
 }) {
   const ev = item.extracted;
   const p = item.participant;
   const isWalkInRow = item.bucket === "walk_ins" || (item.bucket === "needs_review" && !p);
+  const sortedParts = useMemo(() => sortedParticipants(participants), [participants]);
+  const imgIdx = ev?.image_index ?? 0;
+  const bbox = ev?.evidence_bbox ?? null;
+  const sheetSrc = previews[imgIdx];
 
   return (
     <Card className={item.accepted ? "" : "opacity-60"}>
       <CardContent className="p-3 space-y-2">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          {/* Evidence crop thumbnail */}
+          {sheetSrc && (
+            <button
+              type="button"
+              onClick={() => onZoom(imgIdx, bbox)}
+              className="shrink-0 w-28 h-16 rounded border bg-muted overflow-hidden relative hover:ring-2 hover:ring-primary/40 transition"
+              title="Click to view evidence on full sheet"
+            >
+              {bbox ? (
+                <div
+                  className="w-full h-full"
+                  style={{
+                    backgroundImage: `url(${sheetSrc})`,
+                    backgroundRepeat: "no-repeat",
+                    // scale = container_size / (bbox_size * image_size)
+                    // We want the bbox to fill the thumbnail. Using percentages keeps it responsive.
+                    backgroundSize: `${100 / Math.max(bbox.w, 0.01)}% ${100 / Math.max(bbox.h, 0.01)}%`,
+                    backgroundPosition: `${(bbox.x / Math.max(1 - bbox.w, 0.01)) * 100}% ${(bbox.y / Math.max(1 - bbox.h, 0.01)) * 100}%`,
+                  }}
+                />
+              ) : (
+                <img src={sheetSrc} alt="Sheet" className="w-full h-full object-cover" />
+              )}
+              <span className="absolute bottom-0.5 right-0.5 text-[9px] bg-background/80 rounded px-1">
+                <Eye className="h-2.5 w-2.5 inline" />
+              </span>
+            </button>
+          )}
+
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-medium text-sm">
@@ -779,6 +870,7 @@ function ReviewRow({
             size="sm"
             variant={item.accepted ? "default" : "outline"}
             onClick={() => onChange({ accepted: !item.accepted })}
+            className="shrink-0"
           >
             {item.accepted ? <><Check className="h-3.5 w-3.5 mr-1" />Accepted</> : "Accept"}
           </Button>
@@ -840,9 +932,9 @@ function ReviewRow({
                 onChange={(e) => onChange({ walkInMatchId: e.target.value || null })}
               >
                 <option value="">Select participant…</option>
-                {participants.map((pp) => (
+                {sortedParts.map((pp) => (
                   <option key={pp.id} value={pp.id}>
-                    {pp.child_first_name} {pp.child_last_name}
+                    {pp.child_last_name}, {pp.child_first_name}
                   </option>
                 ))}
               </select>
