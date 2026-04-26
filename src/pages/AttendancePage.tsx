@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, CheckCircle, Save, Loader2, Zap, ClipboardList, Check, UserPlus, Camera, ListChecks } from "lucide-react";
+import { Users, CheckCircle, Save, Loader2, Zap, ClipboardList, Check, UserPlus, Camera, ListChecks, FileText } from "lucide-react";
 import { toast } from "sonner";
 import AttendanceParticipantRow, { type ParticipantData } from "@/components/attendance/AttendanceParticipantRow";
 import AttendanceSortControl, { type SortField } from "@/components/attendance/AttendanceSortControl";
@@ -17,6 +17,7 @@ import CoachModeList from "@/components/attendance/CoachModeList";
 import AddWalkInDialog from "@/components/attendance/AddWalkInDialog";
 import SheetPhotoUploadDialog from "@/components/attendance/SheetPhotoUploadDialog";
 import BulkMarkPaidDialog from "@/components/attendance/BulkMarkPaidDialog";
+import CoachSignInUploadDialog from "@/components/attendance/CoachSignInUploadDialog";
 
 interface CampOption {
   id: string;
@@ -48,6 +49,7 @@ export default function AttendancePage() {
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [sheetUploadOpen, setSheetUploadOpen] = useState(false);
   const [bulkPaidOpen, setBulkPaidOpen] = useState(false);
+  const [coachSignInOpen, setCoachSignInOpen] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
   const attendanceRef = useRef(attendance);
 
@@ -359,6 +361,18 @@ export default function AttendancePage() {
               <Button variant="outline" size="sm" onClick={() => setSheetUploadOpen(true)} disabled={participants.length === 0}>
                 <Camera className="h-3.5 w-3.5 mr-1.5" />
                 Update Payments from Sheet
+              </Button>
+            )}
+            {viewMode === "admin" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCoachSignInOpen(true)}
+                disabled={participants.length === 0}
+                className="text-primary border-primary/40 hover:bg-primary/5"
+              >
+                <FileText className="h-3.5 w-3.5 mr-1.5" />
+                Upload Coach Sign-In Sheet
               </Button>
             )}
             {autoSaveStatus !== "idle" && (
