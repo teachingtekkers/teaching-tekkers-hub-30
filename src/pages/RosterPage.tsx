@@ -106,15 +106,13 @@ const RosterPage = () => {
       const wsISO = format(weekStart, "yyyy-MM-dd");
       const weISO = format(weekEnd, "yyyy-MM-dd");
 
-      const [campsRes, coachesRes, syncedBookingsRes, rosterRes] = await Promise.all([
+      const [campsRes, coachesRes, rosterRes] = await Promise.all([
         supabase.from("camps").select("id, name, club_name, venue, county, start_date, end_date, status")
           .lte("start_date", weISO).gte("end_date", wsISO)
           .not("status", "eq", "archived")
           .order("name"),
         supabase.from("coaches").select("id, full_name, county, can_drive, is_head_coach, role_type, experience_level, daily_rate, head_coach_daily_rate, fuel_allowance_eligible, pickup_locations, preferred_counties, local_counties, home_town, preferred_driver_id, status")
           .eq("status", "active").order("full_name"),
-        supabase.from("synced_bookings").select("matched_camp_id")
-          .not("matched_camp_id", "is", null),
         supabase.from("weekly_rosters").select("*").eq("week_start", wsISO).maybeSingle(),
       ]);
 
@@ -125,9 +123,22 @@ const RosterPage = () => {
       }
 
       const bookingCounts: Record<string, number> = {};
-      (syncedBookingsRes.data || []).forEach((b: { matched_camp_id: string }) => {
-        bookingCounts[b.matched_camp_id] = (bookingCounts[b.matched_camp_id] || 0) + 1;
-      });
+      // Page through synced_bookings (Supabase caps at 1000 per request)
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data: page, error } = await supabase
+          .from("synced_bookings")
+          .select("matched_camp_id")
+          .not("matched_camp_id", "is", null)
+          .range(from, from + PAGE - 1);
+        if (error || !page || page.length === 0) break;
+        page.forEach((b: { matched_camp_id: string }) => {
+          bookingCounts[b.matched_camp_id] = (bookingCounts[b.matched_camp_id] || 0) + 1;
+        });
+        if (page.length < PAGE) break;
+        from += PAGE;
+      }
 
       const weekCamps: RosterCamp[] = (campsRes.data || []).map((c: any) => {
         const pc = bookingCounts[c.id] || 0;
