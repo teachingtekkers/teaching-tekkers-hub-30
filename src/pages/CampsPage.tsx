@@ -80,16 +80,21 @@ const CampsPage = () => {
       const campIds = campsResult.data.map((c: any) => c.id);
       const countMap: Record<string, number> = {};
 
-      const BATCH = 100;
-      for (let i = 0; i < campIds.length; i += BATCH) {
-        const batch = campIds.slice(i, i + BATCH);
-        const { data: counts } = await supabase
+      // Page through all rows (Supabase caps at 1000 per request)
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data: page, error } = await supabase
           .from("synced_bookings")
           .select("matched_camp_id")
-          .in("matched_camp_id", batch);
-        (counts || []).forEach((r: { matched_camp_id: string | null }) => {
+          .not("matched_camp_id", "is", null)
+          .range(from, from + PAGE - 1);
+        if (error || !page || page.length === 0) break;
+        page.forEach((r: { matched_camp_id: string | null }) => {
           if (r.matched_camp_id) countMap[r.matched_camp_id] = (countMap[r.matched_camp_id] || 0) + 1;
         });
+        if (page.length < PAGE) break;
+        from += PAGE;
       }
 
       setCamps(campsResult.data.map(c => ({
