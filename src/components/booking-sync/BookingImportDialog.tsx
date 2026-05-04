@@ -191,7 +191,9 @@ interface FilenameMetadata {
 // Camp name = last segment. Venue = second-to-last. County = third-to-last.
 function extractMetadataFromFilename(filename: string): FilenameMetadata {
   const noExt = filename.replace(/\.(csv|tsv|txt)$/i, "").trim();
-  const segments = noExt.split(/\s*[-–]\s*/).map((s) => s.replace(/\([^)]*\)/g, "").trim()).filter(Boolean);
+  // Strip parenthetical content FIRST so hyphens inside "(FOOTBALL INCLUDED - NO KIT)" don't split segments
+  const cleaned = noExt.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
+  const segments = cleaned.split(/\s*[-–]\s*/).map((s) => s.trim()).filter(Boolean);
 
   // The last segment is the camp name
   let campName = segments[segments.length - 1] || noExt;
