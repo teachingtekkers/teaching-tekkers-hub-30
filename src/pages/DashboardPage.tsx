@@ -45,9 +45,8 @@ const DashboardPage = () => {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [campsRes, bookingsRes, coachAssignRes, invoicesRes, rosterRes, errorsRes, itinRes] = await Promise.all([
+      const [campsRes, coachAssignRes, invoicesRes, rosterRes, errorsRes, itinRes] = await Promise.all([
         supabase.from("camps").select("id, name, club_name, venue, start_date, end_date").order("start_date", { ascending: false }),
-        supabase.from("synced_bookings").select("id, matched_camp_id, amount_paid, amount_owed, total_amount, sibling_discount, refund_amount, payment_status"),
         supabase.from("camp_coach_assignments").select("camp_id, coach_id"),
         supabase.from("club_invoices").select("camp_id, total_amount, manual_amount, status"),
         supabase.from("weekly_rosters").select("assignments, status").eq("week_start", wsISO).maybeSingle(),
@@ -55,9 +54,24 @@ const DashboardPage = () => {
         supabase.from("itineraries").select("id, linked_camp_id"),
       ]);
 
+      // Paginated fetch of synced_bookings to bypass the 1000-row default limit
+      const allBookings: BookingRow[] = [];
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data: page, error: pageErr } = await supabase
+          .from("synced_bookings")
+          .select("id, matched_camp_id, amount_paid, amount_owed, total_amount, sibling_discount, refund_amount, payment_status")
+          .range(from, from + PAGE - 1);
+        if (pageErr || !page || page.length === 0) break;
+        allBookings.push(...(page as BookingRow[]));
+        if (page.length < PAGE) break;
+        from += PAGE;
+      }
+
       const allCamps = (campsRes.data || []) as CampRow[];
       setCamps(allCamps);
-      setBookings((bookingsRes.data || []) as BookingRow[]);
+      setBookings(allBookings);
       setCoachAssignments(coachAssignRes.data || []);
       setClubInvoices(invoicesRes.data || []);
       setSyncErrors(errorsRes.count || 0);
