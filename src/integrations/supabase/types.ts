@@ -1131,6 +1131,9 @@ export type Database = {
       }
       payroll_records: {
         Row: {
+          base_pay: number
+          bonus: number
+          camp_bonus: number
           camp_id: string
           coach_id: string
           created_at: string
@@ -1140,10 +1143,15 @@ export type Database = {
           id: string
           manual_adjustment: number
           notes: string | null
+          role: string | null
           total_amount: number
+          updated_at: string
           week_start: string
         }
         Insert: {
+          base_pay?: number
+          bonus?: number
+          camp_bonus?: number
           camp_id: string
           coach_id: string
           created_at?: string
@@ -1153,10 +1161,15 @@ export type Database = {
           id?: string
           manual_adjustment?: number
           notes?: string | null
+          role?: string | null
           total_amount?: number
+          updated_at?: string
           week_start: string
         }
         Update: {
+          base_pay?: number
+          bonus?: number
+          camp_bonus?: number
           camp_id?: string
           coach_id?: string
           created_at?: string
@@ -1166,7 +1179,9 @@ export type Database = {
           id?: string
           manual_adjustment?: number
           notes?: string | null
+          role?: string | null
           total_amount?: number
+          updated_at?: string
           week_start?: string
         }
         Relationships: [

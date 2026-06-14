@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, isWeekend, parseISO } from "date-fns";
 import { Link } from "react-router-dom";
 import { Wallet, Users, Tent, Wand2, AlertCircle } from "lucide-react";
+import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -84,6 +85,8 @@ const PayrollPage = () => {
   const [payrollLines, setPayrollLines] = useState<PayrollLine[]>([]);
   const [generated, setGenerated] = useState(false);
   const [rosterStatus, setRosterStatus] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [loadedFromSaved, setLoadedFromSaved] = useState(false);
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
@@ -134,8 +137,24 @@ const PayrollPage = () => {
         }
       }
 
-      // Auto-generate payroll if a finalised roster exists
-      if (rosterRes.data?.status === "finalised" && rosterRes.data.assignments) {
+      // 1) Try to hydrate from saved payroll_records first
+      let hydrated = false;
+      if (campIds.length > 0) {
+        const { data: savedRows } = await supabase
+          .from("payroll_records")
+          .select("*")
+          .eq("week_start", wsISO)
+          .in("camp_id", campIds);
+        if (savedRows && savedRows.length > 0) {
+          hydrateFromSaved(savedRows as any[], campsList, coachesList);
+          setLoadedFromSaved(true);
+          hydrated = true;
+        }
+      }
+
+      // 2) Fallback: auto-generate from finalised roster
+      if (!hydrated && rosterRes.data?.status === "finalised" && rosterRes.data.assignments) {
+        setLoadedFromSaved(false);
         buildPayroll(
           rosterRes.data.assignments as unknown as DailyAssignment[],
           campsList,
@@ -148,6 +167,38 @@ const PayrollPage = () => {
     };
     load();
   }, [selectedDate]);
+
+  const hydrateFromSaved = useCallback((rows: any[], campsList: PayrollCamp[], coachesList: PayrollCoach[]) => {
+    const coachMap = new Map(coachesList.map(c => [c.id, c]));
+    const campMap = new Map(campsList.map(c => [c.id, c]));
+    const linesByCoach = new Map<string, PayrollLine>();
+    for (const r of rows) {
+      const coach = coachMap.get(r.coach_id);
+      const camp = campMap.get(r.camp_id);
+      if (!coach || !camp) continue;
+      const role = (r.role as PayrollCampEntry["role"]) || "assistant";
+      const daysWorked = Number(r.days_worked) || 0;
+      const dailyRate = Number(r.daily_rate_used) || (role === "head_coach" ? coach.head_coach_daily_rate : coach.daily_rate);
+      const basePay = Number(r.base_pay) || dailyRate * daysWorked;
+      const fuel = Number(r.fuel_allowance) || 0;
+      const campBonus = Number(r.camp_bonus) || 0;
+      const bonus = Number(r.bonus) || 0;
+      const adjustment = Number(r.manual_adjustment) || 0;
+      const lineTotal = Number(r.total_amount) || (basePay + fuel + campBonus + bonus + adjustment);
+      const entry: PayrollCampEntry = {
+        campId: camp.id, campName: camp.name, clubName: camp.club_name,
+        role, daysWorked, dailyRate, basePay, fuel, campBonus, bonus, adjustment,
+        lineTotal,
+        drivingThisWeek: fuel > 0,
+      };
+      if (!linesByCoach.has(coach.id)) {
+        linesByCoach.set(coach.id, { coachId: coach.id, coachName: coach.full_name, entries: [] });
+      }
+      linesByCoach.get(coach.id)!.entries.push(entry);
+    }
+    setPayrollLines(Array.from(linesByCoach.values()).sort((a, b) => a.coachName.localeCompare(b.coachName)));
+    setGenerated(true);
+  }, []);
 
   const buildPayroll = useCallback((rosterAssignments: DailyAssignment[], campsList: PayrollCamp[], coachesList: PayrollCoach[], approvedBonuses: ApprovedCampBonus[] = []) => {
     const coachMap = new Map(coachesList.map(c => [c.id, c]));
@@ -221,8 +272,48 @@ const PayrollPage = () => {
     }
 
     buildPayroll(data.assignments as unknown as DailyAssignment[], camps, coaches, approvedBonuses);
+    setLoadedFromSaved(false);
     sonnerToast.success("Payroll generated from finalised roster");
   }, [weekStart, weekEnd, camps, coaches, buildPayroll]);
+
+  const savePayroll = useCallback(async () => {
+    const wsISO = format(weekStart, "yyyy-MM-dd");
+    const rows: any[] = [];
+    for (const line of payrollLines) {
+      for (const e of line.entries) {
+        rows.push({
+          coach_id: line.coachId,
+          camp_id: e.campId,
+          week_start: wsISO,
+          role: e.role,
+          days_worked: e.daysWorked,
+          daily_rate_used: e.dailyRate,
+          base_pay: e.basePay,
+          fuel_allowance: e.fuel,
+          camp_bonus: e.campBonus,
+          bonus: e.bonus,
+          manual_adjustment: e.adjustment,
+          total_amount: e.lineTotal,
+          updated_at: new Date().toISOString(),
+        });
+      }
+    }
+    if (rows.length === 0) {
+      sonnerToast.error("Nothing to save");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from("payroll_records")
+      .upsert(rows, { onConflict: "coach_id,camp_id,week_start" });
+    setSaving(false);
+    if (error) {
+      sonnerToast.error("Save failed: " + error.message);
+      return;
+    }
+    setLoadedFromSaved(true);
+    sonnerToast.success(`Saved ${rows.length} payroll line${rows.length === 1 ? "" : "s"}`);
+  }, [payrollLines, weekStart]);
 
   const updateEntry = useCallback((coachId: string, campId: string, field: "fuel" | "bonus" | "adjustment", value: number) => {
     setPayrollLines(prev => prev.map(line => {
@@ -323,6 +414,12 @@ const PayrollPage = () => {
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="outline" onClick={() => { setGenerated(false); setPayrollLines([]); }}>Reset</Button>
             <Button onClick={generatePayroll} variant="outline" className="gap-2"><Wand2 className="h-4 w-4" /> Regenerate</Button>
+            <Button onClick={savePayroll} disabled={saving} className="gap-2">
+              <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save Payroll"}
+            </Button>
+            {loadedFromSaved && (
+              <Badge variant="secondary" className="text-xs">Loaded from saved payroll</Badge>
+            )}
             <PayrollExport coachSummaries={coachSummaries} weekStart={weekStart} weekEnd={weekEnd} weekTotal={weekTotal} />
           </div>
           <Tabs defaultValue="coach">
