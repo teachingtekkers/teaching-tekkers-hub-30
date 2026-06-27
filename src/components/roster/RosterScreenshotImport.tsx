@@ -42,11 +42,16 @@ interface ExtractedCoach {
   matchedCoachId: string | null; // null = unmatched, "__create__" = create new
 }
 
-interface ExtractedRoster {
-  campId: string | null; // chosen camp from week
-  weekLabel: string;
+interface ExtractedCamp {
+  sectionId: string;
   campNameRaw: string;
+  campId: string | null;
   coaches: ExtractedCoach[];
+}
+
+interface ExtractedRoster {
+  weekLabel: string;
+  camps: ExtractedCamp[];
 }
 
 interface Props {
@@ -154,36 +159,52 @@ export function RosterScreenshotImport({
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      const rawCoaches: { name?: string; role?: string; days?: string[]; notes?: string }[] = data?.coaches || [];
-      const campId = findBestCampMatch(data?.camp_name || "", camps);
+      // New shape: { week_label, camps: [{ camp_name, coaches: [...] }] }
+      // Backward-compatible with old single-camp shape too.
+      const rawCamps: Array<{ camp_name?: string; coaches?: any[] }> = Array.isArray(data?.camps)
+        ? data.camps
+        : data?.camp_name || data?.coaches
+        ? [{ camp_name: data?.camp_name, coaches: data?.coaches || [] }]
+        : [];
 
-      const coaches: ExtractedCoach[] = rawCoaches.map((c, i) => {
-        const name = (c.name || "").trim();
-        const rawRole = (c.role || "coach").toLowerCase();
-        const role: Role =
-          rawRole === "head_coach" || rawRole === "head coach" || rawRole === "hc"
-            ? "head_coach"
-            : rawRole === "helper"
-            ? "helper"
-            : "assistant";
-        const days = (c.days || []).filter((d) => WEEKDAYS.includes(d));
-        return {
-          rowId: `row-${Date.now()}-${i}`,
-          name,
-          role,
-          days,
-          notes: (c.notes || "").trim(),
-          matchedCoachId: findBestCoachMatch(name, sortedCoaches),
-        };
-      });
+      const extractedCamps: ExtractedCamp[] = rawCamps
+        .filter((rc) => rc && (rc.camp_name || (rc.coaches || []).length))
+        .map((rc, ci) => {
+          const coaches: ExtractedCoach[] = (rc.coaches || []).map((c: any, i: number) => {
+            const name = (c?.name || "").trim();
+            const rawRole = String(c?.role || "coach").toLowerCase();
+            const role: Role =
+              rawRole === "head_coach" || rawRole === "head coach" || rawRole === "hc"
+                ? "head_coach"
+                : rawRole === "helper"
+                ? "helper"
+                : "assistant";
+            const days = (c?.days || []).filter((d: string) => WEEKDAYS.includes(d));
+            return {
+              rowId: `r-${Date.now()}-${ci}-${i}`,
+              name,
+              role,
+              days,
+              notes: (c?.notes || "").trim(),
+              matchedCoachId: findBestCoachMatch(name, sortedCoaches),
+            };
+          });
+          return {
+            sectionId: `camp-${Date.now()}-${ci}`,
+            campNameRaw: rc.camp_name || "",
+            campId: findBestCampMatch(rc.camp_name || "", camps),
+            coaches,
+          };
+        });
 
       setExtracted({
-        campId,
         weekLabel: data?.week_label || "",
-        campNameRaw: data?.camp_name || "",
-        coaches,
+        camps: extractedCamps,
       });
-      sonnerToast.success(`Extracted ${coaches.length} coach${coaches.length === 1 ? "" : "es"}. Review and confirm below.`);
+      const totalCoaches = extractedCamps.reduce((s, c) => s + c.coaches.length, 0);
+      sonnerToast.success(
+        `Extracted ${extractedCamps.length} camp${extractedCamps.length === 1 ? "" : "s"} and ${totalCoaches} coach${totalCoaches === 1 ? "" : "es"}. Review and confirm below.`
+      );
     } catch (e) {
       console.error(e);
       sonnerToast.error(e instanceof Error ? e.message : "Extraction failed");
@@ -192,47 +213,32 @@ export function RosterScreenshotImport({
     }
   };
 
-  const updateCoach = (rowId: string, patch: Partial<ExtractedCoach>) => {
+  const updateSection = (sectionId: string, patch: Partial<ExtractedCamp>) => {
     setExtracted((prev) =>
       prev
-        ? { ...prev, coaches: prev.coaches.map((c) => (c.rowId === rowId ? { ...c, ...patch } : c)) }
+        ? { ...prev, camps: prev.camps.map((c) => (c.sectionId === sectionId ? { ...c, ...patch } : c)) }
         : prev
     );
   };
 
-  const toggleDay = (rowId: string, day: string) => {
-    setExtracted((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        coaches: prev.coaches.map((c) => {
-          if (c.rowId !== rowId) return c;
-          const has = c.days.includes(day);
-          return {
-            ...c,
-            days: has
-              ? c.days.filter((d) => d !== day)
-              : [...c.days, day].sort((a, b) => WEEKDAYS.indexOf(a) - WEEKDAYS.indexOf(b)),
-          };
-        }),
-      };
-    });
+  const removeSection = (sectionId: string) => {
+    setExtracted((prev) =>
+      prev ? { ...prev, camps: prev.camps.filter((c) => c.sectionId !== sectionId) } : prev
+    );
   };
 
-  const addRow = () => {
+  const addSection = () => {
     setExtracted((prev) =>
       prev
         ? {
             ...prev,
-            coaches: [
-              ...prev.coaches,
+            camps: [
+              ...prev.camps,
               {
-                rowId: `row-${Date.now()}-${prev.coaches.length}`,
-                name: "",
-                role: "assistant",
-                days: [],
-                notes: "",
-                matchedCoachId: null,
+                sectionId: `camp-${Date.now()}-${prev.camps.length}`,
+                campNameRaw: "",
+                campId: null,
+                coaches: [],
               },
             ],
           }
@@ -240,9 +246,86 @@ export function RosterScreenshotImport({
     );
   };
 
-  const removeRow = (rowId: string) => {
+  const updateCoach = (sectionId: string, rowId: string, patch: Partial<ExtractedCoach>) => {
     setExtracted((prev) =>
-      prev ? { ...prev, coaches: prev.coaches.filter((c) => c.rowId !== rowId) } : prev
+      prev
+        ? {
+            ...prev,
+            camps: prev.camps.map((cp) =>
+              cp.sectionId !== sectionId
+                ? cp
+                : { ...cp, coaches: cp.coaches.map((c) => (c.rowId === rowId ? { ...c, ...patch } : c)) }
+            ),
+          }
+        : prev
+    );
+  };
+
+  const toggleDay = (sectionId: string, rowId: string, day: string) => {
+    setExtracted((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        camps: prev.camps.map((cp) => {
+          if (cp.sectionId !== sectionId) return cp;
+          return {
+            ...cp,
+            coaches: cp.coaches.map((c) => {
+              if (c.rowId !== rowId) return c;
+              const has = c.days.includes(day);
+              return {
+                ...c,
+                days: has
+                  ? c.days.filter((d) => d !== day)
+                  : [...c.days, day].sort((a, b) => WEEKDAYS.indexOf(a) - WEEKDAYS.indexOf(b)),
+              };
+            }),
+          };
+        }),
+      };
+    });
+  };
+
+  const addRow = (sectionId: string) => {
+    setExtracted((prev) =>
+      prev
+        ? {
+            ...prev,
+            camps: prev.camps.map((cp) =>
+              cp.sectionId !== sectionId
+                ? cp
+                : {
+                    ...cp,
+                    coaches: [
+                      ...cp.coaches,
+                      {
+                        rowId: `r-${Date.now()}-${cp.coaches.length}`,
+                        name: "",
+                        role: "assistant",
+                        days: [],
+                        notes: "",
+                        matchedCoachId: null,
+                      },
+                    ],
+                  }
+            ),
+          }
+        : prev
+    );
+  };
+
+  const removeRow = (sectionId: string, rowId: string) => {
+    setExtracted((prev) =>
+      prev
+        ? {
+            ...prev,
+            camps: prev.camps.map((cp) =>
+              cp.sectionId !== sectionId
+                ? cp
+                : { ...cp, coaches: cp.coaches.filter((c) => c.rowId !== rowId) }
+            ),
+          }
+        : prev
     );
   };
 
@@ -256,12 +339,20 @@ export function RosterScreenshotImport({
   const validationIssues = useMemo(() => {
     if (!extracted) return [] as string[];
     const issues: string[] = [];
-    if (!extracted.campId) issues.push("Select which camp this roster is for.");
-    extracted.coaches.forEach((c, i) => {
-      const label = c.name || `Row ${i + 1}`;
-      if (!c.name.trim()) issues.push(`Row ${i + 1}: coach name is empty.`);
-      if (!c.matchedCoachId) issues.push(`${label}: choose a matching staff profile or create a new one.`);
-      if (c.days.length === 0) issues.push(`${label}: at least one working day must be ticked.`);
+    if (extracted.camps.length === 0) issues.push("No camps to import.");
+    const seenCampIds = new Set<string>();
+    extracted.camps.forEach((cp, ci) => {
+      const campLabel = cp.campNameRaw || `Camp ${ci + 1}`;
+      if (!cp.campId) issues.push(`${campLabel}: select which camp this is for.`);
+      else if (seenCampIds.has(cp.campId)) issues.push(`${campLabel}: this camp is selected more than once.`);
+      else seenCampIds.add(cp.campId);
+      if (cp.coaches.length === 0) issues.push(`${campLabel}: add at least one coach.`);
+      cp.coaches.forEach((c, i) => {
+        const label = `${campLabel} · ${c.name || `Row ${i + 1}`}`;
+        if (!c.name.trim()) issues.push(`${label}: coach name is empty.`);
+        if (!c.matchedCoachId) issues.push(`${label}: choose a matching staff profile or create a new one.`);
+        if (c.days.length === 0) issues.push(`${label}: at least one working day must be ticked.`);
+      });
     });
     return issues;
   }, [extracted]);
@@ -269,13 +360,15 @@ export function RosterScreenshotImport({
   const canConfirm = extracted && validationIssues.length === 0 && !saving;
 
   const confirmImport = async () => {
-    if (!extracted || !extracted.campId) return;
+    if (!extracted) return;
     setSaving(true);
     try {
-      // 1) Create any new coach profiles requested
-      const newProfiles = extracted.coaches.filter((c) => c.matchedCoachId === "__create__");
+      // 1) Create any new coach profiles requested across all sections
+      const newProfiles = extracted.camps.flatMap((cp) =>
+        cp.coaches.filter((c) => c.matchedCoachId === "__create__").map((c) => ({ sectionId: cp.sectionId, coach: c }))
+      );
       const createdMap = new Map<string, string>(); // rowId -> new coach id
-      for (const np of newProfiles) {
+      for (const { coach: np } of newProfiles) {
         const { data, error } = await supabase
           .from("coaches")
           .insert({
@@ -295,33 +388,42 @@ export function RosterScreenshotImport({
         createdMap.set(np.rowId, data.id);
       }
 
-      // 2) Build new assignments for this camp
-      const campId = extracted.campId;
-      const newCampAssignments: DailyAssignment[] = extracted.coaches.map((c, i) => {
-        const coachId = c.matchedCoachId === "__create__" ? createdMap.get(c.rowId)! : c.matchedCoachId!;
-        const dayDates = c.days
-          .map((d) => weekdayToDateStr(d, weekStart))
-          .filter((d): d is string => !!d);
-        return {
-          id: `imp-${Date.now()}-${i}`,
-          camp_id: campId,
-          coach_id: coachId,
-          role: c.role,
-          days: dayDates,
-          driving_this_week: false,
-          grant_camp_access: c.role === "head_coach",
-        };
+      // 2) Build new assignments per camp
+      const importedCampIds = new Set<string>();
+      const newAssignments: DailyAssignment[] = [];
+      const notesByCoachKey = new Map<string, string>(); // `${campId}|${coachId}` -> notes
+
+      extracted.camps.forEach((cp, ci) => {
+        const campId = cp.campId!;
+        importedCampIds.add(campId);
+        cp.coaches.forEach((c, i) => {
+          const coachId =
+            c.matchedCoachId === "__create__" ? createdMap.get(c.rowId)! : c.matchedCoachId!;
+          const dayDates = c.days
+            .map((d) => weekdayToDateStr(d, weekStart))
+            .filter((d): d is string => !!d);
+          newAssignments.push({
+            id: `imp-${Date.now()}-${ci}-${i}`,
+            camp_id: campId,
+            coach_id: coachId,
+            role: c.role,
+            days: dayDates,
+            driving_this_week: false,
+            grant_camp_access: c.role === "head_coach",
+          });
+          if (c.notes) notesByCoachKey.set(`${campId}|${coachId}`, c.notes);
+        });
       });
 
-      // 3) Merge with current assignments: drop any prior rows for this camp, append new
+      // 3) Merge with current assignments: drop prior rows for any imported camp, append new
       const mergedAssignments: DailyAssignment[] = [
-        ...currentAssignments.filter((a) => a.camp_id !== campId),
-        ...newCampAssignments,
+        ...currentAssignments.filter((a) => !importedCampIds.has(a.camp_id)),
+        ...newAssignments,
       ];
 
       // 4) Ensure all involved coaches are in the availability pool
       const allCoachIds = new Set<string>(availableCoachIds);
-      newCampAssignments.forEach((a) => allCoachIds.add(a.coach_id));
+      newAssignments.forEach((a) => allCoachIds.add(a.coach_id));
       const updatedAvailable = Array.from(allCoachIds);
 
       const uniqueCoachIds = new Set(mergedAssignments.map((a) => a.coach_id));
@@ -350,7 +452,7 @@ export function RosterScreenshotImport({
 
       // 5) Create DRAFT payroll_records for each coach on this camp/week
       const allCoachesById = new Map(allCoaches.map((c) => [c.id, c]));
-      for (const a of newCampAssignments) {
+      for (const a of newAssignments) {
         const coach = allCoachesById.get(a.coach_id);
         const isHead = a.role === "head_coach";
         const rate = isHead
@@ -360,9 +462,7 @@ export function RosterScreenshotImport({
         const basePay = rate * daysWorked;
         const fuel = coach?.fuel_allowance_eligible ? 20 : 0; // matches PayrollPage default
         const total = basePay + fuel;
-        const rowNotes = extracted.coaches.find(
-          (c) => (c.matchedCoachId === "__create__" ? createdMap.get(c.rowId) : c.matchedCoachId) === a.coach_id
-        )?.notes || "";
+        const rowNotes = notesByCoachKey.get(`${a.camp_id}|${a.coach_id}`) || "";
 
         const { error: prError } = await supabase.from("payroll_records").upsert(
           {
@@ -389,7 +489,7 @@ export function RosterScreenshotImport({
       }
 
       // 6) Ensure head coaches get camp_coach_assignments access
-      for (const a of newCampAssignments) {
+      for (const a of newAssignments) {
         if (a.role !== "head_coach" && !a.grant_camp_access) continue;
         const { data: existing } = await supabase
           .from("camp_coach_assignments")
@@ -409,7 +509,7 @@ export function RosterScreenshotImport({
       }
 
       sonnerToast.success(
-        `Roster imported. ${newCampAssignments.length} coach${newCampAssignments.length === 1 ? "" : "es"} added. Draft payroll created.`
+        `Roster imported. ${importedCampIds.size} camp${importedCampIds.size === 1 ? "" : "s"}, ${newAssignments.length} coach-assignment${newAssignments.length === 1 ? "" : "s"}. Draft payroll created.`
       );
       reset();
       onImportComplete();
@@ -499,193 +599,218 @@ export function RosterScreenshotImport({
               />
             )}
             <div className="flex-1 min-w-[260px] space-y-3">
-              <div className="grid sm:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Camp / Club</Label>
-                  <Select
-                    value={extracted.campId || ""}
-                    onValueChange={(v) =>
-                      setExtracted((prev) => (prev ? { ...prev, campId: v } : prev))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select camp…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {camps.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.club_name} — {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {extracted.campNameRaw && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Detected: <em>{extracted.campNameRaw}</em>
-                    </p>
-                  )}
+              <div>
+                <Label className="text-xs">Week</Label>
+                <div className="h-9 px-3 flex items-center rounded-md border bg-muted/30 text-sm">
+                  {format(weekStart, "EEE d MMM")} – {format(weekEnd, "EEE d MMM yyyy")}
                 </div>
-                <div>
-                  <Label className="text-xs">Week</Label>
-                  <div className="h-9 px-3 flex items-center rounded-md border bg-muted/30 text-sm">
-                    {format(weekStart, "EEE d MMM")} – {format(weekEnd, "EEE d MMM yyyy")}
-                  </div>
-                  {extracted.weekLabel && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Detected on image: <em>{extracted.weekLabel}</em>
-                    </p>
-                  )}
-                </div>
+                {extracted.weekLabel && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Detected on image: <em>{extracted.weekLabel}</em>
+                  </p>
+                )}
               </div>
+              <p className="text-xs text-muted-foreground">
+                {extracted.camps.length} camp{extracted.camps.length === 1 ? "" : "s"} detected ·{" "}
+                {extracted.camps.reduce((s, c) => s + c.coaches.length, 0)} coach rows
+              </p>
             </div>
             <Button variant="outline" size="sm" onClick={reset} className="gap-2">
               <RotateCcw className="h-4 w-4" /> Upload different image
             </Button>
           </div>
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={addSection} className="gap-2">
+              <Plus className="h-4 w-4" /> Add Camp Section
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="p-4 border-b flex items-center justify-between">
-            <div>
-              <h4 className="font-semibold">Extracted Coaches</h4>
-              <p className="text-xs text-muted-foreground">
-                Match each coach to a staff profile, then tick the days they're working.
-              </p>
+      {extracted.camps.map((section, sectionIdx) => (
+        <Card key={section.sectionId}>
+          <CardContent className="p-0">
+            <div className="p-4 border-b space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0 grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Camp / Club (Section {sectionIdx + 1})</Label>
+                    <Select
+                      value={section.campId || ""}
+                      onValueChange={(v) => updateSection(section.sectionId, { campId: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select camp…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {camps.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.club_name} — {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {section.campNameRaw && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Detected: <em>{section.campNameRaw}</em>
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-end justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => addRow(section.sectionId)} className="gap-2">
+                      <Plus className="h-4 w-4" /> Add Coach
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeSection(section.sectionId)}
+                      className="gap-2 text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" /> Remove Camp
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
-            <Button variant="outline" size="sm" onClick={addRow} className="gap-2">
-              <Plus className="h-4 w-4" /> Add Row
-            </Button>
-          </div>
 
-          <div className="divide-y">
-            {extracted.coaches.map((c) => {
-              const flagged = !c.matchedCoachId;
-              const matchedCoach = c.matchedCoachId && c.matchedCoachId !== "__create__"
-                ? allCoaches.find((x) => x.id === c.matchedCoachId)
-                : null;
-              return (
-                <div key={c.rowId} className="p-4 space-y-3">
-                  <div className="grid md:grid-cols-12 gap-3 items-start">
-                    <div className="md:col-span-3">
-                      <Label className="text-xs">Name on Roster</Label>
-                      <Input
-                        value={c.name}
-                        onChange={(e) => updateCoach(c.rowId, { name: e.target.value })}
-                        placeholder="Coach name"
-                      />
-                      {flagged && (
-                        <Badge variant="outline" className="mt-1 text-xs text-orange-600 border-orange-300 gap-1">
-                          <AlertTriangle className="h-3 w-3" /> Needs match
-                        </Badge>
-                      )}
-                      {matchedCoach && (
-                        <Badge variant="secondary" className="mt-1 text-xs gap-1">
-                          <CheckCircle2 className="h-3 w-3" /> Matched
-                        </Badge>
-                      )}
-                      {c.matchedCoachId === "__create__" && (
-                        <Badge variant="default" className="mt-1 text-xs">
-                          Will create new profile
-                        </Badge>
-                      )}
-                    </div>
+            <div className="divide-y">
+              {section.coaches.map((c) => {
+                const flagged = !c.matchedCoachId;
+                const matchedCoach =
+                  c.matchedCoachId && c.matchedCoachId !== "__create__"
+                    ? allCoaches.find((x) => x.id === c.matchedCoachId)
+                    : null;
+                return (
+                  <div key={c.rowId} className="p-4 space-y-3">
+                    <div className="grid md:grid-cols-12 gap-3 items-start">
+                      <div className="md:col-span-3">
+                        <Label className="text-xs">Name on Roster</Label>
+                        <Input
+                          value={c.name}
+                          onChange={(e) => updateCoach(section.sectionId, c.rowId, { name: e.target.value })}
+                          placeholder="Coach name"
+                        />
+                        {flagged && (
+                          <Badge variant="outline" className="mt-1 text-xs text-orange-600 border-orange-300 gap-1">
+                            <AlertTriangle className="h-3 w-3" /> Needs match
+                          </Badge>
+                        )}
+                        {matchedCoach && (
+                          <Badge variant="secondary" className="mt-1 text-xs gap-1">
+                            <CheckCircle2 className="h-3 w-3" /> Matched
+                          </Badge>
+                        )}
+                        {c.matchedCoachId === "__create__" && (
+                          <Badge variant="default" className="mt-1 text-xs">
+                            Will create new profile
+                          </Badge>
+                        )}
+                      </div>
 
-                    <div className="md:col-span-3">
-                      <Label className="text-xs">Staff Profile</Label>
-                      <Select
-                        value={c.matchedCoachId || ""}
-                        onValueChange={(v) => updateCoach(c.rowId, { matchedCoachId: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select coach…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__create__">+ Create new profile from name</SelectItem>
-                          {sortedCoaches.map((sc) => (
-                            <SelectItem key={sc.id} value={sc.id}>
-                              {sc.full_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                      <div className="md:col-span-3">
+                        <Label className="text-xs">Staff Profile</Label>
+                        <Select
+                          value={c.matchedCoachId || ""}
+                          onValueChange={(v) => updateCoach(section.sectionId, c.rowId, { matchedCoachId: v })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select coach…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__create__">+ Create new profile from name</SelectItem>
+                            {sortedCoaches.map((sc) => (
+                              <SelectItem key={sc.id} value={sc.id}>
+                                {sc.full_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                    <div className="md:col-span-2">
-                      <Label className="text-xs">Role</Label>
-                      <Select
-                        value={c.role}
-                        onValueChange={(v) => updateCoach(c.rowId, { role: v as Role })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="head_coach">Head Coach</SelectItem>
-                          <SelectItem value="assistant">Coach</SelectItem>
-                          <SelectItem value="helper">Helper</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                      <div className="md:col-span-2">
+                        <Label className="text-xs">Role</Label>
+                        <Select
+                          value={c.role}
+                          onValueChange={(v) => updateCoach(section.sectionId, c.rowId, { role: v as Role })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="head_coach">Head Coach</SelectItem>
+                            <SelectItem value="assistant">Coach</SelectItem>
+                            <SelectItem value="helper">Helper</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                    <div className="md:col-span-3">
-                      <Label className="text-xs">Days Working</Label>
-                      <div className="flex flex-wrap gap-2 pt-2">
-                        {WEEKDAYS.map((d) => {
-                          const checked = c.days.includes(d);
-                          return (
-                            <label
-                              key={d}
-                              className={`flex items-center gap-1 px-2 py-1 rounded border text-xs cursor-pointer ${
-                                checked ? "bg-primary/10 border-primary" : "bg-muted/30"
-                              }`}
-                            >
-                              <Checkbox
-                                checked={checked}
-                                onCheckedChange={() => toggleDay(c.rowId, d)}
-                              />
-                              {d}
-                            </label>
-                          );
-                        })}
+                      <div className="md:col-span-3">
+                        <Label className="text-xs">Days Working</Label>
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          {WEEKDAYS.map((d) => {
+                            const checked = c.days.includes(d);
+                            return (
+                              <label
+                                key={d}
+                                className={`flex items-center gap-1 px-2 py-1 rounded border text-xs cursor-pointer ${
+                                  checked ? "bg-primary/10 border-primary" : "bg-muted/30"
+                                }`}
+                              >
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={() => toggleDay(section.sectionId, c.rowId, d)}
+                                />
+                                {d}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="md:col-span-1 flex md:justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeRow(section.sectionId, c.rowId)}
+                          aria-label="Remove row"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </div>
                     </div>
 
-                    <div className="md:col-span-1 flex md:justify-end">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeRow(c.rowId)}
-                        aria-label="Remove row"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+                    {c.notes && (
+                      <div className="text-xs text-muted-foreground">
+                        <span className="font-medium">Note:</span>{" "}
+                        <Input
+                          value={c.notes}
+                          onChange={(e) => updateCoach(section.sectionId, c.rowId, { notes: e.target.value })}
+                          className="inline-block w-auto h-7 text-xs ml-1"
+                        />
+                      </div>
+                    )}
                   </div>
+                );
+              })}
 
-                  {c.notes && (
-                    <div className="text-xs text-muted-foreground">
-                      <span className="font-medium">Note:</span>{" "}
-                      <Input
-                        value={c.notes}
-                        onChange={(e) => updateCoach(c.rowId, { notes: e.target.value })}
-                        className="inline-block w-auto h-7 text-xs ml-1"
-                      />
-                    </div>
-                  )}
+              {section.coaches.length === 0 && (
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  No coaches in this section. Use <strong>Add Coach</strong> above.
                 </div>
-              );
-            })}
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
 
-            {extracted.coaches.length === 0 && (
-              <div className="p-8 text-center text-sm text-muted-foreground">
-                No coaches extracted. Use <strong>Add Row</strong> to enter them manually.
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {extracted.camps.length === 0 && (
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            No camps detected on this image. Use <strong>Add Camp Section</strong> above to add one manually,
+            or upload a different screenshot.
+          </CardContent>
+        </Card>
+      )}
 
       {validationIssues.length > 0 && (
         <Card className="border-orange-300">
