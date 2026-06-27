@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tent, Users, Banknote, AlertTriangle, ArrowRight, CheckCircle, ClipboardCheck, DollarSign, UserCog, Calendar, Building2, Wallet, CloudDownload, FileText, ChevronLeft, ChevronRight, CalendarIcon, MapPin, AlertCircle, BookOpen } from "lucide-react";
 import { DashboardTasksPanel } from "@/components/dashboard/DashboardTasksPanel";
+import { CampCsvBreakdown } from "@/components/camp/CampCsvBreakdown";
 import { Link } from "react-router-dom";
 import { StatCard } from "@/components/StatCard";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +15,7 @@ import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, isWithinInterval, i
 import { cn } from "@/lib/utils";
 
 interface CampRow { id: string; name: string; club_name: string; venue: string; start_date: string; end_date: string; }
-interface BookingRow { id: string; matched_camp_id: string | null; amount_paid: number | null; amount_owed: number | null; total_amount: number | null; sibling_discount: number | null; refund_amount: number | null; payment_status: string | null; }
+interface BookingRow { id: string; matched_camp_id: string | null; amount_paid: number | null; amount_owed: number | null; total_amount: number | null; sibling_discount: number | null; refund_amount: number | null; payment_status: string | null; child_first_name?: string | null; child_last_name?: string | null; date_of_birth?: string | null; }
 
 const CLUB_RATE = 15;
 
@@ -31,6 +32,8 @@ const DashboardPage = () => {
   const [rosterStatus, setRosterStatus] = useState<string | null>(null);
   const [coachAssignments, setCoachAssignments] = useState<any[]>([]);
   const [itineraries, setItineraries] = useState<any[]>([]);
+  const [csvAuditCampId, setCsvAuditCampId] = useState<string | null>(null);
+  const [csvAuditCampName, setCsvAuditCampName] = useState<string>("");
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
@@ -61,7 +64,7 @@ const DashboardPage = () => {
       while (true) {
         const { data: page, error: pageErr } = await supabase
           .from("synced_bookings")
-          .select("id, matched_camp_id, amount_paid, amount_owed, total_amount, sibling_discount, refund_amount, payment_status")
+          .select("id, matched_camp_id, amount_paid, amount_owed, total_amount, sibling_discount, refund_amount, payment_status, child_first_name, child_last_name, date_of_birth")
           .range(from, from + PAGE - 1);
         if (pageErr || !page || page.length === 0) break;
         allBookings.push(...(page as BookingRow[]));
@@ -152,6 +155,26 @@ const DashboardPage = () => {
 
     return { childrenCount: weekBookings.length, totalRevenue, totalPaid, totalOutstanding, unpaidCount, clubPaymentsDue, weekPresent };
   }, [bookings, weekCampIds, attendanceCounts]);
+
+  // CSV audit — rows vs unique kids per camp (all camps, all time)
+  const csvAudit = useMemo(() => {
+    const rowCount = new Map<string, number>();
+    const uniqueSets = new Map<string, Set<string>>();
+    for (const b of bookings) {
+      if (!b.matched_camp_id) continue;
+      rowCount.set(b.matched_camp_id, (rowCount.get(b.matched_camp_id) || 0) + 1);
+      const key = `${(b.child_first_name||"").trim().toLowerCase()}|${(b.child_last_name||"").trim().toLowerCase()}|${b.date_of_birth || ""}`;
+      if (!uniqueSets.has(b.matched_camp_id)) uniqueSets.set(b.matched_camp_id, new Set());
+      uniqueSets.get(b.matched_camp_id)!.add(key);
+    }
+    const items = camps.map(c => {
+      const rows = rowCount.get(c.id) || 0;
+      const unique = uniqueSets.get(c.id)?.size || 0;
+      return { camp: c, rows, unique, dup: rows - unique };
+    }).filter(x => x.dup > 0)
+      .sort((a, b) => b.dup - a.dup);
+    return items;
+  }, [bookings, camps]);
 
   // Club invoices for this week's camps
   const weekInvoiceMetrics = useMemo(() => {
@@ -298,6 +321,51 @@ const DashboardPage = () => {
 
       {/* Tasks & Reminders */}
       <DashboardTasksPanel />
+
+      {/* CSV Audit — duplicate rows */}
+      {csvAudit.length > 0 && (
+        <div>
+          <p className="section-label flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            CSV Audit — Camps with Duplicate Rows
+          </p>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Camp</TableHead>
+                    <TableHead>Dates</TableHead>
+                    <TableHead className="text-center">CSV Rows</TableHead>
+                    <TableHead className="text-center">Unique Kids</TableHead>
+                    <TableHead className="text-center">Duplicates</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {csvAudit.slice(0, 15).map(({ camp, rows, unique, dup }) => (
+                    <TableRow key={camp.id} className="cursor-pointer hover:bg-accent/50" onClick={() => { setCsvAuditCampId(camp.id); setCsvAuditCampName(camp.name); }}>
+                      <TableCell>
+                        <p className="text-sm font-medium">{camp.name}</p>
+                        <p className="text-xs text-muted-foreground">{camp.club_name}</p>
+                      </TableCell>
+                      <TableCell className="text-xs">{camp.start_date} — {camp.end_date}</TableCell>
+                      <TableCell className="text-center text-sm font-medium">{rows}</TableCell>
+                      <TableCell className="text-center text-sm">{unique}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="destructive" className="text-[10px]">{dup}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right text-xs text-primary">View →</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <CampCsvBreakdown campId={csvAuditCampId} campName={csvAuditCampName} onClose={() => setCsvAuditCampId(null)} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">

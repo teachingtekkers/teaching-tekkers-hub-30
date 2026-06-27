@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, MapPin, Calendar, Tent, Users, FileText, Check, Trash2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { CampCsvBreakdown } from "@/components/camp/CampCsvBreakdown";
 
 interface CampRow {
   id: string;
@@ -34,6 +35,7 @@ interface CampRow {
   capacity: number;
   price_per_child: number;
   participant_count?: number;
+  unique_kids?: number;
   status?: string;
   is_auto_created?: boolean;
   club_id?: string | null;
@@ -55,6 +57,8 @@ const CampsPage = () => {
   const [deleteDraftsOpen, setDeleteDraftsOpen] = useState(false);
   const [deleteDraftsConfirm, setDeleteDraftsConfirm] = useState("");
   const [deletingDrafts, setDeletingDrafts] = useState(false);
+  const [csvCampId, setCsvCampId] = useState<string | null>(null);
+  const [csvCampName, setCsvCampName] = useState<string>("");
   const [form, setForm] = useState({
     name: "", club_name: "", club_id: "", venue: "", county: "",
     start_date: "", end_date: "", daily_start_time: "10:00", daily_end_time: "15:00",
@@ -79,6 +83,7 @@ const CampsPage = () => {
     if (campsResult.data) {
       const campIds = campsResult.data.map((c: any) => c.id);
       const countMap: Record<string, number> = {};
+      const uniqueMap: Record<string, Set<string>> = {};
 
       // Page through all rows (Supabase caps at 1000 per request)
       const PAGE = 1000;
@@ -86,12 +91,16 @@ const CampsPage = () => {
       while (true) {
         const { data: page, error } = await supabase
           .from("synced_bookings")
-          .select("matched_camp_id")
+          .select("matched_camp_id, child_first_name, child_last_name, date_of_birth")
           .not("matched_camp_id", "is", null)
           .range(from, from + PAGE - 1);
         if (error || !page || page.length === 0) break;
-        page.forEach((r: { matched_camp_id: string | null }) => {
-          if (r.matched_camp_id) countMap[r.matched_camp_id] = (countMap[r.matched_camp_id] || 0) + 1;
+        page.forEach((r: any) => {
+          if (!r.matched_camp_id) return;
+          countMap[r.matched_camp_id] = (countMap[r.matched_camp_id] || 0) + 1;
+          const key = `${(r.child_first_name||"").trim().toLowerCase()}|${(r.child_last_name||"").trim().toLowerCase()}|${r.date_of_birth || ""}`;
+          if (!uniqueMap[r.matched_camp_id]) uniqueMap[r.matched_camp_id] = new Set();
+          uniqueMap[r.matched_camp_id].add(key);
         });
         if (page.length < PAGE) break;
         from += PAGE;
@@ -100,6 +109,7 @@ const CampsPage = () => {
       setCamps(campsResult.data.map(c => ({
         ...c,
         participant_count: countMap[c.id] || 0,
+        unique_kids: uniqueMap[c.id]?.size || 0,
         // Use linked club name as source of truth
         club_name: c.club_id ? (clubMap.get(c.club_id) || c.club_name) : c.club_name,
       })) as CampRow[]);
@@ -327,15 +337,16 @@ const CampsPage = () => {
                 <TableHead>County</TableHead>
                 <TableHead>Dates</TableHead>
                 <TableHead className="text-center">Participants</TableHead>
+                <TableHead className="text-center">CSV Rows</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="w-[100px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No camps found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No camps found</TableCell></TableRow>
               ) : filtered.map(camp => (
                 <TableRow key={camp.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/camps/${camp.id}`)}>
                   <TableCell>
@@ -357,6 +368,21 @@ const CampsPage = () => {
                   <TableCell className="text-sm">{camp.start_date} — {camp.end_date}</TableCell>
                   
                   <TableCell className="text-center text-sm">{camp.participant_count || 0}/{camp.capacity}</TableCell>
+                  <TableCell className="text-center text-sm">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setCsvCampId(camp.id); setCsvCampName(camp.name); }}
+                      className="inline-flex items-center gap-1.5 hover:underline"
+                      title="View CSV rows"
+                    >
+                      <span className="font-medium">{camp.participant_count || 0}</span>
+                      {(camp.participant_count || 0) > (camp.unique_kids || 0) && (
+                        <Badge variant="destructive" className="text-[10px] gap-0.5 px-1.5">
+                          <AlertTriangle className="h-2.5 w-2.5" />
+                          {(camp.participant_count || 0) - (camp.unique_kids || 0)} dup
+                        </Badge>
+                      )}
+                    </button>
+                  </TableCell>
                   <TableCell className="text-right text-sm font-medium">€{camp.price_per_child}</TableCell>
                   <TableCell className="text-right">
                     {camp.status === "draft" && (
@@ -378,6 +404,8 @@ const CampsPage = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <CampCsvBreakdown campId={csvCampId} campName={csvCampName} onClose={() => setCsvCampId(null)} />
     </div>
   );
 };
