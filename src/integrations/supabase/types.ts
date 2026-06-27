@@ -1144,6 +1144,7 @@ export type Database = {
           manual_adjustment: number
           notes: string | null
           role: string | null
+          status: string
           total_amount: number
           updated_at: string
           week_start: string
@@ -1162,6 +1163,7 @@ export type Database = {
           manual_adjustment?: number
           notes?: string | null
           role?: string | null
+          status?: string
           total_amount?: number
           updated_at?: string
           week_start: string
@@ -1180,6 +1182,7 @@ export type Database = {
           manual_adjustment?: number
           notes?: string | null
           role?: string | null
+          status?: string
           total_amount?: number
           updated_at?: string
           week_start?: string
