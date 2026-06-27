@@ -35,12 +35,12 @@ Deno.serve(async (req) => {
         {
           role: "system",
           content:
-            "You are reading a photo or screenshot of a football coaching camp WEEKLY ROSTER. It lists which coaches are working at which camp/club for the week, on which days, and in what role (Head Coach / Coach / Helper).\n\nReturn structured data describing the roster. If a value is not visible, leave it blank or omit it. Do not invent information.\n\nDays: use the names that appear (Mon, Tue, Wed, Thu, Fri, Sat, Sun). If the roster shows day numbers/dates instead, return the matching weekday name. If a coach is marked as working a day with any tick / Y / shading / their name in a column, count it.\n\nRoles: normalise to one of 'head_coach', 'coach', or 'helper'. If unclear, use 'coach'.\n\nCamp name: the club or venue name. Week label: any date or 'WK1 July' style text shown. Notes: anything written next to the coach name that isn't a day or role (e.g. 'driving', 'half day', 'AM only').",
+            "You are reading a photo or screenshot of a football coaching WEEKLY ROSTER. The image may list MULTIPLE camps/clubs running in the same week — each typically as its own section, table, column, or block with a heading like the club/venue name. For EACH camp section, list the coaches working there, which days they work, and their role (Head Coach / Coach / Helper).\n\nReturn one entry per camp in the `camps` array. Put coaches under the camp section they appear in. Do not merge coaches from different camps into one camp. Do not invent information.\n\nDays: use Mon, Tue, Wed, Thu, Fri, Sat, Sun. If the sheet uses dates/day numbers instead, map them to the matching weekday name. A coach is working a day when there's a tick / Y / shading / their name in that column. If a single name spans multiple day columns, include all those days.\n\nRoles: normalise to 'head_coach', 'coach', or 'helper'. If unclear, use 'coach'. Words like HC, Head, Lead → head_coach. Asst, Coach, AC → coach. Helper, Junior, Trainee → helper.\n\nWeek label: any date or 'WK1 July'-style text shown for the overall sheet.\nNotes: anything next to a coach name that isn't a day or role (e.g. 'driving', 'half day', 'AM only', 'maybe').",
         },
         {
           role: "user",
           content: [
-            { type: "text", text: "Extract the roster from this image." },
+            { type: "text", text: "Extract every camp on this roster and list each camp's coaches separately." },
             { type: "image_url", image_url: { url: image } },
           ],
         },
@@ -54,27 +54,38 @@ Deno.serve(async (req) => {
             parameters: {
               type: "object",
               properties: {
-                camp_name: { type: "string", description: "Club or camp name shown on the roster" },
                 week_label: { type: "string", description: "Any week/date text shown (e.g. 'WK1 July', '6 Jul 2026')" },
-                coaches: {
+                camps: {
                   type: "array",
+                  description: "One entry per camp/club section shown on the image.",
                   items: {
                     type: "object",
                     properties: {
-                      name: { type: "string" },
-                      role: { type: "string", enum: ["head_coach", "coach", "helper"] },
-                      days: {
+                      camp_name: { type: "string", description: "Club or venue name for this camp section" },
+                      coaches: {
                         type: "array",
-                        items: { type: "string", enum: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] },
+                        items: {
+                          type: "object",
+                          properties: {
+                            name: { type: "string" },
+                            role: { type: "string", enum: ["head_coach", "coach", "helper"] },
+                            days: {
+                              type: "array",
+                              items: { type: "string", enum: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] },
+                            },
+                            notes: { type: "string" },
+                          },
+                          required: ["name", "role", "days"],
+                          additionalProperties: false,
+                        },
                       },
-                      notes: { type: "string" },
                     },
-                    required: ["name", "role", "days"],
+                    required: ["camp_name", "coaches"],
                     additionalProperties: false,
                   },
                 },
               },
-              required: ["camp_name", "coaches"],
+              required: ["camps"],
               additionalProperties: false,
             },
           },
@@ -115,15 +126,24 @@ Deno.serve(async (req) => {
 
     const json = await resp.json();
     const argsStr = json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-    let parsed: { camp_name?: string; week_label?: string; coaches?: unknown[] } = {};
+    let parsed: {
+      week_label?: string;
+      camps?: Array<{ camp_name?: string; coaches?: unknown[] }>;
+    } = {};
     if (argsStr) {
       try { parsed = JSON.parse(argsStr); } catch (e) { console.error("parse error", e); }
     }
 
+    const camps = Array.isArray(parsed.camps)
+      ? parsed.camps.map((c) => ({
+          camp_name: c?.camp_name || "",
+          coaches: Array.isArray(c?.coaches) ? c.coaches : [],
+        }))
+      : [];
+
     return new Response(JSON.stringify({
-      camp_name: parsed.camp_name || "",
       week_label: parsed.week_label || "",
-      coaches: Array.isArray(parsed.coaches) ? parsed.coaches : [],
+      camps,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
