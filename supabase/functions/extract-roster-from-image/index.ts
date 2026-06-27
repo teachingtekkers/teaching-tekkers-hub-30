@@ -30,7 +30,8 @@ Deno.serve(async (req) => {
     }
 
     const body = {
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-2.5-pro",
+      max_tokens: 8192,
       messages: [
         {
           role: "system",
@@ -149,6 +150,10 @@ Deno.serve(async (req) => {
     }
 
     const json = await resp.json();
+    const finishReason = json?.choices?.[0]?.finish_reason;
+    if (finishReason && finishReason !== "stop" && finishReason !== "tool_calls") {
+      console.warn("extract-roster non-stop finish_reason:", finishReason);
+    }
     const argsStr = json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     let parsed: {
       week_label?: string;
