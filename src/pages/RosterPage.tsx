@@ -12,11 +12,12 @@ import { RosterCoachView } from "@/components/roster/RosterCoachView";
 import { RosterExport } from "@/components/roster/RosterExport";
 import { RosterUnassignedPool } from "@/components/roster/RosterUnassignedPool";
 import { RosterHistory } from "@/components/roster/RosterHistory";
+import { RosterScreenshotImport } from "@/components/roster/RosterScreenshotImport";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Wand2, Save, CheckCircle, FileEdit, History, AlertTriangle } from "lucide-react";
+import { Users, Wand2, Save, CheckCircle, FileEdit, History, AlertTriangle, Scan } from "lucide-react";
 
 export type ExperienceLevel = "lead" | "senior" | "standard" | "junior";
 
@@ -94,6 +95,7 @@ const RosterPage = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [rosterView, setRosterView] = useState<"camp" | "coach">("camp");
+  const [workflowTab, setWorkflowTab] = useState<"screenshot" | "manual">("screenshot");
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
@@ -566,7 +568,34 @@ const RosterPage = () => {
           </CardContent>
         </Card>
       ) : (
-        <>
+        <Tabs value={workflowTab} onValueChange={(v) => setWorkflowTab(v as "screenshot" | "manual")}>
+          <TabsList>
+            <TabsTrigger value="screenshot" className="gap-2">
+              <Scan className="h-4 w-4" /> Import from Screenshot
+            </TabsTrigger>
+            <TabsTrigger value="manual" className="gap-2">
+              <Wand2 className="h-4 w-4" /> Manual / Auto-Generate
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="screenshot" className="mt-4">
+            <RosterScreenshotImport
+              weekStart={weekStart}
+              weekEnd={weekEnd}
+              weekStartStr={weekStartStr}
+              camps={camps}
+              allCoaches={allCoaches}
+              currentAssignments={assignments}
+              availableCoachIds={availableCoachIds}
+              savedRosterId={savedRosterId}
+              onImportComplete={() => {
+                // Force the load effect to re-run by nudging selectedDate
+                setSelectedDate(new Date(selectedDate));
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="manual" className="mt-4 space-y-6">
           <RosterAvailabilityInput
             allCoaches={allCoaches}
             onAvailabilitySet={(ids) => { setAvailableCoachIds(ids); setAvailabilitySet(true); markDirty(); }}
@@ -663,7 +692,8 @@ const RosterPage = () => {
               />
             </TabsContent>
           </Tabs>
-        </>
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
