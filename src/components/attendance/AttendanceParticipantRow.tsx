@@ -119,11 +119,15 @@ export default function AttendanceParticipantRow({
         }`}
         onClick={onToggle}
       >
-        <Checkbox
-          checked={isPresent}
-          onCheckedChange={onToggle}
-          className="h-5 w-5 shrink-0"
-        />
+        <label className="flex shrink-0 cursor-pointer flex-col items-center gap-1 rounded-md border bg-background px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={isPresent}
+            onCheckedChange={onToggle}
+            className="h-5 w-5"
+            aria-label="Present"
+          />
+          <span className="text-[10px] font-semibold uppercase text-muted-foreground">Present</span>
+        </label>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
