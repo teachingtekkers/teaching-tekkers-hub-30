@@ -246,17 +246,30 @@ export default function AttendanceParticipantRow({
             <div>
               <span className="text-muted-foreground">Kit:</span>{" "}
               {isAdmin ? (
-                <select
-                  className="bg-background border rounded px-1 py-0.5 text-xs"
-                  value={p.kit_size || "M"}
-                  onChange={(e) => onFieldUpdate?.(p.id, "kit_size", e.target.value)}
-                >
-                  {["XS", "S", "M", "L", "XL"].map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+                <span className="inline-flex items-center gap-2">
+                  <select
+                    className="bg-background border rounded px-1 py-0.5 text-xs"
+                    value={p.kit_size || "M"}
+                    onChange={(e) => onFieldUpdate?.(p.id, "kit_size", e.target.value)}
+                  >
+                    {["XS", "S", "M", "L", "XL"].map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <label className="inline-flex items-center gap-1 text-[11px] cursor-pointer">
+                    <Checkbox
+                      checked={!!p.kit_given}
+                      onCheckedChange={(v) => onFieldUpdate?.(p.id, "kit_given", v === true)}
+                      className="h-3.5 w-3.5"
+                    />
+                    <span className={p.kit_given ? "text-emerald-600 font-medium" : "text-muted-foreground"}>Given</span>
+                  </label>
+                </span>
               ) : (
-                <span className="font-medium">{p.kit_size || "—"}</span>
+                <span className="font-medium">
+                  {p.kit_size || "—"}
+                  {p.kit_given && <span className="ml-1 text-emerald-600 text-[11px]">✓ given</span>}
+                </span>
               )}
             </div>
             {noPhoto && (
