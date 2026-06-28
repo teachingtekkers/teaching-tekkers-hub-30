@@ -75,23 +75,31 @@ export default function CoachModeList({ participants, getStatus, onToggle, onIns
               )}
 
               {/* Kit size + given — editable */}
-              <div className="shrink-0 flex items-center gap-1" onClick={(e) => e.stopPropagation()} title="Kit size / given">
-                <Shirt className={`h-3.5 w-3.5 ${p.kit_given ? "text-emerald-600" : "text-muted-foreground"}`} />
+              <div
+                className="shrink-0 flex items-center gap-1.5 pl-1.5 pr-1 py-1 rounded-md border border-border bg-background"
+                onClick={(e) => e.stopPropagation()}
+                title="Kit size / given"
+              >
+                <Shirt className={`h-4 w-4 ${p.kit_given ? "text-emerald-600" : "text-muted-foreground"}`} />
                 <select
-                  className="bg-transparent border border-border rounded text-[10px] px-0.5 py-0 leading-none focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="bg-transparent border-0 text-xs font-medium px-0.5 py-0 leading-none focus:outline-none focus:ring-1 focus:ring-primary"
                   value={p.kit_size || "M"}
                   onChange={(e) => onFieldUpdate?.(p.id, "kit_size", e.target.value)}
+                  aria-label="Kit size"
                 >
                   {["XS", "S", "M", "L", "XL"].map((s) => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
-                <Checkbox
-                  checked={!!p.kit_given}
-                  onCheckedChange={(v) => onFieldUpdate?.(p.id, "kit_given", v === true)}
-                  className="h-4 w-4"
-                  title="Kit given"
-                />
+                <label className="flex items-center gap-1 cursor-pointer pl-1 border-l border-border">
+                  <Checkbox
+                    checked={!!p.kit_given}
+                    onCheckedChange={(v) => onFieldUpdate?.(p.id, "kit_given", v === true)}
+                    className="h-4 w-4"
+                    aria-label="Kit given"
+                  />
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Given</span>
+                </label>
               </div>
 
               {/* Icons */}
