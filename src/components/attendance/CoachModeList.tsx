@@ -8,8 +8,8 @@ interface Props {
   participants: ParticipantData[];
   getStatus: (id: string) => "present" | "absent";
   onToggle: (id: string) => void;
-  /** Immediately persist a single attendance toggle */
-  onInstantSave: (id: string, status: "present" | "absent") => void;
+  /** Kept for backwards compatibility; AttendancePage already persists inside onToggle. */
+  onInstantSave?: (id: string, status: "present" | "absent") => void;
   onFieldUpdate?: (id: string, field: string, value: any) => void;
 }
 
@@ -17,18 +17,15 @@ function calcTotalCost(p: ParticipantData): number {
   return Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
 }
 
-export default function CoachModeList({ participants, getStatus, onToggle, onInstantSave, onFieldUpdate }: Props) {
+export default function CoachModeList({ participants, getStatus, onToggle, onFieldUpdate }: Props) {
   const [quickInfoId, setQuickInfoId] = useState<string | null>(null);
 
   const handleRowTap = useCallback((id: string) => {
-    const current = getStatus(id);
-    const next = current === "present" ? "absent" : "present";
     onToggle(id);
-    onInstantSave(id, next);
-  }, [getStatus, onToggle, onInstantSave]);
+  }, [onToggle]);
 
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1.5">
       {participants.map((p) => {
         const isPresent = getStatus(p.id) === "present";
         const hasMedical = !!(p.medical_condition || p.medical_notes);
@@ -40,83 +37,81 @@ export default function CoachModeList({ participants, getStatus, onToggle, onIns
 
         return (
           <div key={p.id}>
-            {/* Main row */}
             <div
-              className={`flex items-center gap-2 px-3 py-2.5 rounded-md cursor-pointer select-none transition-colors ${
+              className={`rounded-md border-l-4 transition-colors ${
                 isPresent
-                  ? "bg-blue-50 dark:bg-blue-950/30 border-l-4 border-l-blue-500"
-                  : "bg-card border-l-4 border-l-transparent hover:bg-accent/30"
+                  ? "bg-primary/10 border-l-primary"
+                  : "bg-card border-l-transparent hover:bg-accent/30"
               }`}
-              onClick={() => handleRowTap(p.id)}
             >
-              <Checkbox
-                checked={isPresent}
-                className="h-5 w-5 shrink-0 pointer-events-none"
-                tabIndex={-1}
-              />
-
-              {/* Name — tappable for quick info */}
-              <button
-                type="button"
-                className="flex-1 text-left min-w-0"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setQuickInfoId(showQuickInfo ? null : p.id);
-                }}
-              >
-                <span className="text-sm font-medium text-foreground truncate block">
-                  {p.child_first_name} {p.child_last_name}
-                </span>
-              </button>
-
-              {/* Age */}
-              {p.age != null && (
-                <span className="text-xs text-muted-foreground shrink-0 w-6 text-center">{p.age}</span>
-              )}
-
-              {/* Kit size + given — editable */}
               <div
-                className="shrink-0 flex items-center gap-1.5 pl-1.5 pr-1 py-1 rounded-md border border-border bg-background"
-                onClick={(e) => e.stopPropagation()}
-                title="Kit size / given"
+                className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none"
+                onClick={() => handleRowTap(p.id)}
               >
-                <Shirt className={`h-4 w-4 ${p.kit_given ? "text-emerald-600" : "text-muted-foreground"}`} />
-                <select
-                  className="bg-transparent border-0 text-xs font-medium px-0.5 py-0 leading-none focus:outline-none focus:ring-1 focus:ring-primary"
-                  value={p.kit_size || "M"}
-                  onChange={(e) => onFieldUpdate?.(p.id, "kit_size", e.target.value)}
-                  aria-label="Kit size"
+                <Checkbox
+                  checked={isPresent}
+                  className="h-5 w-5 shrink-0 pointer-events-none"
+                  tabIndex={-1}
+                />
+
+                <button
+                  type="button"
+                  className="flex-1 text-left min-w-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setQuickInfoId(showQuickInfo ? null : p.id);
+                  }}
                 >
-                  {["XS", "S", "M", "L", "XL"].map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                <label className="flex items-center gap-1 cursor-pointer pl-1 border-l border-border">
+                  <span className="text-sm font-medium text-foreground truncate block">
+                    {p.child_first_name} {p.child_last_name}
+                  </span>
+                </button>
+
+                {p.age != null && (
+                  <span className="text-xs text-muted-foreground shrink-0 w-6 text-center">{p.age}</span>
+                )}
+                {hasMedical && <span className="text-destructive shrink-0" title="Medical notes">🏥</span>}
+                {noPhoto && <CameraOff className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+
+                <Badge
+                  className={`text-[10px] shrink-0 min-w-[3rem] justify-center ${
+                    isPaid ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"
+                  }`}
+                >
+                  {isPaid ? "Paid" : `€${owed}`}
+                </Badge>
+              </div>
+
+              <div
+                className="mx-3 mb-2 flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Shirt className={`h-4 w-4 shrink-0 ${p.kit_given ? "text-primary" : "text-muted-foreground"}`} />
+                  <span className="text-xs font-semibold uppercase text-muted-foreground">Kit Size</span>
+                  <select
+                    className="h-8 rounded-md border border-input bg-background px-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={p.kit_size || "M"}
+                    onChange={(e) => onFieldUpdate?.(p.id, "kit_size", e.target.value)}
+                    aria-label="Kit size"
+                  >
+                    {["XS", "S", "M", "L", "XL"].map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+                <label className="flex min-h-8 items-center gap-2 cursor-pointer rounded-md border border-border px-2">
                   <Checkbox
                     checked={!!p.kit_given}
                     onCheckedChange={(v) => onFieldUpdate?.(p.id, "kit_given", v === true)}
                     className="h-4 w-4"
-                    aria-label="Kit given"
+                    aria-label="Kit received"
                   />
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Given</span>
+                  <span className="text-xs font-semibold text-foreground">Kit Received</span>
                 </label>
               </div>
-
-              {/* Icons */}
-              {hasMedical && <span className="text-destructive shrink-0" title="Medical notes">🏥</span>}
-              {noPhoto && <CameraOff className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-
-              {/* Payment */}
-              <Badge
-                className={`text-[10px] shrink-0 min-w-[3rem] justify-center ${
-                  isPaid ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"
-                }`}
-              >
-                {isPaid ? "Paid" : `€${owed}`}
-              </Badge>
             </div>
 
-            {/* Inline quick info panel */}
             {showQuickInfo && (
               <div
                 className="ml-8 mr-2 mb-1 p-2.5 rounded-md bg-muted/50 border text-xs space-y-1 animate-in slide-in-from-top-1 duration-150"
@@ -132,7 +127,10 @@ export default function CoachModeList({ participants, getStatus, onToggle, onIns
                   {p.alternate_phone && (
                     <div><span className="text-muted-foreground">Alt:</span> <span className="font-medium">{p.alternate_phone}</span></div>
                   )}
-                  <div><span className="text-muted-foreground">Kit:</span> <span className="font-medium">{p.kit_size || "M"}</span></div>
+                  <div>
+                    <span className="text-muted-foreground">Kit:</span>{" "}
+                    <span className="font-medium">{p.kit_size || "M"}{p.kit_given ? " • received" : ""}</span>
+                  </div>
                   <div>
                     <span className="text-muted-foreground">Payment:</span>{" "}
                     <span className={`font-medium ${isPaid ? "text-emerald-600" : "text-amber-600"}`}>
