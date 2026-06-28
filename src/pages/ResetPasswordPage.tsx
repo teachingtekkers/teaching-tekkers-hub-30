@@ -15,19 +15,65 @@ const ResetPasswordPage = () => {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Supabase JS auto-parses the recovery token from the URL hash and fires
-    // a PASSWORD_RECOVERY event. We just need to wait for a session.
+    let cancelled = false;
+
+    const url = new URL(window.location.href);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const queryParams = url.searchParams;
+
+    const errorDesc =
+      hashParams.get("error_description") || queryParams.get("error_description");
+    if (errorDesc) {
+      setLinkError(errorDesc);
+    }
+
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         setReady(true);
       }
     });
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
-    });
-    return () => sub.subscription.unsubscribe();
+
+    (async () => {
+      // 1) Existing session (Supabase JS may have already parsed the URL)
+      const { data: existing } = await supabase.auth.getSession();
+      if (existing.session && !cancelled) {
+        setReady(true);
+        return;
+      }
+
+      // 2) PKCE flow: ?code=...
+      const code = queryParams.get("code");
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (!cancelled) {
+          if (error) setLinkError(error.message);
+          else setReady(true);
+        }
+        return;
+      }
+
+      // 3) Implicit flow: #access_token=...&refresh_token=...
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (!cancelled) {
+          if (error) setLinkError(error.message);
+          else setReady(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
