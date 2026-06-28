@@ -114,7 +114,7 @@ export default function AttendanceParticipantRow({
     <div className="rounded-lg border overflow-hidden transition-colors">
       {/* Main row */}
       <div
-        className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${
+        className={`flex flex-wrap items-center gap-3 p-3 cursor-pointer transition-colors sm:flex-nowrap ${
           isPresent ? "bg-blue-50 dark:bg-blue-950/30 border-l-4 border-l-blue-500" : "bg-card hover:bg-accent/30"
         }`}
         onClick={onToggle}
@@ -161,6 +161,39 @@ export default function AttendanceParticipantRow({
             </span>
           </div>
         </div>
+
+        {isAdmin && (
+          <div
+            className="order-last grid w-full gap-2 rounded-md border border-primary/25 bg-primary/5 px-3 py-2 sm:order-none sm:w-auto sm:min-w-[18rem] sm:grid-cols-[1fr_auto] sm:items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <label className="grid gap-1 min-w-0">
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase text-primary">
+                <Shirt className="h-3.5 w-3.5" />
+                Kit Size
+              </span>
+              <select
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                value={getKitSizeValue(p.kit_size)}
+                onChange={(e) => onFieldUpdate?.(p.id, "kit_size", e.target.value)}
+                aria-label="Kit size"
+              >
+                {getKitSizeOptions(p.kit_size).map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-background px-3 text-sm font-semibold text-foreground cursor-pointer">
+              <Checkbox
+                checked={!!p.kit_given}
+                onCheckedChange={(v) => onFieldUpdate?.(p.id, "kit_given", v === true)}
+                className="h-4 w-4"
+                aria-label="Kit received"
+              />
+              Kit Given
+            </label>
+          </div>
+        )}
 
         {/* Quick Mark Paid */}
         {status !== "paid" && (

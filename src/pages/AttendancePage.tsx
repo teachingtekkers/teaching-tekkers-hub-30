@@ -411,6 +411,7 @@ export default function AttendancePage() {
               onToggle={toggleStatus}
               onInstantSave={persistAttendance}
               onFieldUpdate={handleFieldUpdate}
+              onPaymentUpdate={handlePaymentUpdate}
             />
           ) : (
             <div className="space-y-1">
