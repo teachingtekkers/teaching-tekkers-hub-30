@@ -113,9 +113,13 @@ const ResetPasswordPage = () => {
 
         <Card className="shadow-lg border-border/50">
           <CardContent className="pt-6 pb-6">
-            {!ready ? (
+            {linkError ? (
+              <p className="text-sm text-destructive text-center">
+                {linkError}. Request a new password reset link from the sign-in page.
+              </p>
+            ) : !ready ? (
               <p className="text-sm text-muted-foreground text-center">
-                Open the password reset link from your email to continue.
+                Verifying reset link…
               </p>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
