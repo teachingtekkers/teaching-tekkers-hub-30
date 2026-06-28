@@ -223,6 +223,17 @@ export default function AttendancePage() {
     }
   }, []);
 
+  const handleFieldUpdate = useCallback(async (bookingId: string, field: string, value: any) => {
+    setParticipants((prev) =>
+      prev.map((p) => (p.id === bookingId ? { ...p, [field]: value } : p))
+    );
+    const { error } = await supabase
+      .from("synced_bookings")
+      .update({ [field]: value } as never)
+      .eq("id", bookingId);
+    if (error) toast.error(`Failed to save ${field}`);
+  }, []);
+
   const markAllPaid = useCallback(async () => {
     if (!selectedCamp || participants.length === 0) return;
     const unpaid = participants.filter((p) => (p.payment_status ?? "pending") !== "paid");
@@ -399,6 +410,7 @@ export default function AttendancePage() {
               getStatus={getStatus}
               onToggle={toggleStatus}
               onInstantSave={persistAttendance}
+              onFieldUpdate={handleFieldUpdate}
             />
           ) : (
             <div className="space-y-1">
@@ -408,7 +420,8 @@ export default function AttendancePage() {
                   participant={p}
                   isPresent={getStatus(p.id) === "present"}
                   onToggle={() => toggleStatus(p.id)}
-                  isAdmin={false}
+                  isAdmin={true}
+                  onFieldUpdate={handleFieldUpdate}
                   onPaymentUpdate={handlePaymentUpdate}
                   expandedId={expandedId}
                   onExpand={setExpandedId}
