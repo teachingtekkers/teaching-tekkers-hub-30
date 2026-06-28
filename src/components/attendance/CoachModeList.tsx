@@ -10,13 +10,14 @@ interface Props {
   onToggle: (id: string) => void;
   /** Immediately persist a single attendance toggle */
   onInstantSave: (id: string, status: "present" | "absent") => void;
+  onFieldUpdate?: (id: string, field: string, value: any) => void;
 }
 
 function calcTotalCost(p: ParticipantData): number {
   return Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
 }
 
-export default function CoachModeList({ participants, getStatus, onToggle, onInstantSave }: Props) {
+export default function CoachModeList({ participants, getStatus, onToggle, onInstantSave, onFieldUpdate }: Props) {
   const [quickInfoId, setQuickInfoId] = useState<string | null>(null);
 
   const handleRowTap = useCallback((id: string) => {
@@ -73,11 +74,19 @@ export default function CoachModeList({ participants, getStatus, onToggle, onIns
                 <span className="text-xs text-muted-foreground shrink-0 w-6 text-center">{p.age}</span>
               )}
 
-              {/* Kit size */}
-              <span className="text-[10px] text-muted-foreground shrink-0 w-6 text-center" title={`Kit: ${p.kit_size || "M"}`}>
-                <Shirt className="h-3 w-3 mx-auto" />
-                <span className="block leading-none">{p.kit_size || "M"}</span>
-              </span>
+              {/* Kit size — editable */}
+              <div className="shrink-0 flex flex-col items-center" onClick={(e) => e.stopPropagation()} title="Kit size">
+                <Shirt className="h-3 w-3 text-muted-foreground mx-auto" />
+                <select
+                  className="bg-transparent border border-border rounded text-[10px] px-0.5 py-0 leading-none focus:outline-none focus:ring-1 focus:ring-primary"
+                  value={p.kit_size || "M"}
+                  onChange={(e) => onFieldUpdate?.(p.id, "kit_size", e.target.value)}
+                >
+                  {["XS", "S", "M", "L", "XL"].map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
 
               {/* Icons */}
               {hasMedical && <span className="text-destructive shrink-0" title="Medical notes">🏥</span>}
