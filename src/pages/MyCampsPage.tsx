@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { MapPin, Calendar, Users, ClipboardCheck, Heart, CameraOff, Shirt, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { getKitSizeOptions, getKitSizeValue } from "@/lib/kitSizes";
 
 interface CampRow {
   id: string;
@@ -161,11 +162,14 @@ export default function MyCampsPage() {
                           const hasMedical = !!(player.medical_condition || player.medical_notes);
                           const noPhoto = player.photo_permission === false;
                           return (
-                            <div key={player.id} className="px-3 py-2 flex items-center justify-between gap-2">
-                              <div className="min-w-0">
+                            <div key={player.id} className="px-3 py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="min-w-0 flex-1">
                                 <p className="text-sm font-medium truncate">{player.child_first_name} {player.child_last_name}</p>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   {player.age != null && <span className="text-[10px] text-muted-foreground">Age {player.age}</span>}
+                                  <span className="text-[10px] text-primary font-medium flex items-center gap-0.5">
+                                    <Shirt className="h-2.5 w-2.5" /> Kit: {getKitSizeValue(player.kit_size)}{player.kit_given ? " ✓" : ""}
+                                  </span>
                                   {hasMedical && (
                                     <span className="text-[10px] text-destructive flex items-center gap-0.5">
                                       <Heart className="h-2.5 w-2.5" /> Medical
@@ -179,7 +183,7 @@ export default function MyCampsPage() {
                                 </div>
                               </div>
                               <div
-                                className="flex flex-col items-end gap-1.5 shrink-0 rounded-md border bg-background px-2 py-1.5"
+                                className="flex flex-row items-center justify-between gap-2 rounded-md border bg-background px-2 py-1.5 sm:flex-col sm:items-end sm:gap-1.5 sm:shrink-0"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-muted-foreground">
@@ -187,11 +191,11 @@ export default function MyCampsPage() {
                                   Kit
                                   <select
                                     className="h-6 rounded border bg-background px-1 text-xs font-semibold text-foreground"
-                                    value={player.kit_size || "M"}
+                                      value={getKitSizeValue(player.kit_size)}
                                     onChange={(e) => handleKitUpdate(player.id, "kit_size", e.target.value)}
                                     aria-label="Kit size"
                                   >
-                                    {["XS", "S", "M", "L", "XL"].map((size) => (
+                                      {getKitSizeOptions(player.kit_size).map((size) => (
                                       <option key={size} value={size}>{size}</option>
                                     ))}
                                   </select>

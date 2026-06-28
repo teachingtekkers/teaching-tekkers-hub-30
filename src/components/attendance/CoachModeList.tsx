@@ -3,6 +3,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Heart, CameraOff, Shirt } from "lucide-react";
 import { type ParticipantData } from "./AttendanceParticipantRow";
+import { getKitSizeOptions, getKitSizeValue } from "@/lib/kitSizes";
 
 interface Props {
   participants: ParticipantData[];
@@ -65,6 +66,12 @@ export default function CoachModeList({ participants, getStatus, onToggle, onFie
                   <span className="text-sm font-medium text-foreground truncate block">
                     {p.child_first_name} {p.child_last_name}
                   </span>
+                  <span className="mt-1 inline-flex max-w-full items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                    <Shirt className="h-3 w-3 shrink-0" />
+                    <span className="shrink-0">Kit:</span>
+                    <span className="truncate">{getKitSizeValue(p.kit_size)}</span>
+                    {p.kit_given && <span className="shrink-0 text-emerald-600">✓ received</span>}
+                  </span>
                 </button>
 
                 {p.age != null && (
@@ -83,31 +90,33 @@ export default function CoachModeList({ participants, getStatus, onToggle, onFie
               </div>
 
               <div
-                className="mx-3 mb-2 flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2"
+                className="mx-3 mb-2 grid gap-2 rounded-md border border-primary/25 bg-primary/5 px-3 py-2 sm:grid-cols-[1fr_auto] sm:items-center"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <Shirt className={`h-4 w-4 shrink-0 ${p.kit_given ? "text-primary" : "text-muted-foreground"}`} />
-                  <span className="text-xs font-semibold uppercase text-muted-foreground">Kit Size</span>
+                <label className="grid gap-1 min-w-0">
+                  <span className="flex items-center gap-2 text-xs font-semibold uppercase text-primary">
+                    <Shirt className={`h-4 w-4 shrink-0 ${p.kit_given ? "text-emerald-600" : "text-primary"}`} />
+                    Kit Size
+                  </span>
                   <select
-                    className="h-8 rounded-md border border-input bg-background px-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={p.kit_size || "M"}
+                    className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={getKitSizeValue(p.kit_size)}
                     onChange={(e) => onFieldUpdate?.(p.id, "kit_size", e.target.value)}
                     aria-label="Kit size"
                   >
-                    {["XS", "S", "M", "L", "XL"].map((s) => (
+                    {getKitSizeOptions(p.kit_size).map((s) => (
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
-                </div>
-                <label className="flex min-h-8 items-center gap-2 cursor-pointer rounded-md border border-border px-2">
+                </label>
+                <label className="flex min-h-10 items-center justify-center gap-2 cursor-pointer rounded-md border border-border bg-background px-3">
                   <Checkbox
                     checked={!!p.kit_given}
                     onCheckedChange={(v) => onFieldUpdate?.(p.id, "kit_given", v === true)}
                     className="h-4 w-4"
                     aria-label="Kit received"
                   />
-                  <span className="text-xs font-semibold text-foreground">Kit Received</span>
+                  <span className="text-sm font-semibold text-foreground">Kit Received</span>
                 </label>
               </div>
             </div>
@@ -129,7 +138,7 @@ export default function CoachModeList({ participants, getStatus, onToggle, onFie
                   )}
                   <div>
                     <span className="text-muted-foreground">Kit:</span>{" "}
-                    <span className="font-medium">{p.kit_size || "M"}{p.kit_given ? " • received" : ""}</span>
+                    <span className="font-medium">{getKitSizeValue(p.kit_size)}{p.kit_given ? " • received" : ""}</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Payment:</span>{" "}

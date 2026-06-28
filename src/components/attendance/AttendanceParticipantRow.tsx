@@ -3,8 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Heart, CameraOff, Banknote } from "lucide-react";
+import { Heart, CameraOff, Banknote, Shirt } from "lucide-react";
 import { useCallback, useRef } from "react";
+import { getKitSizeOptions, getKitSizeValue } from "@/lib/kitSizes";
 
 export interface ParticipantData {
   id: string;
@@ -154,6 +155,10 @@ export default function AttendanceParticipantRow({
             <span className={status === "paid" ? "text-emerald-600" : "text-amber-600"}>
               • {paymentSummary}
             </span>
+            <span className="inline-flex items-center gap-1 text-primary font-medium">
+              <Shirt className="h-3 w-3" />
+              Kit: {getKitSizeValue(p.kit_size)}{p.kit_given ? " ✓" : ""}
+            </span>
           </div>
         </div>
 
@@ -249,10 +254,10 @@ export default function AttendanceParticipantRow({
                 <span className="inline-flex items-center gap-2">
                   <select
                     className="bg-background border rounded px-1 py-0.5 text-xs"
-                    value={p.kit_size || "M"}
+                    value={getKitSizeValue(p.kit_size)}
                     onChange={(e) => onFieldUpdate?.(p.id, "kit_size", e.target.value)}
                   >
-                    {["XS", "S", "M", "L", "XL"].map((s) => (
+                    {getKitSizeOptions(p.kit_size).map((s) => (
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
@@ -267,7 +272,7 @@ export default function AttendanceParticipantRow({
                 </span>
               ) : (
                 <span className="font-medium">
-                  {p.kit_size || "—"}
+                  {p.kit_size || getKitSizeValue(p.kit_size)}
                   {p.kit_given && <span className="ml-1 text-emerald-600 text-[11px]">✓ given</span>}
                 </span>
               )}
