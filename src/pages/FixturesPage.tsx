@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Trophy, Printer, RotateCcw } from "lucide-react";
+import { Trophy, Printer, RotateCcw, FileDown } from "lucide-react";
+import jsPDF from "jspdf";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -159,6 +160,110 @@ const FixturesPage = () => {
     setRounds([]);
   };
 
+  const handleExportPdf = () => {
+    if (rounds.length === 0) return;
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 40;
+    let y = margin;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.text("Fixtures", margin, y);
+    y += 10;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.text(
+      `${teams.length} teams · ${rounds.reduce((s, r) => s + r.matches.length, 0)} matches`,
+      margin,
+      y + 10,
+    );
+    y += 28;
+
+    // Teams legend
+    doc.setTextColor(40);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Teams", margin, y);
+    y += 14;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    teams.forEach((t) => {
+      const hex = t.colour.replace("#", "");
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      doc.setFillColor(r, g, b);
+      doc.circle(margin + 5, y - 3, 4, "F");
+      doc.setTextColor(40);
+      doc.text(t.name, margin + 16, y);
+      y += 14;
+      if (y > pageH - margin) {
+        doc.addPage();
+        y = margin;
+      }
+    });
+    y += 8;
+
+    const ensureSpace = (h: number) => {
+      if (y + h > pageH - margin) {
+        doc.addPage();
+        y = margin;
+      }
+    };
+
+    rounds.forEach((round) => {
+      ensureSpace(40);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(40);
+      doc.text(round.label, margin, y);
+      y += 14;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      round.matches.forEach((m) => {
+        ensureSpace(22);
+        // background row
+        doc.setDrawColor(220);
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(margin, y - 12, pageW - margin * 2, 20, 4, 4, "FD");
+
+        const drawDot = (hex: string, x: number, cy: number) => {
+          const h = hex.replace("#", "");
+          doc.setFillColor(
+            parseInt(h.slice(0, 2), 16),
+            parseInt(h.slice(2, 4), 16),
+            parseInt(h.slice(4, 6), 16),
+          );
+          doc.circle(x, cy, 3.5, "F");
+        };
+
+        const cy = y - 2;
+        drawDot(m.homeColour, margin + 10, cy);
+        doc.setTextColor(30);
+        doc.text(m.home, margin + 20, y + 1);
+
+        doc.setTextColor(150);
+        doc.text("v", pageW / 2, y + 1, { align: "center" });
+
+        const awayWidth = doc.getTextWidth(m.away);
+        doc.setTextColor(30);
+        doc.text(m.away, pageW - margin - 20 - awayWidth, y + 1);
+        drawDot(m.awayColour, pageW - margin - 10, cy);
+
+        y += 24;
+      });
+      y += 6;
+    });
+
+    const fileName = `fixtures-${new Date().toISOString().slice(0, 10)}.pdf`;
+    doc.save(fileName);
+    toast.success("PDF exported");
+  };
+
   return (
     <div className="space-y-6">
       <div className="page-header">
@@ -213,6 +318,9 @@ const FixturesPage = () => {
             </Button>
             {rounds.length > 0 && (
               <>
+                <Button variant="outline" onClick={handleExportPdf}>
+                  <FileDown className="mr-2 h-4 w-4" />Export PDF
+                </Button>
                 <Button variant="outline" onClick={handlePrint}>
                   <Printer className="mr-2 h-4 w-4" />Print
                 </Button>
