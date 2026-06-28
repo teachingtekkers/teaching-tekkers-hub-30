@@ -13,6 +13,7 @@ export interface ParticipantData {
   age: number | null;
   date_of_birth: string | null;
   kit_size: string | null;
+  kit_given: boolean | null;
   medical_condition: string | null;
   medical_notes: string | null;
   photo_permission: boolean | null;
