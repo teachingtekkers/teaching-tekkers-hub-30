@@ -2396,10 +2396,6 @@ export type Database = {
           updated: number
         }[]
       }
-      update_assigned_booking_kit: {
-        Args: { _booking_id: string; _kit_given?: boolean; _kit_size?: string }
-        Returns: undefined
-      }
     }
     Enums: {
       app_role: "admin" | "head_coach"
