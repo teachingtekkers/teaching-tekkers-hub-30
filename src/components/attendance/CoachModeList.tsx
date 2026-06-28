@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Heart, CameraOff, Shirt } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Banknote, Heart, CameraOff, Shirt } from "lucide-react";
 import { type ParticipantData } from "./AttendanceParticipantRow";
 import { getKitSizeOptions, getKitSizeValue } from "@/lib/kitSizes";
 
@@ -12,18 +13,28 @@ interface Props {
   /** Kept for backwards compatibility; AttendancePage already persists inside onToggle. */
   onInstantSave?: (id: string, status: "present" | "absent") => void;
   onFieldUpdate?: (id: string, field: string, value: any) => void;
+  onPaymentUpdate?: (id: string, updates: Record<string, any>) => void;
 }
 
 function calcTotalCost(p: ParticipantData): number {
   return Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
 }
 
-export default function CoachModeList({ participants, getStatus, onToggle, onFieldUpdate }: Props) {
+export default function CoachModeList({ participants, getStatus, onToggle, onFieldUpdate, onPaymentUpdate }: Props) {
   const [quickInfoId, setQuickInfoId] = useState<string | null>(null);
 
-  const handleRowTap = useCallback((id: string) => {
+  const handlePresenceToggle = useCallback((id: string) => {
     onToggle(id);
   }, [onToggle]);
+
+  const handleMarkPaid = useCallback((p: ParticipantData) => {
+    const totalCost = calcTotalCost(p);
+    onPaymentUpdate?.(p.id, {
+      amount_paid: totalCost > 0 ? totalCost : (p.amount_paid ?? 0),
+      amount_owed: 0,
+      payment_status: "paid",
+    });
+  }, [onPaymentUpdate]);
 
   return (
     <div className="space-y-1.5">
@@ -33,7 +44,7 @@ export default function CoachModeList({ participants, getStatus, onToggle, onFie
         const noPhoto = p.photo_permission === false;
         const totalCost = calcTotalCost(p);
         const owed = p.amount_owed ?? Math.max(0, totalCost - (p.amount_paid ?? 0) - (p.refund_amount ?? 0));
-        const isPaid = owed <= 0;
+        const isPaid = p.payment_status === "paid" || (totalCost > 0 && owed <= 0);
         const showQuickInfo = quickInfoId === p.id;
 
         return (
@@ -45,52 +56,68 @@ export default function CoachModeList({ participants, getStatus, onToggle, onFie
                   : "bg-card border-l-transparent hover:bg-accent/30"
               }`}
             >
-              <div
-                className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none"
-                onClick={() => handleRowTap(p.id)}
-              >
-                <Checkbox
-                  checked={isPresent}
-                  className="h-5 w-5 shrink-0 pointer-events-none"
-                  tabIndex={-1}
-                />
+              <div className="grid gap-3 px-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                <div className="flex min-w-0 items-start gap-3">
+                  <label
+                    className="flex shrink-0 cursor-pointer flex-col items-center gap-1 rounded-md border bg-background px-2 py-1.5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Checkbox
+                      checked={isPresent}
+                      onCheckedChange={() => handlePresenceToggle(p.id)}
+                      className="h-5 w-5"
+                      aria-label="Present"
+                    />
+                    <span className="text-[10px] font-semibold uppercase text-muted-foreground">Present</span>
+                  </label>
 
-                <button
-                  type="button"
-                  className="flex-1 text-left min-w-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setQuickInfoId(showQuickInfo ? null : p.id);
-                  }}
-                >
-                  <span className="text-sm font-medium text-foreground truncate block">
-                    {p.child_first_name} {p.child_last_name}
-                  </span>
-                  <span className="mt-1 inline-flex max-w-full items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                    <Shirt className="h-3 w-3 shrink-0" />
-                    <span className="shrink-0">Kit:</span>
-                    <span className="truncate">{getKitSizeValue(p.kit_size)}</span>
-                    {p.kit_given && <span className="shrink-0 text-emerald-600">✓ received</span>}
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 text-left"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setQuickInfoId(showQuickInfo ? null : p.id);
+                    }}
+                  >
+                    <span className="block truncate text-sm font-semibold text-foreground">
+                      {p.child_first_name} {p.child_last_name}
+                    </span>
+                    <span className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                      {p.age != null && <span>Age {p.age}</span>}
+                      {hasMedical && <span className="font-medium text-destructive">🏥 Medical</span>}
+                      {noPhoto && <span className="inline-flex items-center gap-1"><CameraOff className="h-3 w-3" /> No photo</span>}
+                    </span>
+                  </button>
+                </div>
 
-                {p.age != null && (
-                  <span className="text-xs text-muted-foreground shrink-0 w-6 text-center">{p.age}</span>
-                )}
-                {hasMedical && <span className="text-destructive shrink-0" title="Medical notes">🏥</span>}
-                {noPhoto && <CameraOff className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-
-                <Badge
-                  className={`text-[10px] shrink-0 min-w-[3rem] justify-center ${
-                    isPaid ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"
-                  }`}
-                >
-                  {isPaid ? "Paid" : `€${owed}`}
-                </Badge>
+                <div className="flex items-center justify-between gap-2 sm:justify-end">
+                  <Badge
+                    className={`min-w-[4.25rem] justify-center text-[11px] ${
+                      isPaid ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"
+                    }`}
+                  >
+                    {isPaid ? "Paid" : `€${owed} owed`}
+                  </Badge>
+                  {!isPaid && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 shrink-0 gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMarkPaid(p);
+                      }}
+                    >
+                      <Banknote className="h-3.5 w-3.5" />
+                      Mark Paid
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <div
-                className="mx-3 mb-2 grid gap-2 rounded-md border border-primary/25 bg-primary/5 px-3 py-2 sm:grid-cols-[1fr_auto] sm:items-center"
+                className="mx-3 mb-3 grid gap-2 rounded-md border border-primary/25 bg-primary/5 px-3 py-2 sm:grid-cols-[1fr_auto] sm:items-center"
                 onClick={(e) => e.stopPropagation()}
               >
                 <label className="grid gap-1 min-w-0">
