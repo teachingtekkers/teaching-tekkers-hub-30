@@ -19,6 +19,7 @@ const LoginPage = () => {
   const [setupMode, setSetupMode] = useState(false);
   const [setupName, setSetupName] = useState("");
   const [checkingSetup, setCheckingSetup] = useState(true);
+  const [forgotMode, setForgotMode] = useState(false);
 
   // Check if any admin exists
   useEffect(() => {
@@ -71,6 +72,28 @@ const LoginPage = () => {
     }
   };
 
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      toast({ title: "Enter your email first", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setLoading(false);
+    if (error) {
+      toast({ title: "Could not send reset email", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({
+      title: "Check your email",
+      description: "If an account exists for that email, a reset link has been sent.",
+    });
+    setForgotMode(false);
+  };
+
   if (authLoading || checkingSetup) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -94,7 +117,23 @@ const LoginPage = () => {
 
         <Card className="shadow-lg border-border/50">
           <CardContent className="pt-6 pb-6 space-y-5">
-            {setupMode ? (
+            {forgotMode ? (
+              <form onSubmit={handleForgot} className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Enter your account email and we'll send you a password reset link.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="forgotEmail" className="text-sm font-medium">Email</Label>
+                  <Input id="forgotEmail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-10" />
+                </div>
+                <Button type="submit" className="w-full h-10 font-medium" disabled={loading}>
+                  {loading ? "Sending…" : "Send reset link"}
+                </Button>
+                <button type="button" onClick={() => setForgotMode(false)} className="w-full text-sm text-muted-foreground hover:text-foreground">
+                  Back to login
+                </button>
+              </form>
+            ) : setupMode ? (
               <form onSubmit={handleSetup} className="space-y-4">
                 <p className="text-sm text-muted-foreground">Create the first admin account to get started.</p>
                 <div className="space-y-2">
@@ -129,6 +168,9 @@ const LoginPage = () => {
                 <Button type="submit" className="w-full h-10 font-medium" disabled={loading}>
                   {loading ? "Signing in…" : "Sign In"}
                 </Button>
+                <button type="button" onClick={() => setForgotMode(true)} className="w-full text-sm text-muted-foreground hover:text-foreground">
+                  Forgot password?
+                </button>
                 <button type="button" onClick={() => setSetupMode(true)} className="w-full text-sm text-muted-foreground hover:text-foreground">
                   First time? Set up admin account
                 </button>
