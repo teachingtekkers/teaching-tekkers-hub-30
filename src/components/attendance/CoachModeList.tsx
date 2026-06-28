@@ -74,9 +74,9 @@ export default function CoachModeList({ participants, getStatus, onToggle, onIns
                 <span className="text-xs text-muted-foreground shrink-0 w-6 text-center">{p.age}</span>
               )}
 
-              {/* Kit size — editable */}
-              <div className="shrink-0 flex flex-col items-center" onClick={(e) => e.stopPropagation()} title="Kit size">
-                <Shirt className="h-3 w-3 text-muted-foreground mx-auto" />
+              {/* Kit size + given — editable */}
+              <div className="shrink-0 flex items-center gap-1" onClick={(e) => e.stopPropagation()} title="Kit size / given">
+                <Shirt className={`h-3.5 w-3.5 ${p.kit_given ? "text-emerald-600" : "text-muted-foreground"}`} />
                 <select
                   className="bg-transparent border border-border rounded text-[10px] px-0.5 py-0 leading-none focus:outline-none focus:ring-1 focus:ring-primary"
                   value={p.kit_size || "M"}
@@ -86,6 +86,12 @@ export default function CoachModeList({ participants, getStatus, onToggle, onIns
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
+                <Checkbox
+                  checked={!!p.kit_given}
+                  onCheckedChange={(v) => onFieldUpdate?.(p.id, "kit_given", v === true)}
+                  className="h-4 w-4"
+                  title="Kit given"
+                />
               </div>
 
               {/* Icons */}
