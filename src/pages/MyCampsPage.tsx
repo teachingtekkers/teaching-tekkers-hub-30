@@ -3,8 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { MapPin, Calendar, Users, ClipboardCheck, Heart, CameraOff, Shirt, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 interface CampRow {
   id: string;
@@ -25,6 +27,7 @@ interface BookingRow {
   child_last_name: string;
   age: number | null;
   kit_size: string | null;
+  kit_given: boolean | null;
   medical_condition: string | null;
   medical_notes: string | null;
   photo_permission: boolean | null;
@@ -71,7 +74,7 @@ export default function MyCampsPage() {
       // Get bookings for all camps
       const { data: bookings } = await supabase
         .from("synced_bookings")
-        .select("id, child_first_name, child_last_name, age, kit_size, medical_condition, medical_notes, photo_permission, payment_status, matched_camp_id")
+        .select("id, child_first_name, child_last_name, age, kit_size, kit_given, medical_condition, medical_notes, photo_permission, payment_status, matched_camp_id")
         .in("matched_camp_id", campIds)
         .order("child_last_name");
 
@@ -85,6 +88,23 @@ export default function MyCampsPage() {
       setLoading(false);
     })();
   }, [user]);
+
+  const handleKitUpdate = async (bookingId: string, field: "kit_size" | "kit_given", value: string | boolean) => {
+    setBookingsMap((prev) => {
+      const next: Record<string, BookingRow[]> = {};
+      for (const [campId, players] of Object.entries(prev)) {
+        next[campId] = players.map((p) => (p.id === bookingId ? { ...p, [field]: value } : p));
+      }
+      return next;
+    });
+
+    const { error } = await supabase
+      .from("synced_bookings")
+      .update({ [field]: value } as never)
+      .eq("id", bookingId);
+
+    if (error) toast.error("Could not save kit update");
+  };
 
   if (loading) {
     return (
@@ -158,10 +178,33 @@ export default function MyCampsPage() {
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <Badge variant="secondary" className="text-[10px]">
-                                  <Shirt className="h-2.5 w-2.5 mr-0.5" />{player.kit_size || "M"}
-                                </Badge>
+                              <div
+                                className="flex flex-col items-end gap-1.5 shrink-0 rounded-md border bg-background px-2 py-1.5"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                                  <Shirt className={`h-3 w-3 ${player.kit_given ? "text-emerald-600" : ""}`} />
+                                  Kit
+                                  <select
+                                    className="h-6 rounded border bg-background px-1 text-xs font-semibold text-foreground"
+                                    value={player.kit_size || "M"}
+                                    onChange={(e) => handleKitUpdate(player.id, "kit_size", e.target.value)}
+                                    aria-label="Kit size"
+                                  >
+                                    {["XS", "S", "M", "L", "XL"].map((size) => (
+                                      <option key={size} value={size}>{size}</option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label className="flex items-center gap-1.5 text-[10px] font-medium text-foreground cursor-pointer">
+                                  <Checkbox
+                                    checked={!!player.kit_given}
+                                    onCheckedChange={(v) => handleKitUpdate(player.id, "kit_given", v === true)}
+                                    className="h-3.5 w-3.5"
+                                    aria-label="Kit received"
+                                  />
+                                  Kit Received
+                                </label>
                               </div>
                             </div>
                           );
