@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminLayout, CoachLayout } from "@/components/AppLayout";
 import LoginPage from "./pages/LoginPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import NotFound from "./pages/NotFound";
 
 // Admin: Seasonal Camps
@@ -90,6 +91,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/" element={<LoginPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
 
             {/* Admin routes */}
             <Route element={<ProtectedAdminLayout />}>
