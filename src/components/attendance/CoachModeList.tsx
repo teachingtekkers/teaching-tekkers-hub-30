@@ -3,6 +3,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Heart, CameraOff, Shirt } from "lucide-react";
 import { type ParticipantData } from "./AttendanceParticipantRow";
+import { getKitSizeOptions, getKitSizeValue } from "@/lib/kitSizes";
 
 interface Props {
   participants: ParticipantData[];
@@ -70,6 +71,10 @@ export default function CoachModeList({ participants, getStatus, onToggle, onFie
                 {p.age != null && (
                   <span className="text-xs text-muted-foreground shrink-0 w-6 text-center">{p.age}</span>
                 )}
+                <Badge variant="outline" className="text-[10px] shrink-0 gap-1 border-primary/30 bg-primary/5 text-primary">
+                  <Shirt className="h-3 w-3" />
+                  {getKitSizeValue(p.kit_size)}
+                </Badge>
                 {hasMedical && <span className="text-destructive shrink-0" title="Medical notes">🏥</span>}
                 {noPhoto && <CameraOff className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
 
@@ -91,11 +96,11 @@ export default function CoachModeList({ participants, getStatus, onToggle, onFie
                   <span className="text-xs font-semibold uppercase text-muted-foreground">Kit Size</span>
                   <select
                     className="h-8 rounded-md border border-input bg-background px-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={p.kit_size || "M"}
+                    value={getKitSizeValue(p.kit_size)}
                     onChange={(e) => onFieldUpdate?.(p.id, "kit_size", e.target.value)}
                     aria-label="Kit size"
                   >
-                    {["XS", "S", "M", "L", "XL"].map((s) => (
+                    {getKitSizeOptions(p.kit_size).map((s) => (
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
