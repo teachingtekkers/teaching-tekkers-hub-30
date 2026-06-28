@@ -20,7 +20,7 @@ function calcTotalCost(p: ParticipantData): number {
   return Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
 }
 
-export default function CoachModeList({ participants, getStatus, onToggle, onFieldUpdate }: Props) {
+export default function CoachModeList({ participants, getStatus, onToggle, onFieldUpdate, onPaymentUpdate }: Props) {
   const [quickInfoId, setQuickInfoId] = useState<string | null>(null);
 
   const handlePresenceToggle = useCallback((id: string) => {
