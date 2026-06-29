@@ -341,12 +341,12 @@ const PayrollPage = () => {
   }), [payrollLines]);
 
   const campGroups = useMemo(() => {
-    const groups = new Map<string, { campId: string; campName: string; clubName: string; entries: (PayrollCampEntry & { coachName: string })[]; campTotal: number }>();
+    const groups = new Map<string, { campId: string; campName: string; clubName: string; entries: (PayrollCampEntry & { coachName: string; coachId: string })[]; campTotal: number }>();
     payrollLines.forEach(line => {
       line.entries.forEach(e => {
         if (!groups.has(e.campId)) groups.set(e.campId, { campId: e.campId, campName: e.campName, clubName: e.clubName, entries: [], campTotal: 0 });
         const g = groups.get(e.campId)!;
-        g.entries.push({ ...e, coachName: line.coachName });
+        g.entries.push({ ...e, coachName: line.coachName, coachId: line.coachId });
         g.campTotal += e.lineTotal;
       });
     });
@@ -431,7 +431,7 @@ const PayrollPage = () => {
               <PayrollCoachView coachSummaries={coachSummaries} onUpdateEntry={updateEntry} />
             </TabsContent>
             <TabsContent value="camp" className="mt-4">
-              <PayrollCampView campGroups={campGroups} />
+              <PayrollCampView campGroups={campGroups} onUpdateEntry={updateEntry} />
             </TabsContent>
           </Tabs>
         </>
