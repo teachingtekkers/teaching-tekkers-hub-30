@@ -37,7 +37,7 @@ export function PayrollCoachView({ coachSummaries, onUpdateEntry }: Props) {
                 <TableHead className="text-center">Days</TableHead>
                 <TableHead className="text-right">Rate</TableHead>
                 <TableHead className="text-right">Base</TableHead>
-                <TableHead className="text-right w-24">Fuel</TableHead>
+                  <TableHead className="text-right w-28">Fuel (€)</TableHead>
                 <TableHead className="text-right">Camp Bonus</TableHead>
                 <TableHead className="text-right w-24">Manual Bonus</TableHead>
                 <TableHead className="text-right w-24">Adj.</TableHead>
@@ -57,12 +57,17 @@ export function PayrollCoachView({ coachSummaries, onUpdateEntry }: Props) {
                   <TableCell className="text-right font-mono">€{e.dailyRate}</TableCell>
                   <TableCell className="text-right font-mono">€{e.basePay.toFixed(2)}</TableCell>
                   <TableCell className="text-right">
-                    <Input
-                      type="number"
-                      className="w-20 h-8 text-right font-mono"
-                      value={e.fuel}
-                      onChange={(ev) => onUpdateEntry(cs.coachId, e.campId, "fuel", Number(ev.target.value))}
-                    />
+                    <div className="relative inline-block">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">€</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="w-24 h-8 pl-5 pr-2 text-right font-mono border-primary/40 focus-visible:ring-primary"
+                        value={e.fuel}
+                        onChange={(ev) => onUpdateEntry(cs.coachId, e.campId, "fuel", Number(ev.target.value) || 0)}
+                      />
+                    </div>
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     {e.campBonus > 0 ? (
