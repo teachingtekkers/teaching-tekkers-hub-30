@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { PayrollCampEntry } from "@/pages/PayrollPage";
 
@@ -8,15 +9,16 @@ interface CampGroup {
   campId: string;
   campName: string;
   clubName: string;
-  entries: (PayrollCampEntry & { coachName: string })[];
+  entries: (PayrollCampEntry & { coachName: string; coachId: string })[];
   campTotal: number;
 }
 
 interface Props {
   campGroups: CampGroup[];
+  onUpdateEntry?: (coachId: string, campId: string, field: "fuel" | "bonus" | "adjustment", value: number) => void;
 }
 
-export function PayrollCampView({ campGroups }: Props) {
+export function PayrollCampView({ campGroups, onUpdateEntry }: Props) {
   return (
     <div className="space-y-4">
       {campGroups.map(cg => (
@@ -36,7 +38,7 @@ export function PayrollCampView({ campGroups }: Props) {
                 <TableHead className="text-center">Days</TableHead>
                 <TableHead className="text-right">Rate</TableHead>
                 <TableHead className="text-right">Base</TableHead>
-                <TableHead className="text-right">Fuel</TableHead>
+                <TableHead className="text-right w-28">Fuel (€)</TableHead>
                 <TableHead className="text-right">Camp Bonus</TableHead>
                 <TableHead className="text-right">Total</TableHead>
               </TableRow>
@@ -53,7 +55,23 @@ export function PayrollCampView({ campGroups }: Props) {
                   <TableCell className="text-center">{e.daysWorked}</TableCell>
                   <TableCell className="text-right font-mono">€{e.dailyRate}</TableCell>
                   <TableCell className="text-right font-mono">€{e.basePay.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-mono">€{e.fuel.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">
+                    {onUpdateEntry ? (
+                      <div className="relative inline-block">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">€</span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="w-24 h-8 pl-5 pr-2 text-right font-mono border-primary/40 focus-visible:ring-primary"
+                          value={e.fuel}
+                          onChange={(ev) => onUpdateEntry(e.coachId, e.campId, "fuel", Number(ev.target.value) || 0)}
+                        />
+                      </div>
+                    ) : (
+                      <span className="font-mono">€{e.fuel.toFixed(2)}</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right font-mono">
                     {e.campBonus > 0 ? (
                       <Badge variant="default" className="font-mono text-xs">€{e.campBonus.toFixed(2)}</Badge>
