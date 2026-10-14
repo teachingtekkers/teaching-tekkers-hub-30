@@ -238,24 +238,31 @@ export function planImport(rows: Incoming[], existing: ExistingRow[]): PlannedRo
       });
     };
 
+    // Pass 1: confident matches (source ID, or unique exact identity). Others wait for pass 2
+    // so the outcome never depends on CSV row order.
     if (pid && byPid.has(pid)) { finishMatch(byPid.get(pid)!, "Matched by source participant ID"); return; }
-
-    const exact = (byKey.get(pKey) || []).filter((e) => !claimed.has(e.id) && (!pid || !e.source_participant_id));
     const hasIdentity = !!inc.date_of_birth || !!guardianKey(inc.parent_email, inc.parent_phone);
-    if (exact.length === 1 && hasIdentity) { finishMatch(exact[0], "Matched by name + DOB + guardian"); return; }
+    const exactAll = (byKey.get(pKey) || []).filter((e) => !pid || !e.source_participant_id);
+    if (exactAll.length === 1 && hasIdentity && !claimed.has(exactAll[0].id)) { finishMatch(exactAll[0], "Matched by name + DOB + guardian"); return; }
 
-    const nameCands = (byName.get(`${normText(inc.child_first_name)}|${normText(inc.child_last_name)}`) || [])
-      .filter((e) => !claimed.has(e.id));
-    if (exact.length > 1) {
-      out.push({ ...base, classification: "ambiguous", candidate_ids: exact.map((e) => e.id), reason: `${exact.length} existing records have identical details` }); return;
-    }
-    if (!hasIdentity) {
-      out.push({ ...base, classification: "ambiguous", candidate_ids: nameCands.map((e) => e.id), reason: "No date of birth or guardian contact to confirm identity" }); return;
-    }
-    if (nameCands.length > 0) {
-      out.push({ ...base, classification: "ambiguous", candidate_ids: nameCands.map((e) => e.id), reason: "Same child name exists with different DOB or guardian details" }); return;
-    }
-    out.push({ ...base, classification: "new", reason: pid ? "New participant ID" : "No existing participant matches" });
+    deferred.push(() => {
+      const exact = exactAll.filter((e) => !claimed.has(e.id));
+      const gk = guardianKey(inc.parent_email, inc.parent_phone);
+      // Same name: unclaimed records, or claimed ones from the same guardian (likely a typo duplicate)
+      const nameCands = (byName.get(`${normText(inc.child_first_name)}|${normText(inc.child_last_name)}`) || [])
+        .filter((e) => !claimed.has(e.id) || (gk && guardianKey(e.parent_email, e.parent_phone) === gk));
+      if (exact.length > 1) {
+        out.push({ ...base, classification: "ambiguous", candidate_ids: exact.map((e) => e.id), reason: `${exact.length} existing records have identical details` }); return;
+      }
+      if (!hasIdentity) {
+        out.push({ ...base, classification: "ambiguous", candidate_ids: nameCands.filter((e) => !claimed.has(e.id)).map((e) => e.id), reason: "No date of birth or guardian contact to confirm identity" }); return;
+      }
+      if (nameCands.length > 0) {
+        out.push({ ...base, classification: "ambiguous", candidate_ids: nameCands.filter((e) => !claimed.has(e.id)).map((e) => e.id), reason: "Same child name exists with different DOB or guardian details" }); return;
+      }
+      out.push({ ...base, classification: "new", reason: pid ? "New participant ID" : "No existing participant matches" });
+    });
   });
-  return out;
+  deferred.forEach((fn) => fn());
+  return out.sort((a, b) => a.row_index - b.row_index);
 }

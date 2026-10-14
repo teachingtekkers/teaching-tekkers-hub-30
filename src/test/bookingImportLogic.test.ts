@@ -82,3 +82,19 @@ describe("booking import planner", () => {
     expect(p.classification).toBe("updated");
   });
 });
+
+describe("order independence", () => {
+  it("a different child with the same name is new regardless of row order", () => {
+    const existing = asExisting([csv[0]]);
+    const other = { child_first_name: "Aoife", child_last_name: "Testerson", date_of_birth: "01/02/2017", parent_email: "other@example.test" };
+    const a = planImport([csv[0], other], existing);
+    const b = planImport([other, csv[0]], existing);
+    expect(a.map((p) => p.classification)).toEqual(["unchanged", "new"]);
+    expect(b.map((p) => p.classification)).toEqual(["new", "unchanged"]);
+  });
+  it("same name + same guardian with a different DOB goes to review", () => {
+    const existing = asExisting([csv[0]]);
+    const typo = { ...csv[0], date_of_birth: "02/01/2016" };
+    expect(planImport([csv[0], typo], existing)[1].classification).toBe("ambiguous");
+  });
+});
