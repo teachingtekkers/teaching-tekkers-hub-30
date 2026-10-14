@@ -137,10 +137,10 @@ const DashboardPage = () => {
   // Week bookings & metrics
   const weekMetrics = useMemo(() => {
     const weekBookings = bookings.filter(b => b.matched_camp_id && weekCampIds.has(b.matched_camp_id));
-    const totalRevenue = weekBookings.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0)), 0);
+    const totalRevenue = weekBookings.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0)), 0);
     const totalPaid = weekBookings.reduce((s, b) => s + (b.amount_paid ?? 0), 0);
     const totalOutstanding = weekBookings.reduce((s, b) => {
-      const owed = b.amount_owed ?? Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0) - (b.amount_paid ?? 0) - (b.refund_amount ?? 0));
+      const owed = b.amount_owed ?? Math.max(0, (b.total_amount ?? 0) - (b.amount_paid ?? 0) - (b.refund_amount ?? 0));
       return s + Math.max(0, owed);
     }, 0);
     const unpaidCount = weekBookings.filter(b => {

@@ -15,6 +15,13 @@
       "when": 1792004740830,
       "tag": "0001_booking_sync_controls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792005719854,
+      "tag": "0002_payment_owed_no_double_discount",
+      "breakpoints": true
     }
   ]
 }

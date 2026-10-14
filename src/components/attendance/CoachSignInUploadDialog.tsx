@@ -548,7 +548,7 @@ export default function CoachSignInUploadDialog({
     // Payment update
     let new_payment_status = original_payment_status;
     let new_amount_owed = original_amount_owed;
-    const totalCost = Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+    const totalCost = Math.max(0, (p.total_amount ?? 0));
 
     const updates: Record<string, unknown> = {
       attendance_source: "coach_sign_in_sheet",

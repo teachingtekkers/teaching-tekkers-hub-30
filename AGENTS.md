@@ -5,3 +5,4 @@
 - An import only overwrites a field when it still equals the value the previous import wrote (`synced_bookings.source_values`); rows without stored source values never get payment changes automatically. Why: staff part-payments, refunds and corrections must survive.
 - Applying a run is resumable: per-row `applied` flags, deterministic `external_booking_id` for new rows, a per-source-camp lock, and failed runs are marked failed, never successful. Why: retries must not duplicate.
 - Family counts inferred from parent contact are estimates; only source booking IDs give verified booking counts. Why: shared contact details don't prove a shared booking.
+- Source "Total Amount" is per child after sibling discount; owed = total − paid − refund (never subtract the discount; refunds never create debt; cancelled owes 0; manual overrides untouched). Why: verified on real exports, the old formula under-reported debt.

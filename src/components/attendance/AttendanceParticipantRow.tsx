@@ -35,7 +35,7 @@ export interface ParticipantData {
 }
 
 function calcTotalCost(p: ParticipantData): number {
-  return Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+  return Math.max(0, (p.total_amount ?? 0));
 }
 
 function deriveStatus(owed: number): string {

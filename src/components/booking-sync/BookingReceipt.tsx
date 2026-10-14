@@ -39,7 +39,7 @@ function statusLabel(s: string | null): string {
 function buildReceiptHTML(b: ReceiptBooking): string {
   const ref = b.external_booking_id || b.id.slice(0, 8).toUpperCase();
   const date = b.camp_date ? format(new Date(b.camp_date), "dd MMM yyyy") : b.imported_at ? format(new Date(b.imported_at), "dd MMM yyyy") : "—";
-  const totalCost = Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0));
+  const totalCost = Math.max(0, (b.total_amount ?? 0));
 
   return `<!DOCTYPE html><html><head><title>Receipt - ${ref}</title>
 <style>
@@ -87,7 +87,7 @@ ${b.venue ? `<div class="row"><span class="label">Venue</span><span class="value
 <div class="section">
 <div class="section-title">Payment Summary</div>
 <div class="row"><span class="label">Camp Fee</span><span class="value">€${(b.total_amount ?? 0).toFixed(2)}</span></div>
-${(b.sibling_discount ?? 0) > 0 ? `<div class="row"><span class="label">Sibling Discount</span><span class="value">-€${(b.sibling_discount ?? 0).toFixed(2)}</span></div>` : ""}
+${(b.sibling_discount ?? 0) > 0 ? `<div class="row"><span class="label">Sibling Discount (included above)</span><span class="value">-€${(b.sibling_discount ?? 0).toFixed(2)}</span></div>` : ""}
 <div class="row"><span class="label">Total Cost</span><span class="value">€${totalCost.toFixed(2)}</span></div>
 <div class="row"><span class="label">Amount Paid</span><span class="value" style="color:#166534">€${(b.amount_paid ?? 0).toFixed(2)}</span></div>
 ${(b.refund_amount ?? 0) > 0 ? `<div class="row"><span class="label">Refund</span><span class="value" style="color:#991b1b">€${(b.refund_amount ?? 0).toFixed(2)}</span></div>` : ""}
@@ -124,7 +124,7 @@ export function BookingReceiptButton({ booking, trigger }: Props) {
     }
   };
 
-  const totalCost = Math.max(0, (booking.total_amount ?? 0) - (booking.sibling_discount ?? 0));
+  const totalCost = Math.max(0, (booking.total_amount ?? 0));
   const date = booking.camp_date ? format(new Date(booking.camp_date), "dd MMM yyyy") : booking.imported_at ? format(new Date(booking.imported_at), "dd MMM yyyy") : "—";
 
   return (

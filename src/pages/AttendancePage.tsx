@@ -244,7 +244,7 @@ export default function AttendancePage() {
     setAutoSaveStatus("saving");
     const updatedIds: string[] = [];
     for (const p of unpaid) {
-      const totalCost = Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+      const totalCost = Math.max(0, (p.total_amount ?? 0));
       const { error } = await supabase
         .from("synced_bookings")
         .update({ amount_paid: totalCost, amount_owed: 0, payment_status: "paid" } as never)
@@ -254,7 +254,7 @@ export default function AttendancePage() {
     setParticipants((prev) =>
       prev.map((p) => {
         if (!updatedIds.includes(p.id)) return p;
-        const totalCost = Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+        const totalCost = Math.max(0, (p.total_amount ?? 0));
         return { ...p, amount_paid: totalCost, amount_owed: 0, payment_status: "paid" };
       })
     );
