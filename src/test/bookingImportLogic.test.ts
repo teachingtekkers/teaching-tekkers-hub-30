@@ -54,7 +54,8 @@ describe("booking import planner", () => {
     expect(plan[0].protected_fields).toContain("kit_size");
     expect(plan[1].classification).toBe("updated");
     expect(plan[1].diff?.parent_phone).toBeTruthy();
-    expect(plan[2].protected_fields).toEqual(expect.arrayContaining(["total_amount", "payment_status"]));
+    expect(plan[2].protected_fields).toContain("total_amount");
+    expect(plan[2].conflict).toBe(true);
     expect(plan[2].diff?.payment_status).toBeUndefined();
   });
 
@@ -127,9 +128,12 @@ describe("changed details", () => {
     const ex = asExisting([csv[2]], [{ amount_paid: 40, amount_owed: 45, payment_status: "partial" }]);
     const [p] = planImport([{ ...csv[2], amount_paid: "0", total_amount: "80" }], ex);
     expect(p.conflict).toBe(true);
-    expect(p.protected_fields).toEqual(expect.arrayContaining(["amount_paid", "total_amount"]));
+    expect(p.protected_fields).toContain("total_amount");
+    expect(p.diff?.amount_paid).toBeUndefined();
     const ex2 = asExisting([csv[3]], [{ refund_amount: 85, payment_status: "refunded" }]);
-    expect(planImport([{ ...csv[3], payment_type: "Card" }], ex2)[0].protected_fields).toContain("refund_amount");
+    const r2 = planImport([{ ...csv[3], payment_type: "Card" }], ex2)[0];
+    expect(r2.protected_fields).toContain("payment_type");
+    expect(r2.diff?.refund_amount).toBeUndefined();
   });
   it("source payment change applies when staff never touched it", () => {
     const [p] = planImport([{ ...csv[0], amount_paid: "170" }], asExisting([csv[0]]));
