@@ -201,6 +201,7 @@ export function planImport(rows: Incoming[], existing: ExistingRow[]): PlannedRo
   }
   const claimed = new Map<string, number>();
   const seenKeys = new Map<string, number>();
+  const deferred: (() => void)[] = [];
   const out: PlannedRow[] = [];
 
   rows.forEach((r, i) => {
