@@ -50,7 +50,7 @@ interface SyncedBookingRow {
 }
 
 function derivePaymentStatus(b: SyncedBookingRow) {
-  const totalCost = Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0));
+  const totalCost = Math.max(0, (b.total_amount ?? 0));
   const owed = Math.max(0, totalCost - (b.amount_paid ?? 0) - (b.refund_amount ?? 0));
   let status: string;
   if ((b.refund_amount ?? 0) > 0) status = "Refunded";

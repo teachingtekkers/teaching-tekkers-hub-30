@@ -4,7 +4,7 @@ import { Banknote, CreditCard, Wallet, Building2 } from "lucide-react";
 import type { ParticipantData } from "./AttendanceParticipantRow";
 
 function calcTotalCost(p: ParticipantData): number {
-  return Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+  return Math.max(0, (p.total_amount ?? 0));
 }
 
 interface Props {

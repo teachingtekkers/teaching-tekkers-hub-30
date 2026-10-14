@@ -28,7 +28,7 @@ interface CampOption { id: string; name: string; club_name: string; start_date: 
 interface AttendanceRow { id?: string; synced_booking_id: string; status: "present" | "absent"; note: string | null; }
 
 function calcTotalCost(p: ParticipantData): number {
-  return Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+  return Math.max(0, (p.total_amount ?? 0));
 }
 
 export default function AdminAttendancePage() {
@@ -174,7 +174,7 @@ export default function AdminAttendancePage() {
     if (unpaid.length === 0) { toast.info("All participants already marked paid"); return; }
     const updatedIds: string[] = [];
     for (const p of unpaid) {
-      const totalCost = Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+      const totalCost = Math.max(0, (p.total_amount ?? 0));
       const { error } = await supabase
         .from("synced_bookings")
         .update({ amount_paid: totalCost, amount_owed: 0, payment_status: "paid" } as never)
@@ -183,7 +183,7 @@ export default function AdminAttendancePage() {
     }
     setParticipants((prev) => prev.map((p) => {
       if (!updatedIds.includes(p.id)) return p;
-      const totalCost = Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+      const totalCost = Math.max(0, (p.total_amount ?? 0));
       return { ...p, amount_paid: totalCost, amount_owed: 0, payment_status: "paid" };
     }));
     toast.success(`Marked ${updatedIds.length} as paid`);

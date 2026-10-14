@@ -576,7 +576,7 @@ export default function CampDetailPage() {
                           </TableCell>
                           <TableCell className="hidden md:table-cell text-sm">
                             {(() => {
-                              const totalCost = Math.max(0, (p.total_amount ?? 0) - (p.sibling_discount ?? 0));
+                              const totalCost = Math.max(0, (p.total_amount ?? 0));
                               const owed = (p.amount_owed ?? 0) > 0 ? p.amount_owed : Math.max(0, totalCost - (p.amount_paid ?? 0) - (p.refund_amount ?? 0));
                               return (owed ?? 0) > 0 ? (
                                 <span className="text-amber-600 font-medium">€{owed}</span>

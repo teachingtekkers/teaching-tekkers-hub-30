@@ -99,7 +99,7 @@ const ReportsPage = () => {
     const fi = invoices.filter((i) => campIds.has(i.camp_id));
     const fp = payroll.filter((p) => campIds.has(p.camp_id));
     const totalChildren = fb.length;
-    const totalRevenue = fb.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0)), 0);
+    const totalRevenue = fb.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0)), 0);
     const totalPaid = fb.reduce((s, b) => s + (b.amount_paid ?? 0), 0);
     const outstanding = fb.reduce((s, b) => s + (b.amount_owed ?? 0), 0);
     const totalClubPayments = fi.reduce((s, i) => s + (i.manual_amount ?? i.total_amount ?? 0), 0);
@@ -116,7 +116,7 @@ const ReportsPage = () => {
       const yc = camps.filter((c) => c.start_date.substring(0, 4) === yr);
       const ids = new Set(yc.map((c) => c.id));
       const yb = bookings.filter((b) => b.matched_camp_id && ids.has(b.matched_camp_id));
-      const rev = yb.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0)), 0);
+      const rev = yb.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0)), 0);
       const club = invoices.filter((i) => ids.has(i.camp_id)).reduce((s, i) => s + (i.manual_amount ?? i.total_amount ?? 0), 0);
       const pay = payroll.filter((p) => ids.has(p.camp_id)).reduce((s, p) => s + (p.total_amount ?? 0), 0);
       const exp = expenses.filter((e) => e.expense_date.substring(0, 4) === yr).reduce((s, e) => s + e.amount, 0);
@@ -135,7 +135,7 @@ const ReportsPage = () => {
     return Array.from(venueMap.entries()).map(([venue, { camps: ids, club }]) => {
       const idSet = new Set(ids);
       const vb = bookings.filter((b) => b.matched_camp_id && idSet.has(b.matched_camp_id));
-      const rev = vb.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0)), 0);
+      const rev = vb.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0)), 0);
       const clubPay = invoices.filter((i) => idSet.has(i.camp_id)).reduce((s, i) => s + (i.manual_amount ?? i.total_amount ?? 0), 0);
       const pay = payroll.filter((p) => idSet.has(p.camp_id)).reduce((s, p) => s + (p.total_amount ?? 0), 0);
       return { venue, club, campCount: ids.length, children: vb.length, revenue: rev, clubPayments: clubPay, payroll: pay, profit: rev - clubPay - pay };
@@ -146,7 +146,7 @@ const ReportsPage = () => {
   const campComparison = useMemo(() => {
     return filteredCamps.map((camp) => {
       const cb = bookings.filter((b) => b.matched_camp_id === camp.id);
-      const rev = cb.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0)), 0);
+      const rev = cb.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0)), 0);
       const clubPay = invoices.filter((i) => i.camp_id === camp.id).reduce((s, i) => s + (i.manual_amount ?? i.total_amount ?? 0), 0);
       const pay = payroll.filter((p) => p.camp_id === camp.id).reduce((s, p) => s + (p.total_amount ?? 0), 0);
       const att = attendance.filter((a) => a.camp_id === camp.id);
@@ -163,7 +163,7 @@ const ReportsPage = () => {
       if (sc.length === 0) return null;
       const ids = new Set(sc.map((c) => c.id));
       const sb = bookings.filter((b) => b.matched_camp_id && ids.has(b.matched_camp_id));
-      const revenue = sb.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0)), 0);
+      const revenue = sb.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0)), 0);
       const club = invoices.filter((i) => ids.has(i.camp_id)).reduce((s, i) => s + (i.manual_amount ?? i.total_amount ?? 0), 0);
       const pay = payroll.filter((p) => ids.has(p.camp_id)).reduce((s, p) => s + (p.total_amount ?? 0), 0);
       const exp = filteredExpenses.filter((e) => e.season?.toLowerCase() === sk).reduce((s, e) => s + e.amount, 0);

@@ -43,7 +43,7 @@ interface Overrides {
 }
 
 function calcTotalCost(b: BookingFinance): number {
-  return Math.max(0, (b.total_amount ?? 0) - (b.sibling_discount ?? 0));
+  return Math.max(0, (b.total_amount ?? 0));
 }
 
 function calcOwed(b: BookingFinance): number {
