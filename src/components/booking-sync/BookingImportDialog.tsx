@@ -1,4 +1,6 @@
-import { useState, useCallback, useRef, useMemo, DragEvent } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect, DragEvent } from "react";
+import { Input } from "@/components/ui/input";
+import ImportPreviewStep, { type ImportJob } from "./ImportPreviewStep";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -50,7 +52,8 @@ const BOOKING_FIELDS = [
   { key: "payment_status", label: "Payment Status" },
   { key: "payment_type", label: "Payment Type" },
   { key: "refund_amount", label: "Refund Amount" },
-  { key: "external_booking_id", label: "Booking ID" },
+  { key: "source_booking_id", label: "Booking ID (family)" },
+  { key: "source_participant_id", label: "Participant ID" },
   { key: "camp_name", label: "Camp Name" },
   { key: "camp_date", label: "Camp Date" },
   { key: "venue", label: "Venue" },
@@ -62,7 +65,8 @@ const BOOKING_FIELDS = [
 
 // Exact Teaching Tekkers CSV column aliases — prioritised
 const ALIASES: Record<string, string[]> = {
-  external_booking_id: ["booking id", "booking_id", "order id", "ref", "reference"],
+  source_booking_id: ["booking id", "booking_id", "order id", "booking ref", "booking reference"],
+  source_participant_id: ["participant id", "participant_id", "registration id", "attendee id", "child id"],
   child_first_name: ["first name", "first_name", "child first name", "child_first_name", "forename"],
   child_last_name: ["last name", "last_name", "surname", "child last name", "child_last_name", "family name"],
   parent_name: ["parent name", "parent_name", "parent", "guardian", "guardian name"],
@@ -103,6 +107,9 @@ function normalizeHeader(header: string): string {
 
 function autoMapColumn(header: string): string {
   const h = normalizeHeader(header);
+  // Row counters are not identities
+  if (/^(sr\.?\s*no\.?|s\.?\s*no\.?|#|row|no\.?)$/.test(h)) return "skip";
+
 
   // "Status" alone maps to payment_status (the Teaching Tekkers CSV convention)
   if (h === "status") return "payment_status";
@@ -227,10 +234,22 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
   const [files, setFiles] = useState<ParsedFile[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [result, setResult] = useState<ImportResult | null>(null);
-  const [forceImport, setForceImport] = useState(false);
+  const [, setForceImport] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [targets, setTargets] = useState<Record<string, { sourceCampId: string; campId: string }>>({});
+  const [jobs, setJobs] = useState<ImportJob[]>([]);
+  const [camps, setCamps] = useState<{ id: string; name: string; start_date: string }[]>([]);
+  const [savedMappings, setSavedMappings] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!open) return;
+    supabase.from("camps").select("id,name,start_date").neq("status", "archived").order("start_date", { ascending: false })
+      .then(({ data }) => setCamps(data || []));
+    supabase.from("source_camp_mappings").select("source_camp_id,camp_id").eq("source_system", "bookings.teachingtekkers.com")
+      .then(({ data }) => setSavedMappings(Object.fromEntries((data || []).map((m) => [m.source_camp_id, m.camp_id]))));
+  }, [open]);
 
   const allHeaders = useMemo(() => {
     const set = new Set<string>();
@@ -407,77 +426,39 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         if ((!hasVenueCol || !mapped.venue) && f.detectedVenue) mapped.venue = f.detectedVenue;
         if ((!hasCountyCol || !mapped.county) && f.detectedCounty) mapped.county = f.detectedCounty;
 
-        // Normalize camp key — strip trailing numbers/suffixes so "St. Anthonys" and "St. Anthonys 1" produce the same key
-        const campKey = (mapped.camp_name || "").trim().toLowerCase().replace(/\s+/g, " ")
-          .replace(/\s+\d+$/, "")  // strip trailing " 1", " 2" etc
-          .replace(/\s*\(\d+\)$/, ""); // strip trailing "(1)", "(2)" etc
-
-        // Detect if external_booking_id came from a "Sr. No" style column (sequential per-file, not globally unique)
-        const extIdHeader = Object.entries(mapping).find(([, field]) => field === "external_booking_id")?.[0] || "";
-        const isSrNo = /^sr\.?\s*no/i.test(extIdHeader.trim());
-
-        if (mapped.external_booking_id && isSrNo) {
-          // Prefix with normalized camp name to make it unique across files
-          mapped.external_booking_id = `${campKey}::${mapped.external_booking_id.trim().toLowerCase()}`;
-        }
-
-        // Fallback external_booking_id when missing — use child identity + normalized camp name + row index for uniqueness
-        if (!mapped.external_booking_id) {
-          const parts = [
-            campKey,
-            (mapped.child_first_name || "").trim().toLowerCase().replace(/\s+/g, " "),
-            (mapped.child_last_name || "").trim().toLowerCase().replace(/\s+/g, " "),
-            (mapped.date_of_birth || "").trim(),
-            (mapped.parent_email || mapped.parent_phone || "").trim().toLowerCase(),
-          ];
-          const baseKey = `gen::${parts.join("::")}`;
-          // If key fields are sparse, append file+row index to guarantee uniqueness
-          const hasIdentity = (mapped.date_of_birth || "").trim() || (mapped.parent_email || "").trim() || (mapped.parent_phone || "").trim();
-          mapped.external_booking_id = hasIdentity ? baseKey : `${baseKey}::${f.name}::${rowIdx}`;
-        }
-
-        allMapped.push(mapped);
+        // Identity comes only from real source IDs (if mapped) or child/guardian details server-side.
+        // Row position and "Sr. No" are never used as identifiers.
+        allMapped.push({ ...mapped, __file: f.name });
       });
     });
-    return allMapped.filter((r) => r.child_first_name && r.child_last_name && r.camp_name);
+    return allMapped.filter((r) => r.child_first_name || r.child_last_name);
   }, [files, mapping]);
 
-  const handleImport = useCallback(async () => {
-    setStep("importing");
-    const bookings = getMappedRows();
+  const setTarget = useCallback((file: string, patch: Partial<{ sourceCampId: string; campId: string }>) => {
+    setTargets((t) => ({ ...t, [file]: { sourceCampId: "", campId: "", ...t[file], ...patch } }));
+  }, []);
 
-    // Chunk bookings into smaller batches to avoid edge function 150s idle timeout.
-    // Each row may trigger several sequential DB lookups server-side (draft camp, duplicate check),
-    // so we keep batches small enough to comfortably finish within the limit.
-    const CLIENT_BATCH_SIZE = 100;
-    const totals: ImportResult = { processed: 0, created: 0, updated: 0, failed: 0 };
-
-    try {
-      for (let i = 0; i < bookings.length; i += CLIENT_BATCH_SIZE) {
-        const chunk = bookings.slice(i, i + CLIENT_BATCH_SIZE);
-        const { data, error } = await supabase.functions.invoke("booking-intake", {
-          body: { bookings: chunk },
-        });
-        if (error) throw error;
-        const s = data?.summary || {};
-        totals.processed += s.processed || 0;
-        totals.created += s.created || 0;
-        totals.updated += s.updated || 0;
-        totals.failed += s.failed || 0;
-      }
-
-      setResult(totals);
-      setStep("done");
-      toast({
-        title: "Batch import complete",
-        description: `${files.length} file(s) — ${totals.created} created, ${totals.updated} updated, ${totals.failed} failed`,
-      });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      toast({ title: "Import failed", description: `${message} (partial: ${totals.created} created so far)`, variant: "destructive" });
-      setStep("preview");
+  // Pre-fill the app camp when this source camp ID was linked before
+  useEffect(() => {
+    for (const f of files) {
+      const t = targets[f.name];
+      if (t?.sourceCampId && !t.campId && savedMappings[t.sourceCampId]) setTarget(f.name, { campId: savedMappings[t.sourceCampId] });
     }
-  }, [getMappedRows, toast, files.length]);
+  }, [targets, savedMappings, files, setTarget]);
+
+  const targetsReady = files.length > 0 && files.every((f) => targets[f.name]?.sourceCampId && targets[f.name]?.campId);
+
+  const startPreview = useCallback(() => {
+    const all = getMappedRows();
+    setJobs(files.map((f) => ({
+      fileName: f.name,
+      sourceCampId: targets[f.name].sourceCampId,
+      campId: targets[f.name].campId,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      rows: all.filter((r) => r.__file === f.name).map(({ __file, ...rest }) => rest),
+    })));
+    setStep("preview");
+  }, [files, targets, getMappedRows]);
 
   const handleClose = useCallback((isOpen: boolean) => {
     if (!isOpen) {
