@@ -30,6 +30,8 @@ export interface PlannedRow {
   normalized: Record<string, unknown>;
   diff: Record<string, { from: unknown; to: unknown }> | null;
   protected_fields: string[];
+  conflict: boolean;
+  family_verified: boolean;
 }
 
 // ── normalisers ──
@@ -167,8 +169,9 @@ export function computePatch(existing: ExistingRow, inc: Record<string, unknown>
   if (paymentChanged) {
     if (existing.manual_override) protectPayments = true;
     else if (prev) protectPayments = PAYMENT_FIELDS.some((f) => !same(f, existing[f], prev[f]));
-    else protectPayments = Number(existing.amount_paid ?? 0) > Number(inc.amount_paid ?? 0) ||
-      (existing.payment_status === "paid" && inc.payment_status !== "paid" && inc.payment_status !== "refunded");
+    // Older rows have no record of what the source last said, so any payment difference could be a
+    // staff correction (part payment, refund, marked paid). Never guess: keep the app value and flag it.
+    else protectPayments = true;
   }
 
   for (const f of SOURCE_FIELDS) {
@@ -192,12 +195,15 @@ export function planImport(rows: Incoming[], existing: ExistingRow[]): PlannedRo
   const byPid = new Map<string, ExistingRow>();
   const byKey = new Map<string, ExistingRow[]>();
   const byName = new Map<string, ExistingRow[]>();
+  const byDobGuardian = new Map<string, ExistingRow[]>();
   for (const e of existing) {
     if (e.source_participant_id) byPid.set(e.source_participant_id, e);
     const k = e.participant_key || participantKey(e.child_first_name, e.child_last_name, e.date_of_birth, e.parent_email, e.parent_phone);
     byKey.set(k, [...(byKey.get(k) || []), e]);
     const n = `${normText(e.child_first_name)}|${normText(e.child_last_name)}`;
     byName.set(n, [...(byName.get(n) || []), e]);
+    const dg = e.date_of_birth && guardianKey(e.parent_email, e.parent_phone);
+    if (dg) { const k2 = `${e.date_of_birth}|${dg}`; byDobGuardian.set(k2, [...(byDobGuardian.get(k2) || []), e]); }
   }
   const claimed = new Map<string, number>();
   const seenKeys = new Map<string, number>();
@@ -210,7 +216,7 @@ export function planImport(rows: Incoming[], existing: ExistingRow[]): PlannedRo
     const base: PlannedRow = {
       row_index: i, classification: "rejected", reason: null, participant_key: null, family_key: null,
       synced_booking_id: null, candidate_ids: [], normalized: { ...inc, source_participant_id: pid, source_booking_id: r.source_booking_id?.trim() || null },
-      diff: null, protected_fields: [],
+      diff: null, protected_fields: [], conflict: false, family_verified: !!r.source_booking_id?.trim(),
     };
     if (!inc.child_first_name || !inc.child_last_name) {
       out.push({ ...base, reason: "Missing child first or last name" }); return;
@@ -233,7 +239,7 @@ export function planImport(rows: Incoming[], existing: ExistingRow[]): PlannedRo
       const { diff, protectedFields } = computePatch(e, inc);
       const changed = Object.keys(diff).length > 0;
       out.push({
-        ...base, synced_booking_id: e.id, diff, protected_fields: protectedFields,
+        ...base, synced_booking_id: e.id, diff, protected_fields: protectedFields, conflict: protectedFields.length > 0,
         classification: changed ? "updated" : "unchanged",
         reason: how + (protectedFields.length ? `; kept app edits: ${protectedFields.join(", ")}` : ""),
       });
@@ -260,6 +266,19 @@ export function planImport(rows: Incoming[], existing: ExistingRow[]): PlannedRo
       }
       if (nameCands.length > 0) {
         out.push({ ...base, classification: "ambiguous", candidate_ids: nameCands.filter((e) => !claimed.has(e.id)).map((e) => e.id), reason: "Same child name exists with different DOB or guardian details" }); return;
+      }
+      // A renamed child (spelling fix, double-barrelled surname) keeps DOB + guardian
+      const renamed = inc.date_of_birth && gk ? (byDobGuardian.get(`${inc.date_of_birth}|${gk}`) || []).filter((e) => !claimed.has(e.id)) : [];
+      if (renamed.length > 0) {
+        out.push({ ...base, classification: "ambiguous", candidate_ids: renamed.map((e) => e.id), reason: "Different name but same DOB and guardian as an existing child" }); return;
+      }
+      // Same DOB + same guardian phone but changed email (or vice versa)
+      const phone = normPhone(inc.parent_phone);
+      const altContact = inc.date_of_birth ? existing.filter((e) => !claimed.has(e.id) && e.date_of_birth === inc.date_of_birth &&
+        normText(e.child_last_name) === normText(inc.child_last_name) &&
+        ((phone && normPhone(e.parent_phone) === phone) || (normEmail(inc.parent_email) && normEmail(e.parent_email) === normEmail(inc.parent_email)))) : [];
+      if (altContact.length > 0) {
+        out.push({ ...base, classification: "ambiguous", candidate_ids: altContact.map((e) => e.id), reason: "Matches an existing child's DOB and one guardian contact, but other details differ" }); return;
       }
       out.push({ ...base, classification: "new", reason: pid ? "New participant ID" : "No existing participant matches" });
     });
