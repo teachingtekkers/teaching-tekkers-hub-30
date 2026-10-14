@@ -1,5 +1,7 @@
 # Agent rules
 
-- Booking CSV imports go through the `booking-import` function (preview → commit); matching logic lives in `supabase/functions/booking-import/logic.ts` with tests in `src/test/bookingImportLogic.test.ts`. Why: one tested place decides identity and protects app-side edits.
-- Participant identity is source participant ID, else name + DOB + guardian contact, scoped to an explicit source camp ID; never row position or "Sr. No". Why: CSVs have no stable row IDs and get reordered.
-- Imports only overwrite a field when it still equals the value the previous import wrote (`synced_bookings.source_values`). Why: preserves staff edits to payments, kit and notes.
+- All booking writes from outside sources (manual CSV import, automatic sync, `booking-intake` pushes) go through `supabase/functions/_shared/booking-engine.ts`, with matching rules in `_shared/booking-logic.ts` (tests in `src/test/bookingImportLogic.test.ts`). Why: one tested place decides identity and protects staff edits.
+- Participant identity is source participant ID, else name + DOB + guardian contact, scoped to an explicit source camp ID linked to one app camp; never row position or "Sr. No". Uncertain matches go to the review queue, never to a silent create. Why: CSVs have no stable IDs and get reordered.
+- An import only overwrites a field when it still equals the value the previous import wrote (`synced_bookings.source_values`); rows without stored source values never get payment changes automatically. Why: staff part-payments, refunds and corrections must survive.
+- Applying a run is resumable: per-row `applied` flags, deterministic `external_booking_id` for new rows, a per-source-camp lock, and failed runs are marked failed, never successful. Why: retries must not duplicate.
+- Family counts inferred from parent contact are estimates; only source booking IDs give verified booking counts. Why: shared contact details don't prove a shared booking.
