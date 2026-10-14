@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import SyncReviewPanel from "@/components/booking-sync/SyncReviewPanel";
 import { Input } from "@/components/ui/input";
 import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload, Zap, Wrench, Trash2, Users, AlertCircle, Eye } from "lucide-react";
 import { BookingReceiptButton } from "@/components/booking-sync/BookingReceipt";
@@ -481,6 +482,7 @@ export default function BookingSyncPage() {
           </TabsTrigger>
           <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
           <TabsTrigger value="logs">Sync Logs</TabsTrigger>
+          <TabsTrigger value="sync">Sync &amp; Review</TabsTrigger>
           <TabsTrigger value="endpoint">Endpoint Info</TabsTrigger>
         </TabsList>
 
@@ -765,53 +767,43 @@ export default function BookingSyncPage() {
           </div>
         </TabsContent>
 
+        <TabsContent value="sync">
+          <SyncReviewPanel />
+        </TabsContent>
+
         {/* Endpoint Info Tab */}
         <TabsContent value="endpoint">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Intake Endpoint</CardTitle>
-              <CardDescription>Use this endpoint from your browser automation script to push booking data into the system.</CardDescription>
+              <CardTitle className="text-lg">Automatic Intake</CardTitle>
+              <CardDescription>
+                For the booking system to send updates here. Not active yet — the booking system does not currently send data.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 text-sm">
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">POST URL</p>
-                <code className="block bg-muted rounded-md px-3 py-2 text-sm break-all">
+                <code className="block bg-muted rounded-md px-3 py-2 break-all">
                   {`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/booking-intake`}
                 </code>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">Headers</p>
-                <code className="block bg-muted rounded-md px-3 py-2 text-sm">
-                  Content-Type: application/json<br />
-                  Authorization: Bearer {'<SUPABASE_ANON_KEY>'}
-                </code>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">Payload Example</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Payload</p>
                 <pre className="bg-muted rounded-md px-3 py-2 text-xs overflow-auto">{JSON.stringify({
+                  source_camp_id: "176",
+                  extracted_at: "2026-10-14T19:00:00Z",
                   bookings: [{
-                    external_booking_id: "BK-001",
-                    camp_name: "Clane United Summer Camp",
-                    camp_date: "2026-07-06",
-                    venue: "Clane GAA Grounds",
-                    county: "Kildare",
-                    child_first_name: "Liam",
-                    child_last_name: "Murphy",
-                    date_of_birth: "2016-03-15",
-                    parent_name: "Sarah Murphy",
-                    parent_phone: "087 123 4567",
-                    parent_email: "sarah@example.com",
-                    payment_status: "paid",
-                    kit_size: "S",
-                  }]
+                    source_booking_id: "B-1234", source_participant_id: "P-5678",
+                    child_first_name: "Liam", child_last_name: "Murphy", date_of_birth: "2016-03-15",
+                    parent_email: "parent@example.com", parent_phone: "087 123 4567",
+                    total_amount: "85", amount_paid: "85", payment_status: "paid", kit_size: "S",
+                  }],
                 }, null, 2)}</pre>
               </div>
-              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-3">
-                <p className="text-sm text-amber-800 dark:text-amber-200 flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 shrink-0" />
-                  The automation script that calls this endpoint is built separately. This page receives and stores data only.
-                </p>
-              </div>
+              <p className="text-muted-foreground">
+                Requests need a private sync token (set up securely when the connection is agreed). Only camps already linked by one
+                manual import are accepted. Safe changes apply automatically; anything uncertain goes to the Sync &amp; Review tab.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
