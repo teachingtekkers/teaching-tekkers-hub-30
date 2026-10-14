@@ -133,7 +133,7 @@ export default function BulkMarkPaidDialog({
         const p = r.participant;
         const totalCost = Math.max(
           0,
-          (p.total_amount ?? 0) - (p.sibling_discount ?? 0)
+          (p.total_amount ?? 0)
         );
         const { error } = await supabase
           .from("synced_bookings")

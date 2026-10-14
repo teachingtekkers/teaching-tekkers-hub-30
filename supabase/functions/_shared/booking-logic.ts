@@ -97,13 +97,24 @@ export const SOURCE_FIELDS = [
 ];
 const NUMERIC = new Set(["total_amount", "sibling_discount", "amount_paid", "refund_amount", "amount_owed", "age"]);
 
+/**
+ * Amount owed per child. The source "Total Amount" is already AFTER the sibling
+ * discount (verified: Total + Siblings Discount = list price on every row of real
+ * exports), so the discount is informational and must NOT be subtracted again.
+ * Refunds reduce what is owed but never create a new debt; cancelled = nothing owed.
+ */
+export function computeOwed(a: { total: number; paid: number; refund: number; cancelled?: boolean }): number {
+  if (a.cancelled) return 0;
+  return Math.max(0, a.total - a.paid - a.refund);
+}
+
 /** Turn a mapped CSV row into DB-shaped source values. */
 export function normaliseIncoming(r: Incoming): Record<string, unknown> {
   const total = parseMoney(r.total_amount);
   const disc = parseMoney(r.sibling_discount);
   const paid = parseMoney(r.amount_paid);
   const refund = parseMoney(r.refund_amount);
-  const owed = Math.max(0, Math.max(0, total - disc) - paid - refund);
+  const owed = computeOwed({ total, paid, refund, cancelled: /cancel/i.test(r.booking_status || "") });
   const medC = (r.medical_condition || "").trim();
   const medN = (r.medical_notes || "").trim();
   return {

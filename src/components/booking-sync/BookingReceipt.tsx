@@ -87,7 +87,7 @@ ${b.venue ? `<div class="row"><span class="label">Venue</span><span class="value
 <div class="section">
 <div class="section-title">Payment Summary</div>
 <div class="row"><span class="label">Camp Fee</span><span class="value">€${(b.total_amount ?? 0).toFixed(2)}</span></div>
-${(b.sibling_discount ?? 0) > 0 ? `<div class="row"><span class="label">Sibling Discount</span><span class="value">-€${(b.sibling_discount ?? 0).toFixed(2)}</span></div>` : ""}
+${(b.sibling_discount ?? 0) > 0 ? `<div class="row"><span class="label">Sibling Discount (included above)</span><span class="value">-€${(b.sibling_discount ?? 0).toFixed(2)}</span></div>` : ""}
 <div class="row"><span class="label">Total Cost</span><span class="value">€${totalCost.toFixed(2)}</span></div>
 <div class="row"><span class="label">Amount Paid</span><span class="value" style="color:#166534">€${(b.amount_paid ?? 0).toFixed(2)}</span></div>
 ${(b.refund_amount ?? 0) > 0 ? `<div class="row"><span class="label">Refund</span><span class="value" style="color:#991b1b">€${(b.refund_amount ?? 0).toFixed(2)}</span></div>` : ""}
