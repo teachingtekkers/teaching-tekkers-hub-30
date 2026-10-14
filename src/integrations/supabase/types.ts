@@ -69,6 +69,118 @@ export type Database = {
           },
         ]
       }
+      booking_import_run_rows: {
+        Row: {
+          applied: boolean
+          candidate_ids: string[] | null
+          classification: string
+          created_at: string
+          diff: Json | null
+          family_key: string | null
+          id: string
+          normalized: Json
+          participant_key: string | null
+          protected_fields: string[] | null
+          raw_row: Json
+          reason: string | null
+          resolution: string | null
+          row_index: number
+          run_id: string
+          synced_booking_id: string | null
+        }
+        Insert: {
+          applied?: boolean
+          candidate_ids?: string[] | null
+          classification: string
+          created_at?: string
+          diff?: Json | null
+          family_key?: string | null
+          id?: string
+          normalized?: Json
+          participant_key?: string | null
+          protected_fields?: string[] | null
+          raw_row?: Json
+          reason?: string | null
+          resolution?: string | null
+          row_index: number
+          run_id: string
+          synced_booking_id?: string | null
+        }
+        Update: {
+          applied?: boolean
+          candidate_ids?: string[] | null
+          classification?: string
+          created_at?: string
+          diff?: Json | null
+          family_key?: string | null
+          id?: string
+          normalized?: Json
+          participant_key?: string | null
+          protected_fields?: string[] | null
+          raw_row?: Json
+          reason?: string | null
+          resolution?: string | null
+          row_index?: number
+          run_id?: string
+          synced_booking_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_import_run_rows_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "booking_import_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_import_runs: {
+        Row: {
+          camp_id: string | null
+          committed_at: string | null
+          counts: Json
+          created_at: string
+          created_by: string | null
+          file_name: string | null
+          id: string
+          source_camp_id: string
+          source_system: string
+          status: string
+        }
+        Insert: {
+          camp_id?: string | null
+          committed_at?: string | null
+          counts?: Json
+          created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          id?: string
+          source_camp_id: string
+          source_system: string
+          status?: string
+        }
+        Update: {
+          camp_id?: string | null
+          committed_at?: string | null
+          counts?: Json
+          created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          id?: string
+          source_camp_id?: string
+          source_system?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_import_runs_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           camp_id: string
@@ -1978,6 +2090,89 @@ export type Database = {
         }
         Relationships: []
       }
+      source_camp_mappings: {
+        Row: {
+          camp_id: string
+          created_at: string
+          id: string
+          source_camp_id: string
+          source_camp_label: string | null
+          source_system: string
+          updated_at: string
+        }
+        Insert: {
+          camp_id: string
+          created_at?: string
+          id?: string
+          source_camp_id: string
+          source_camp_label?: string | null
+          source_system?: string
+          updated_at?: string
+        }
+        Update: {
+          camp_id?: string
+          created_at?: string
+          id?: string
+          source_camp_id?: string
+          source_camp_label?: string | null
+          source_system?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "source_camp_mappings_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      source_family_bookings: {
+        Row: {
+          created_at: string
+          family_key: string
+          first_import_run_id: string | null
+          guardian_email: string | null
+          guardian_name: string | null
+          guardian_phone: string | null
+          id: string
+          last_import_run_id: string | null
+          source_booking_id: string | null
+          source_camp_id: string
+          source_system: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          family_key: string
+          first_import_run_id?: string | null
+          guardian_email?: string | null
+          guardian_name?: string | null
+          guardian_phone?: string | null
+          id?: string
+          last_import_run_id?: string | null
+          source_booking_id?: string | null
+          source_camp_id: string
+          source_system: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          family_key?: string
+          first_import_run_id?: string | null
+          guardian_email?: string | null
+          guardian_name?: string | null
+          guardian_phone?: string | null
+          id?: string
+          last_import_run_id?: string | null
+          source_booking_id?: string | null
+          source_camp_id?: string
+          source_system?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       staff_week_points: {
         Row: {
           attendance_complete: boolean
@@ -2091,10 +2286,12 @@ export type Database = {
           emergency_contact: string | null
           evidence_type: string | null
           external_booking_id: string | null
+          family_booking_id: string | null
           id: string
           imported_at: string
           kit_given: boolean
           kit_size: string | null
+          last_import_run_id: string | null
           last_synced_at: string
           manual_override: boolean
           match_reason: string | null
@@ -2110,13 +2307,18 @@ export type Database = {
           parent_email: string | null
           parent_name: string | null
           parent_phone: string | null
+          participant_key: string | null
           payment_status: string | null
           payment_type: string | null
           photo_permission: boolean | null
           refund_amount: number | null
           sibling_discount: number | null
           sign_in_confidence: number | null
+          source_booking_id: string | null
+          source_camp_id: string | null
+          source_participant_id: string | null
           source_system: string
+          source_values: Json | null
           staff_notes: string | null
           sync_log_id: string | null
           total_amount: number | null
@@ -2141,10 +2343,12 @@ export type Database = {
           emergency_contact?: string | null
           evidence_type?: string | null
           external_booking_id?: string | null
+          family_booking_id?: string | null
           id?: string
           imported_at?: string
           kit_given?: boolean
           kit_size?: string | null
+          last_import_run_id?: string | null
           last_synced_at?: string
           manual_override?: boolean
           match_reason?: string | null
@@ -2160,13 +2364,18 @@ export type Database = {
           parent_email?: string | null
           parent_name?: string | null
           parent_phone?: string | null
+          participant_key?: string | null
           payment_status?: string | null
           payment_type?: string | null
           photo_permission?: boolean | null
           refund_amount?: number | null
           sibling_discount?: number | null
           sign_in_confidence?: number | null
+          source_booking_id?: string | null
+          source_camp_id?: string | null
+          source_participant_id?: string | null
           source_system?: string
+          source_values?: Json | null
           staff_notes?: string | null
           sync_log_id?: string | null
           total_amount?: number | null
@@ -2191,10 +2400,12 @@ export type Database = {
           emergency_contact?: string | null
           evidence_type?: string | null
           external_booking_id?: string | null
+          family_booking_id?: string | null
           id?: string
           imported_at?: string
           kit_given?: boolean
           kit_size?: string | null
+          last_import_run_id?: string | null
           last_synced_at?: string
           manual_override?: boolean
           match_reason?: string | null
@@ -2210,19 +2421,31 @@ export type Database = {
           parent_email?: string | null
           parent_name?: string | null
           parent_phone?: string | null
+          participant_key?: string | null
           payment_status?: string | null
           payment_type?: string | null
           photo_permission?: boolean | null
           refund_amount?: number | null
           sibling_discount?: number | null
           sign_in_confidence?: number | null
+          source_booking_id?: string | null
+          source_camp_id?: string | null
+          source_participant_id?: string | null
           source_system?: string
+          source_values?: Json | null
           staff_notes?: string | null
           sync_log_id?: string | null
           total_amount?: number | null
           venue?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "synced_bookings_family_booking_id_fkey"
+            columns: ["family_booking_id"]
+            isOneToOne: false
+            referencedRelation: "source_family_bookings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "synced_bookings_matched_booking_id_fkey"
             columns: ["matched_booking_id"]
@@ -2423,12 +2646,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2452,11 +2675,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2477,11 +2700,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2502,11 +2725,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2519,11 +2742,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
