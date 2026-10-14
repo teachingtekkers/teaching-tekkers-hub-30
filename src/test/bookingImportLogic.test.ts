@@ -141,3 +141,17 @@ describe("changed details", () => {
     expect(plan.map((p) => p.family_verified)).toEqual([false, true]);
   });
 });
+
+describe("settled differences", () => {
+  it("an app edit is not re-flagged while the source value stays the same", () => {
+    const ex = asExisting([csv[2]], [{ amount_paid: 40, amount_owed: 45, payment_status: "partial" }]);
+    const [p] = planImport([csv[2]], ex);
+    expect(p.classification).toBe("unchanged");
+    expect(p.conflict).toBe(false);
+  });
+  it("twins (same DOB and parent, different names) in the same file are separate children", () => {
+    const twin = { ...csv[0], child_first_name: "Aisling" };
+    const plan = planImport([csv[0], twin], asExisting([csv[0]]));
+    expect(plan.map((p) => p.classification)).toEqual(["unchanged", "new"]);
+  });
+});

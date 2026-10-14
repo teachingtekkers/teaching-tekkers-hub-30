@@ -176,6 +176,8 @@ export function computePatch(existing: ExistingRow, inc: Record<string, unknown>
 
   for (const f of SOURCE_FIELDS) {
     if (same(f, existing[f], inc[f])) continue;
+    // Source hasn't changed since we last saw it: the app value is a deliberate edit, keep it quietly
+    if (prev && same(f, prev[f], inc[f])) continue;
     if (isEmpty(inc[f]) && !PAYMENT_FIELDS.includes(f)) continue; // never blank out data with an empty cell
     if (PAYMENT_FIELDS.includes(f)) {
       if (protectPayments) { protectedFields.push(f); continue; }
