@@ -266,6 +266,8 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
     setResult(null);
     setDragOver(false);
     setForceImport(false);
+    setTargets({});
+    setJobs([]);
   }, []);
 
   const processFiles = useCallback((fileList: File[]) => {
