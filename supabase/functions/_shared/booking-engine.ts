@@ -187,6 +187,17 @@ export async function applyRun(db: DB, runId: string, opts: ApplyOptions) {
     const fresh = await fetchExisting(db, run.source_system, run.source_camp_id, run.camp_id);
     const claimedNow = new Set(planRows0.filter((r: DB) => r.synced_booking_id).map((r: DB) => r.synced_booking_id));
 
+    // Runs for this source camp, used to replace older unresolved review items for the same child
+    const { data: campRuns } = await db.from("booking_import_runs").select("id")
+      .eq("source_system", run.source_system).eq("source_camp_id", run.source_camp_id).neq("id", runId);
+    const otherRunIds = (campRuns || []).map((x: DB) => x.id);
+    const supersede = async (bookingId: string | null, pKey: string | null) => {
+      if (!otherRunIds.length) return;
+      let q = db.from("booking_import_run_rows").update({ review_status: "superseded" }).in("run_id", otherRunIds).eq("review_status", "pending");
+      q = bookingId ? q.eq("synced_booking_id", bookingId) : q.eq("participant_key", pKey).is("synced_booking_id", null);
+      await q;
+    };
+
     let processed = 0;
     for (const r of planRows0) {
       if (r.applied) continue;
@@ -221,6 +232,7 @@ export async function applyRun(db: DB, runId: string, opts: ApplyOptions) {
       if (kind === "skip") { result.skipped++; }
       else if (kind === "review") {
         result.pending_review++;
+        await supersede(null, r.participant_key);
         Object.assign(rowUpdate, { applied: false, review_status: "pending", classification: "ambiguous", reason: r.reason, candidate_ids: r.candidate_ids });
       } else if (kind === "new") {
         rowUpdate.synced_booking_id = await insertNew(db, run, camp, r, n, identity, sourcePid);
@@ -234,7 +246,7 @@ export async function applyRun(db: DB, runId: string, opts: ApplyOptions) {
           if (out.protectedFields.length) {
             result.protected_rows++;
             const sourceDiffers = out.protectedFields.some((f) => String(n[f] ?? "") !== "");
-            if (sourceDiffers) rowUpdate.review_status = "pending";
+            if (sourceDiffers) { rowUpdate.review_status = "pending"; await supersede(targetId, null); }
           }
         }
       }
