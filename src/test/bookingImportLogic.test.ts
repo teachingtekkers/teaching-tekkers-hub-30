@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { planImport, normaliseIncoming, participantKey, type ExistingRow } from "../../supabase/functions/booking-import/logic";
+import { planImport, normaliseIncoming, participantKey, type ExistingRow } from "../../supabase/functions/_shared/booking-logic";
 
 // Synthetic test records only
 const csv = [
