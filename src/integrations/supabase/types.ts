@@ -74,6 +74,7 @@ export type Database = {
           applied: boolean
           candidate_ids: string[] | null
           classification: string
+          conflict: boolean
           created_at: string
           diff: Json | null
           family_key: string | null
@@ -84,6 +85,7 @@ export type Database = {
           raw_row: Json
           reason: string | null
           resolution: string | null
+          review_status: string | null
           row_index: number
           run_id: string
           synced_booking_id: string | null
@@ -92,6 +94,7 @@ export type Database = {
           applied?: boolean
           candidate_ids?: string[] | null
           classification: string
+          conflict?: boolean
           created_at?: string
           diff?: Json | null
           family_key?: string | null
@@ -102,6 +105,7 @@ export type Database = {
           raw_row?: Json
           reason?: string | null
           resolution?: string | null
+          review_status?: string | null
           row_index: number
           run_id: string
           synced_booking_id?: string | null
@@ -110,6 +114,7 @@ export type Database = {
           applied?: boolean
           candidate_ids?: string[] | null
           classification?: string
+          conflict?: boolean
           created_at?: string
           diff?: Json | null
           family_key?: string | null
@@ -120,6 +125,7 @@ export type Database = {
           raw_row?: Json
           reason?: string | null
           resolution?: string | null
+          review_status?: string | null
           row_index?: number
           run_id?: string
           synced_booking_id?: string | null
@@ -141,11 +147,15 @@ export type Database = {
           counts: Json
           created_at: string
           created_by: string | null
+          error: string | null
+          extracted_at: string | null
           file_name: string | null
           id: string
+          locked_at: string | null
           source_camp_id: string
           source_system: string
           status: string
+          trigger: string
         }
         Insert: {
           camp_id?: string | null
@@ -153,11 +163,15 @@ export type Database = {
           counts?: Json
           created_at?: string
           created_by?: string | null
+          error?: string | null
+          extracted_at?: string | null
           file_name?: string | null
           id?: string
+          locked_at?: string | null
           source_camp_id: string
           source_system: string
           status?: string
+          trigger?: string
         }
         Update: {
           camp_id?: string | null
@@ -165,11 +179,15 @@ export type Database = {
           counts?: Json
           created_at?: string
           created_by?: string | null
+          error?: string | null
+          extracted_at?: string | null
           file_name?: string | null
           id?: string
+          locked_at?: string | null
           source_camp_id?: string
           source_system?: string
           status?: string
+          trigger?: string
         }
         Relationships: [
           {
@@ -180,6 +198,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      booking_sync_settings: {
+        Row: {
+          id: number
+          last_error: string | null
+          last_failure_at: string | null
+          last_success_at: string | null
+          paused: boolean
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          last_error?: string | null
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          paused?: boolean
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          last_error?: string | null
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          paused?: boolean
+          updated_at?: string
+        }
+        Relationships: []
       }
       bookings: {
         Row: {

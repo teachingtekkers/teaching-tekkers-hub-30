@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { planImport, normaliseIncoming, participantKey, type ExistingRow } from "../../supabase/functions/booking-import/logic";
+import { planImport, normaliseIncoming, participantKey, type ExistingRow } from "../../supabase/functions/_shared/booking-logic";
 
 // Synthetic test records only
 const csv = [
@@ -54,7 +54,8 @@ describe("booking import planner", () => {
     expect(plan[0].protected_fields).toContain("kit_size");
     expect(plan[1].classification).toBe("updated");
     expect(plan[1].diff?.parent_phone).toBeTruthy();
-    expect(plan[2].protected_fields).toEqual(expect.arrayContaining(["total_amount", "payment_status"]));
+    expect(plan[2].protected_fields).toContain("total_amount");
+    expect(plan[2].conflict).toBe(true);
     expect(plan[2].diff?.payment_status).toBeUndefined();
   });
 
@@ -96,5 +97,65 @@ describe("order independence", () => {
     const existing = asExisting([csv[0]]);
     const typo = { ...csv[0], date_of_birth: "02/01/2016" };
     expect(planImport([csv[0], typo], existing)[1].classification).toBe("ambiguous");
+  });
+});
+
+describe("changed details", () => {
+  const existing = () => asExisting([csv[0], csv[2]], [{}, { source_values: null }]);
+  it("changed first name with same DOB + guardian goes to review", () => {
+    const [p] = planImport([{ ...csv[0], child_first_name: "Aoibhe" }], existing());
+    expect(p.classification).toBe("ambiguous");
+    expect(p.candidate_ids).toEqual(["db-0"]);
+  });
+  it("changed phone with same email is a safe update", () => {
+    const [p] = planImport([{ ...csv[0], parent_phone: "0861234567" }], existing());
+    expect(p.classification).toBe("updated");
+  });
+  it("changed email goes to review", () => {
+    const [p] = planImport([{ ...csv[0], parent_email: "new@example.test" }], existing());
+    expect(p.classification).toBe("ambiguous");
+  });
+  it("missing DOB goes to review, not a new duplicate", () => {
+    const [p] = planImport([{ ...csv[0], date_of_birth: "" }], existing());
+    expect(p.classification).toBe("ambiguous");
+  });
+  it("older rows: any payment difference is kept and flagged, whichever amount is larger", () => {
+    const [, p] = planImport([csv[0], { ...csv[2], amount_paid: "85", payment_status: "Paid" }], existing());
+    expect(p.conflict).toBe(true);
+    expect(p.diff?.amount_paid).toBeUndefined();
+  });
+  it("staff part-payment and refund are kept when the source changes", () => {
+    const ex = asExisting([csv[2]], [{ amount_paid: 40, amount_owed: 45, payment_status: "partial" }]);
+    const [p] = planImport([{ ...csv[2], amount_paid: "0", total_amount: "80" }], ex);
+    expect(p.conflict).toBe(true);
+    expect(p.protected_fields).toContain("total_amount");
+    expect(p.diff?.amount_paid).toBeUndefined();
+    const ex2 = asExisting([csv[3]], [{ refund_amount: 85, payment_status: "refunded" }]);
+    const r2 = planImport([{ ...csv[3], payment_type: "Card" }], ex2)[0];
+    expect(r2.protected_fields).toContain("payment_type");
+    expect(r2.diff?.refund_amount).toBeUndefined();
+  });
+  it("source payment change applies when staff never touched it", () => {
+    const [p] = planImport([{ ...csv[0], amount_paid: "170" }], asExisting([csv[0]]));
+    expect(p.diff?.amount_paid).toBeTruthy();
+    expect(p.conflict).toBe(false);
+  });
+  it("families from guardian contact are estimates; source booking IDs are verified", () => {
+    const plan = planImport([csv[0], { ...csv[1], source_booking_id: "B-9" }], []);
+    expect(plan.map((p) => p.family_verified)).toEqual([false, true]);
+  });
+});
+
+describe("settled differences", () => {
+  it("an app edit is not re-flagged while the source value stays the same", () => {
+    const ex = asExisting([csv[2]], [{ amount_paid: 40, amount_owed: 45, payment_status: "partial" }]);
+    const [p] = planImport([csv[2]], ex);
+    expect(p.classification).toBe("unchanged");
+    expect(p.conflict).toBe(false);
+  });
+  it("twins (same DOB and parent, different names) in the same file are separate children", () => {
+    const twin = { ...csv[0], child_first_name: "Aisling" };
+    const plan = planImport([csv[0], twin], asExisting([csv[0]]));
+    expect(plan.map((p) => p.classification)).toEqual(["unchanged", "new"]);
   });
 });

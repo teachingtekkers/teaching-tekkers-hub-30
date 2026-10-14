@@ -1,4 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { DEFAULT_SOURCE, EngineError, syncCamp } from "../_shared/booking-engine.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -247,319 +248,78 @@ function matchTier(score: number): string {
   return "unmatched";
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+function timingSafeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return r === 0;
+}
+
+/**
+ * Legacy intake endpoint, now behind the same safeguards as the CSV importer.
+ * - Pushes from the booking system: { source_camp_id, bookings[] } with header x-sync-token (BOOKING_SYNC_TOKEN)
+ *   or an admin session -> shared engine (mapped camps only, safe rows applied, the rest queued for review).
+ * - Admin "Re-match": { rematch_ids[] } -> only recalculates the camp link of unmatched rows; never touches
+ *   child, payment, kit or note fields.
+ * Anonymous requests and un-mapped full-record upserts are refused.
+ */
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const syncToken = Deno.env.get("BOOKING_SYNC_TOKEN") || "";
+    const presented = req.headers.get("x-sync-token") || "";
+    let isAdmin = false;
+    const viaToken = !!syncToken && !!presented && timingSafeEqual(presented, syncToken);
+    if (!viaToken) {
+      const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+      const { data: u } = await db.auth.getUser(jwt);
+      if (u?.user?.id) {
+        const { data: role } = await db.from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle();
+        isAdmin = !!role;
+      }
+      if (!isAdmin) return json({ error: "Not authorised" }, 401);
+    }
 
     const body = await req.json();
-    const bookings: IncomingBooking[] = Array.isArray(body.bookings)
-      ? body.bookings
-      : [body];
 
-    const { data: syncLog, error: logErr } = await supabase
-      .from("sync_logs")
-      .insert({ status: "running", records_processed: bookings.length })
-      .select()
-      .single();
-
-    if (logErr) throw logErr;
-
-    const { data: allCamps } = await supabase
-      .from("camps")
-      .select("id, name, venue, county, start_date, end_date, club_name");
-    const campsList: CampRow[] = allCamps || [];
-
-    let created = 0, updated = 0, failed = 0, needsReview = 0, draftsCreated = 0;
-    const errorRows: { external_booking_id: string | null; camp_name: string; child_first_name: string; child_last_name: string; error_code: string; error_message: string; raw_row_json: unknown }[] = [];
-    const draftCampCache: Record<string, string> = {};
-
-    const BATCH_SIZE = 10;
-    for (let i = 0; i < bookings.length; i += BATCH_SIZE) {
-      const batch = bookings.slice(i, i + BATCH_SIZE);
-      const upsertRecords: Record<string, unknown>[] = [];
-
-      for (const b of batch) {
-        try {
-          const matchResult = findBestCamp(b, campsList);
-
-          let matched_camp_id: string | null = null;
-          let match_status = "unmatched";
-          let match_score: number | null = null;
-          let match_reason: string | null = null;
-
-          if (matchResult) {
-            match_score = matchResult.score;
-            match_reason = matchResult.reason;
-            match_status = matchTier(matchResult.score);
-
-            if (match_status === "matched") {
-              matched_camp_id = matchResult.camp.id;
-            }
-            if (match_status === "needs_review") {
-              needsReview++;
-              match_reason = `suggested_camp=${matchResult.camp.id}; ${match_reason}`;
-            }
-          }
-
-          // Auto-create draft camp when unmatched
-          if (!matched_camp_id && match_status === "unmatched" && b.camp_name) {
-            const normName = normalize(b.camp_name);
-            const campDate = safeParseDate(b.camp_date) || safeParseDate(b.booking_date) || new Date().toISOString().split("T")[0];
-
-            if (draftCampCache[normName]) {
-              matched_camp_id = draftCampCache[normName];
-              match_status = "matched";
-              match_score = 100;
-              match_reason = "Reused draft camp from this import";
-            } else {
-              const { data: existingDrafts } = await supabase
-                .from("camps")
-                .select("id, name, start_date, end_date")
-                .eq("status", "draft")
-                .eq("is_auto_created", true);
-
-              const reusable = (existingDrafts || []).find((dc: any) => {
-                if (normalize(dc.name) !== normName) return false;
-                const s = dc.start_date;
-                const e = dc.end_date;
-                return campDate >= s && campDate <= e;
-              });
-
-              if (reusable) {
-                matched_camp_id = reusable.id;
-                draftCampCache[normName] = reusable.id;
-                match_status = "matched";
-                match_score = 95;
-                match_reason = "Reused existing draft camp";
-              } else {
-                const startDate = campDate;
-                const endDateParts = startDate.split("-").map(Number);
-                const endDateObj = new Date(Date.UTC(endDateParts[0], endDateParts[1] - 1, endDateParts[2] + 3));
-                const endDate = `${endDateObj.getUTCFullYear()}-${String(endDateObj.getUTCMonth() + 1).padStart(2, "0")}-${String(endDateObj.getUTCDate()).padStart(2, "0")}`;
-                const clubName = b.camp_name.split(/[-–]/)[0].trim() || b.camp_name;
-
-                const { data: newCamp, error: campErr } = await supabase
-                  .from("camps")
-                  .insert({
-                    name: b.camp_name,
-                    club_name: clubName,
-                    venue: b.venue || "TBC",
-                    county: b.county || "TBC",
-                    start_date: startDate,
-                    end_date: endDate,
-                    age_group: "U8-U12",
-                    status: "draft",
-                    is_auto_created: true,
-                  } as any)
-                  .select("id, name, venue, county, start_date, end_date, club_name")
-                  .single();
-
-                if (campErr) {
-                  errorRows.push({
-                    external_booking_id: b.external_booking_id || null,
-                    camp_name: b.camp_name,
-                    child_first_name: b.child_first_name,
-                    child_last_name: b.child_last_name,
-                    error_code: "draft_camp_creation",
-                    error_message: `Draft camp "${b.camp_name}": ${campErr.message}`,
-                    raw_row_json: b,
-                  });
-                } else if (newCamp) {
-                  matched_camp_id = newCamp.id;
-                  campsList.push(newCamp as CampRow);
-                  draftCampCache[normName] = newCamp.id;
-                  draftsCreated++;
-                  match_status = "matched";
-                  match_score = 100;
-                  match_reason = "Auto-created draft camp";
-                }
-              }
-            }
-          }
-
-          const totalAmount = parseMoney(b.total_amount);
-          const amountPaidRaw = parseMoney(b.amount_paid);
-          const siblingDiscount = parseMoney(b.sibling_discount);
-          const refundAmount = parseMoney(b.refund_amount);
-          const totalCost = Math.max(0, totalAmount - siblingDiscount);
-          const amountOwed = Math.max(0, totalCost - amountPaidRaw - refundAmount);
-          const paymentStatus = normalizePaymentStatus(b.payment_status);
-
-          const medCondition = b.medical_condition?.trim() || "";
-          const medNotes = b.medical_notes?.trim() || "";
-          const combinedMedical = [medCondition, medNotes].filter(Boolean).join(" — ") || null;
-
-          // Server-side duplicate detection: if the external_booking_id is generated (fallback)
-          // and we have a matched camp, check if there's already a record for this child+camp
-          let resolvedExternalId = b.external_booking_id || null;
-          if (resolvedExternalId && matched_camp_id && resolvedExternalId.startsWith("gen::")) {
-            const childFirst = (b.child_first_name || "").trim().toLowerCase();
-            const childLast = (b.child_last_name || "").trim().toLowerCase();
-            const { data: existingRows } = await supabase
-              .from("synced_bookings")
-              .select("id, external_booking_id")
-              .eq("matched_camp_id", matched_camp_id)
-              .ilike("child_first_name", childFirst)
-              .ilike("child_last_name", childLast)
-              .eq("source_system", "bookings.teachingtekkers.com")
-              .limit(1);
-
-            if (existingRows && existingRows.length > 0) {
-              // Reuse the existing record's external_booking_id so upsert merges instead of duplicating
-              resolvedExternalId = existingRows[0].external_booking_id;
-            }
-          }
-
-          const record: Record<string, unknown> = {
-            external_booking_id: resolvedExternalId,
-            camp_name: b.camp_name,
-            camp_date: safeParseDate(b.camp_date),
-            venue: b.venue || null,
-            county: b.county || null,
-            child_first_name: b.child_first_name,
-            child_last_name: b.child_last_name,
-            date_of_birth: safeParseDate(b.date_of_birth),
-            age: parseAge(b.age),
-            parent_name: b.parent_name || null,
-            parent_phone: b.parent_phone || null,
-            parent_email: b.parent_email || null,
-            emergency_contact: b.emergency_contact || null,
-            alternate_phone: b.alternate_phone || null,
-            medical_condition: b.medical_condition || null,
-            medical_notes: combinedMedical,
-            kit_size: b.kit_size || "M",
-            payment_status: paymentStatus,
-            booking_status: b.booking_status || "confirmed",
-            booking_date: safeParseDate(b.booking_date),
-            source_system: "bookings.teachingtekkers.com",
-            last_synced_at: new Date().toISOString(),
-            sync_log_id: syncLog.id,
-            matched_camp_id,
-            match_status,
-            match_score,
-            match_reason,
-            duplicate_warning: false,
-            total_amount: totalAmount,
-            amount_paid: amountPaidRaw,
-            sibling_discount: siblingDiscount,
-            refund_amount: refundAmount,
-            amount_owed: amountOwed,
-            payment_type: b.payment_type || null,
-            photo_permission: parsePhotoPermission(b.photo_permission),
-          };
-
-          upsertRecords.push(record);
-        } catch (e) {
-          failed++;
-          errorRows.push({
-            external_booking_id: b.external_booking_id || null,
-            camp_name: b.camp_name || "",
-            child_first_name: b.child_first_name || "",
-            child_last_name: b.child_last_name || "",
-            error_code: "booking_processing",
-            error_message: e.message,
-            raw_row_json: b,
-          });
-        }
-      }
-
-      // Upsert all records (handles both new inserts and duplicates)
-      if (upsertRecords.length > 0) {
-        const { data: upsertResult, error: upsertErr } = await supabase
-          .from("synced_bookings")
-          .upsert(upsertRecords, { onConflict: "external_booking_id,source_system" })
-          .select("id, external_booking_id");
-
-        if (upsertErr) {
-          // Batch failed — fall back to row-by-row
-          for (const row of upsertRecords) {
-            const { data: singleResult, error: rowErr } = await supabase
-              .from("synced_bookings")
-              .upsert(row, { onConflict: "external_booking_id,source_system" })
-              .select("id, external_booking_id");
-            if (rowErr) {
-              failed++;
-              errorRows.push({
-                external_booking_id: (row.external_booking_id as string) || null,
-                camp_name: (row.camp_name as string) || "",
-                child_first_name: (row.child_first_name as string) || "",
-                child_last_name: (row.child_last_name as string) || "",
-                error_code: "booking_upsert",
-                error_message: rowErr.message,
-                raw_row_json: row,
-              });
-            } else {
-              // Can't distinguish create vs update in row-by-row upsert, count as created
-              created++;
-            }
-          }
-        } else {
-          // Batch succeeded — count all as created (upsert merges create/update)
-          created += upsertRecords.length;
-        }
-      }
+    if (body.source_camp_id && Array.isArray(body.bookings)) {
+      const out = await syncCamp(db, {
+        sourceSystem: String(body.source_system || DEFAULT_SOURCE), sourceCampId: String(body.source_camp_id).trim(),
+        rows: body.bookings, extractedAt: body.extracted_at || null,
+      });
+      return json({ success: true, ...out });
     }
 
-    // Write error rows to import_errors table
-    if (errorRows.length > 0) {
-      const errorInserts = errorRows.map(e => ({
-        sync_log_id: syncLog.id,
-        external_booking_id: e.external_booking_id,
-        camp_name: e.camp_name,
-        child_first_name: e.child_first_name,
-        child_last_name: e.child_last_name,
-        error_code: e.error_code,
-        error_message: e.error_message,
-        raw_row_json: e.raw_row_json,
-      }));
-      await supabase.from("import_errors").insert(errorInserts);
+    if (isAdmin && Array.isArray(body.rematch_ids)) {
+      const ids: string[] = body.rematch_ids.slice(0, 2000);
+      const { data: camps } = await db.from("camps").select("id, name, venue, county, start_date, end_date, club_name").neq("status", "archived");
+      let matched = 0, review = 0;
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data: rows } = await db.from("synced_bookings").select("id,camp_name,camp_date,venue,county,child_first_name,child_last_name,match_status")
+          .in("id", ids.slice(i, i + 200)).neq("match_status", "matched");
+        for (const b of rows || []) {
+          const m = findBestCamp(b as IncomingBooking, camps || []);
+          if (!m) continue;
+          const tier = matchTier(m.score);
+          const patch = tier === "matched"
+            ? { matched_camp_id: m.camp.id, match_status: "matched", match_score: m.score, match_reason: m.reason }
+            : tier === "needs_review" ? { match_status: "needs_review", match_score: m.score, match_reason: `suggested_camp=${m.camp.id}; ${m.reason}` } : null;
+          if (!patch) continue;
+          await db.from("synced_bookings").update(patch).eq("id", b.id);
+          if (tier === "matched") matched++; else review++;
+        }
+      }
+      return json({ success: true, summary: { processed: ids.length, created: 0, updated: matched, needs_review: review, camps_created: 0 } });
     }
 
-    const errorSummary = errorRows.length > 0
-      ? `${errorRows.length} failures – see import_errors table`
-      : null;
-
-    await supabase
-      .from("sync_logs")
-      .update({
-        status: failed > 0 ? "completed_with_errors" : "completed",
-        sync_completed_at: new Date().toISOString(),
-        records_created: created,
-        records_updated: updated,
-        records_failed: failed,
-        error_notes: errorSummary,
-      })
-      .eq("id", syncLog.id);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        sync_log_id: syncLog.id,
-        summary: {
-          processed: bookings.length,
-          created,
-          updated,
-          failed,
-          needs_review: needsReview,
-          drafts_created: draftsCreated,
-        },
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return json({ error: "This endpoint now needs a source_camp_id for an already-linked camp. Use Booking Sync → Import for new camps." }, 410);
   } catch (err) {
-    return new Response(
-      JSON.stringify({ success: false, error: err.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    if (err instanceof EngineError) return json({ error: err.message }, err.status);
+    console.error("booking-intake error", err);
+    return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
