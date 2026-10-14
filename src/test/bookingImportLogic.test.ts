@@ -159,3 +159,12 @@ describe("settled differences", () => {
     expect(plan.map((p) => p.classification)).toEqual(["unchanged", "new"]);
   });
 });
+
+import { computeOwed } from "../../supabase/functions/_shared/booking-logic";
+describe("computeOwed (Total Amount already includes sibling discount)", () => {
+  it("unpaid sibling owes the discounted total", () => expect(computeOwed({ total: 75, paid: 0, refund: 0 })).toBe(75));
+  it("partially paid", () => expect(computeOwed({ total: 85, paid: 40, refund: 0 })).toBe(45));
+  it("fully paid", () => expect(computeOwed({ total: 65, paid: 65, refund: 0 })).toBe(0));
+  it("refund never creates a new debt", () => expect(computeOwed({ total: 85, paid: 85, refund: 85 })).toBe(0));
+  it("cancelled owes nothing", () => expect(computeOwed({ total: 85, paid: 0, refund: 0, cancelled: true })).toBe(0));
+});
