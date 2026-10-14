@@ -132,7 +132,11 @@ export default function ImportPreviewStep({ jobs, onBack, onDone }: {
                 <p className="text-xs text-muted-foreground">{j.fileName}</p>
               </div>
               <p className="text-xs text-muted-foreground">
-                {p.counts.families} bookings · {p.counts.participants} participants · {p.counts.existing_in_app} already in app
+                {p.counts.participants} participant registrations
+                {p.counts.families_verified ? ` · ${p.counts.families_verified} bookings (from booking IDs)` : ""}
+                {p.counts.families_estimated ? ` · ~${p.counts.families_estimated} families (estimate from parent contact)` : ""}
+                {` · ${p.counts.existing_in_app} already in app`}
+                {p.counts.conflicts ? ` · ${p.counts.conflicts} with app edits kept (sent to review)` : ""}
               </p>
             </div>
             <div className="grid grid-cols-5 gap-2 text-center">
