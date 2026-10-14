@@ -132,30 +132,11 @@ export default function BookingSyncPage() {
   const handleRematch = useCallback(async () => {
     setRematching(true);
     try {
-      const unmatchedBookings = bookings
-        .filter((b) => b.match_status === "unmatched")
-        .map((b) => ({
-          external_booking_id: b.external_booking_id,
-          camp_name: b.camp_name,
-          camp_date: b.camp_date,
-          venue: b.venue,
-          county: b.county,
-          child_first_name: b.child_first_name,
-          child_last_name: b.child_last_name,
-          date_of_birth: b.date_of_birth,
-          age: b.age,
-          parent_name: b.parent_name,
-          parent_phone: b.parent_phone,
-          parent_email: b.parent_email,
-          emergency_contact: b.emergency_contact,
-          medical_notes: b.medical_notes,
-          kit_size: b.kit_size,
-          payment_status: b.payment_status,
-          booking_status: b.booking_status,
-        }));
+      // Only recalculates camp links; never rewrites child, payment or kit details
+      const rematchIds = bookings.filter((b) => b.match_status === "unmatched").map((b) => b.id);
 
       const { data, error } = await supabase.functions.invoke("booking-intake", {
-        body: { bookings: unmatchedBookings },
+        body: { rematch_ids: rematchIds },
       });
       if (error) throw error;
 
