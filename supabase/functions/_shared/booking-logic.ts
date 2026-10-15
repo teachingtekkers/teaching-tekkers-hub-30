@@ -98,14 +98,18 @@ export const SOURCE_FIELDS = [
 const NUMERIC = new Set(["total_amount", "sibling_discount", "amount_paid", "refund_amount", "amount_owed", "age"]);
 
 /**
- * Amount owed per child. The source "Total Amount" is already AFTER the sibling
- * discount (verified: Total + Siblings Discount = list price on every row of real
- * exports), so the discount is informational and must NOT be subtracted again.
- * Refunds reduce what is owed but never create a new debt; cancelled = nothing owed.
+ * Amount owed per child, or null when it cannot be determined from evidence.
+ * The source "Total Amount" is already AFTER the sibling discount (verified:
+ * Total + Siblings Discount = list price on every row of real exports), so the
+ * discount is informational and must NOT be subtracted again.
+ * No export seen so far contains a refund or a cancellation, so it is unknown
+ * whether "Amount Paid" is gross or net of refunds, or whether "Total Amount" is
+ * reduced on refund/cancel. Those rows return null (undetermined → review);
+ * a refund is never treated as a payment or a discount.
  */
-export function computeOwed(a: { total: number; paid: number; refund: number; cancelled?: boolean }): number {
-  if (a.cancelled) return 0;
-  return Math.max(0, a.total - a.paid - a.refund);
+export function computeOwed(a: { total: number; paid: number; refund: number; cancelled?: boolean }): number | null {
+  if (a.cancelled || a.refund > 0) return null;
+  return Math.max(0, a.total - a.paid);
 }
 
 /** Turn a mapped CSV row into DB-shaped source values. */
@@ -138,7 +142,7 @@ export function normaliseIncoming(r: Incoming): Record<string, unknown> {
     amount_paid: paid,
     refund_amount: refund,
     amount_owed: owed,
-    payment_status: r.payment_status ? normPaymentStatus(r.payment_status) : (owed <= 0 && total > 0 ? "paid" : "pending"),
+    payment_status: r.payment_status ? normPaymentStatus(r.payment_status) : (owed !== null && owed <= 0 && total > 0 ? "paid" : "pending"),
     payment_type: r.payment_type?.trim() || null,
   };
 }

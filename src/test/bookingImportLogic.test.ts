@@ -161,10 +161,18 @@ describe("settled differences", () => {
 });
 
 import { computeOwed } from "../../supabase/functions/_shared/booking-logic";
-describe("computeOwed (Total Amount already includes sibling discount)", () => {
-  it("unpaid sibling owes the discounted total", () => expect(computeOwed({ total: 75, paid: 0, refund: 0 })).toBe(75));
-  it("partially paid", () => expect(computeOwed({ total: 85, paid: 40, refund: 0 })).toBe(45));
-  it("fully paid", () => expect(computeOwed({ total: 65, paid: 65, refund: 0 })).toBe(0));
-  it("refund never creates a new debt", () => expect(computeOwed({ total: 85, paid: 85, refund: 85 })).toBe(0));
-  it("cancelled owes nothing", () => expect(computeOwed({ total: 85, paid: 0, refund: 0, cancelled: true })).toBe(0));
+// Semantics established from the real Portmarnock Halloween (95 rows) and Monasterevin (71 rows) exports:
+// Total + Siblings Discount = €85 list price on every row, and every "Paid" row has Amount Paid = Total.
+describe("computeOwed — evidence-backed cases", () => {
+  it("2nd child €75 (list €85 − €10) unpaid owes €75, discount not taken twice", () => expect(computeOwed({ total: 75, paid: 0, refund: 0 })).toBe(75));
+  it("3rd child €65 paid online €65 owes 0 (export: Status Paid, Amount Paid = Total)", () => expect(computeOwed({ total: 65, paid: 65, refund: 0 })).toBe(0));
+  it("part payment €40 of €85 owes €45", () => expect(computeOwed({ total: 85, paid: 40, refund: 0 })).toBe(45));
+});
+describe("computeOwed — refunds and cancellations are not established, so never guessed", () => {
+  // Partial refund on an active booking: total 85, paid 85, refund 20. If paid is gross, owed = 20 (85 − (85 − 20));
+  // if paid is net or total is reduced, owed = 0. The exports contain no refunds, so the answer must be "unknown".
+  it("partial refund on active booking is undetermined", () => expect(computeOwed({ total: 85, paid: 85, refund: 20 })).toBeNull());
+  it("refund is never counted as a payment", () => expect(computeOwed({ total: 85, paid: 0, refund: 20 })).not.toBe(65));
+  // Cancellation: whether the family owes nothing, keeps a fee, or is due money back depends on the provider's ledger.
+  it("cancelled booking is undetermined", () => expect(computeOwed({ total: 85, paid: 0, refund: 0, cancelled: true })).toBeNull());
 });
