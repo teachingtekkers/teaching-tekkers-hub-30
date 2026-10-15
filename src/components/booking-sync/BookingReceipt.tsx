@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -20,6 +21,7 @@ export interface ReceiptBooking {
   amount_owed: number | null;
   sibling_discount: number | null;
   refund_amount: number | null;
+  booking_status?: string | null;
   payment_status: string | null;
   payment_type: string | null;
   imported_at: string;
@@ -91,7 +93,7 @@ ${(b.sibling_discount ?? 0) > 0 ? `<div class="row"><span class="label">Sibling 
 <div class="row"><span class="label">Total Cost</span><span class="value">€${totalCost.toFixed(2)}</span></div>
 <div class="row"><span class="label">Amount Paid</span><span class="value" style="color:#166534">€${(b.amount_paid ?? 0).toFixed(2)}</span></div>
 ${(b.refund_amount ?? 0) > 0 ? `<div class="row"><span class="label">Refund</span><span class="value" style="color:#991b1b">€${(b.refund_amount ?? 0).toFixed(2)}</span></div>` : ""}
-${(b.amount_owed ?? 0) > 0 ? `<div class="row"><span class="label">Amount Outstanding</span><span class="value" style="color:#854d0e">€${(b.amount_owed ?? 0).toFixed(2)}</span></div>` : ""}
+${owedOrNull(b) === null ? `<div class="row"><span class="label">Amount Outstanding</span><span class="value" style="color:#991b1b">${REVIEW_LABEL}</span></div>` : (owedOrNull(b) ?? 0) > 0 ? `<div class="row"><span class="label">Amount Outstanding</span><span class="value" style="color:#854d0e">€${(owedOrNull(b) ?? 0).toFixed(2)}</span></div>` : ""}
 ${b.payment_type ? `<div class="row"><span class="label">Payment Method</span><span class="value">${b.payment_type}</span></div>` : ""}
 <div class="total-row"><span>Payment Status</span><span class="status status-${(b.payment_status || "pending").toLowerCase()}">${statusLabel(b.payment_status)}</span></div>
 </div>
@@ -173,8 +175,10 @@ export function BookingReceiptButton({ booking, trigger }: Props) {
                 {(booking.refund_amount ?? 0) > 0 && (
                   <div className="flex justify-between"><span className="text-muted-foreground">Refund</span><span className="font-mono text-destructive">€{(booking.refund_amount ?? 0).toFixed(2)}</span></div>
                 )}
-                {(booking.amount_owed ?? 0) > 0 && (
-                  <div className="flex justify-between"><span className="text-muted-foreground">Outstanding</span><span className="font-mono text-amber-600">€{(booking.amount_owed ?? 0).toFixed(2)}</span></div>
+                {owedOrNull(booking) === null ? (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Outstanding</span><span className="font-mono text-destructive">{REVIEW_LABEL}</span></div>
+                ) : (owedOrNull(booking) ?? 0) > 0 && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Outstanding</span><span className="font-mono text-amber-600">€{(owedOrNull(booking) ?? 0).toFixed(2)}</span></div>
                 )}
               </div>
 

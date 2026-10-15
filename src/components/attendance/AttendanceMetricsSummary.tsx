@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import { Users, CheckCircle, XCircle, Banknote, AlertTriangle } from "lucide-react";
 import type { ParticipantData } from "./AttendanceParticipantRow";
 
@@ -17,16 +18,9 @@ export default function AttendanceMetricsSummary({ participants, getStatus, camp
   const present = participants.filter((p) => getStatus(p.id) === "present").length;
   const absent = total - present;
 
-  const paid = participants.filter((p) => {
-    const owed = p.amount_owed ?? Math.max(0, calcTotalCost(p) - (p.amount_paid ?? 0) - (p.refund_amount ?? 0));
-    return owed <= 0;
-  }).length;
-  const unpaid = total - paid;
-
-  const outstanding = participants.reduce((sum, p) => {
-    const owed = p.amount_owed ?? Math.max(0, calcTotalCost(p) - (p.amount_paid ?? 0) - (p.refund_amount ?? 0));
-    return sum + Math.max(0, owed);
-  }, 0);
+  const paid = participants.filter((p) => { const o = owedOrNull(p); return o !== null && o <= 0; }).length;
+  const { total: outstanding, excluded: reviewCount } = sumOutstanding(participants);
+  const unpaid = total - paid - reviewCount;
 
   if (total === 0) return null;
 
@@ -55,6 +49,7 @@ export default function AttendanceMetricsSummary({ participants, getStatus, camp
           <span className={`text-lg font-bold ${outstanding > 0 ? "text-amber-600" : "text-emerald-600"}`}>
             €{outstanding.toFixed(0)}
           </span>
+          {reviewCount > 0 && <span className="text-[10px] text-destructive block">{excludedNote(reviewCount)}</span>}
         </div>
       </div>
     </div>

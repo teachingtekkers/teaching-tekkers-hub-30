@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,6 +45,7 @@ interface SyncedBookingRow {
   amount_paid: number | null;
   amount_owed: number | null;
   refund_amount: number | null;
+  booking_status?: string | null;
   payment_type: string | null;
   child_first_name: string;
   child_last_name: string;
@@ -51,11 +53,12 @@ interface SyncedBookingRow {
 
 function derivePaymentStatus(b: SyncedBookingRow) {
   const totalCost = Math.max(0, (b.total_amount ?? 0));
-  const owed = Math.max(0, totalCost - (b.amount_paid ?? 0) - (b.refund_amount ?? 0));
+  const o = owedOrNull(b);
+  const owed: number | string = o === null ? REVIEW_LABEL : o;
   let status: string;
-  if ((b.refund_amount ?? 0) > 0) status = "Refunded";
-  else if (owed <= 0 && totalCost > 0) status = "Paid";
-  else if ((b.amount_paid ?? 0) > 0 && owed > 0) status = "Partial";
+  if (o === null) status = REVIEW_LABEL;
+  else if (o <= 0 && totalCost > 0) status = "Paid";
+  else if ((b.amount_paid ?? 0) > 0 && o > 0) status = "Partial";
   else status = "Pending";
   return { status, paid: b.amount_paid ?? 0, owed, totalCost };
 }
@@ -124,7 +127,7 @@ export default function PlayersPage() {
       if (!batch.length) continue;
       const { data } = await supabase
         .from("synced_bookings")
-        .select("id, external_booking_id, matched_player_id, matched_camp_id, payment_status, parent_name, parent_phone, parent_email, camp_name, camp_date, venue, imported_at, total_amount, sibling_discount, amount_paid, amount_owed, refund_amount, payment_type, child_first_name, child_last_name")
+        .select("id, external_booking_id, matched_player_id, matched_camp_id, payment_status, parent_name, parent_phone, parent_email, camp_name, camp_date, venue, imported_at, total_amount, sibling_discount, amount_paid, amount_owed, refund_amount, booking_status, payment_type, child_first_name, child_last_name")
         .in("matched_player_id", batch);
       if (data) bookingRows = bookingRows.concat(data as SyncedBookingRow[]);
     }
@@ -386,11 +389,11 @@ export default function PlayersPage() {
                                 <div key={booking.id} className="inline-flex items-center gap-1">
                                   <div className="inline-flex flex-col items-start">
                                     <Link to={booking.matched_camp_id ? `/camps/${booking.matched_camp_id}` : "#"} className="hover:opacity-80">
-                                      <Badge variant={paymentVariant(fin.status.toLowerCase())} className="text-[10px] cursor-pointer" title={`Paid: €${fin.paid} · Owed: €${fin.owed}`}>
+                                      <Badge variant={paymentVariant(fin.status.toLowerCase())} className="text-[10px] cursor-pointer" title={`Paid: €${fin.paid} · Owed: ${typeof fin.owed === "number" ? `€${fin.owed}` : fin.owed}`}>
                                         {(booking.matched_camp_id && campMap.get(booking.matched_camp_id)) || booking.camp_name || "Unknown"} • {fin.status}
                                       </Badge>
                                     </Link>
-                                    <span className="text-[9px] text-muted-foreground ml-1">€{fin.paid} paid · €{fin.owed} owed</span>
+                                    <span className="text-[9px] text-muted-foreground ml-1">€{fin.paid} paid · {typeof fin.owed === "number" ? `€${fin.owed} owed` : fin.owed}</span>
                                   </div>
                                   <BookingReceiptButton booking={booking} />
                                 </div>

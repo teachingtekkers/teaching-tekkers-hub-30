@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ export interface ParticipantData {
   total_amount: number | null;
   sibling_discount: number | null;
   refund_amount: number | null;
+  booking_status?: string | null;
   payment_type: string | null;
   staff_notes: string | null;
   parent_name: string | null;
@@ -73,8 +75,10 @@ export default function AttendanceParticipantRow({
 
   const totalCost = calcTotalCost(p);
   const currentPaid = p.amount_paid ?? 0;
-  const currentOwed = p.amount_owed ?? Math.max(0, totalCost - currentPaid - (p.refund_amount ?? 0));
-  const status = deriveStatus(currentOwed);
+  const owedOrReview = owedOrNull(p);
+  const needsReview = owedOrReview === null;
+  const currentOwed = owedOrReview ?? 0; // only used for editing inputs; display shows "Needs review"
+  const status = needsReview ? "review" : deriveStatus(currentOwed);
 
   const medicalText = [p.medical_condition, p.medical_notes].filter(Boolean).join(" — ");
 
@@ -84,10 +88,12 @@ export default function AttendanceParticipantRow({
   const handleAmountPaidBlur = useCallback((val: string) => {
     const cleaned = val.replace(/^0+(?=\d)/, "");
     const paid = cleaned === "" ? 0 : Math.max(0, Number(cleaned));
-    const owed = Math.max(0, totalCost - paid - (p.refund_amount ?? 0));
+    // Refund/cancelled rows: record the payment only; the balance stays "Needs review".
+    if (needsReview) { onPaymentUpdate?.(p.id, { amount_paid: paid }); return; }
+    const owed = Math.max(0, totalCost - paid);
     const newStatus = deriveStatus(owed);
     onPaymentUpdate?.(p.id, { amount_paid: paid, amount_owed: owed, payment_status: newStatus });
-  }, [p.id, totalCost, p.refund_amount, onPaymentUpdate]);
+  }, [p.id, totalCost, needsReview, onPaymentUpdate]);
 
   const handleAmountOwedBlur = useCallback((val: string) => {
     const cleaned = val.replace(/^0+(?=\d)/, "");
@@ -106,7 +112,9 @@ export default function AttendanceParticipantRow({
   }, []);
 
   // Payment summary line for the row
-  const paymentSummary = status === "paid"
+  const paymentSummary = needsReview
+    ? `${REVIEW_LABEL} (refund/cancelled)${p.payment_type ? ` • ${p.payment_type}` : ""}`
+    : status === "paid"
     ? `Paid${p.payment_type ? ` • ${p.payment_type}` : ""}`
     : `${formatCurrency(currentOwed)} owed${p.payment_type ? ` • ${p.payment_type}` : ""}`;
 
@@ -331,9 +339,9 @@ export default function AttendanceParticipantRow({
                   <span className="text-[11px] text-muted-foreground">{p.payment_type}</span>
                 )}
                 <Badge
-                  className={`text-[10px] ${status === "paid" ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"}`}
+                  className={`text-[10px] ${needsReview ? "bg-destructive text-destructive-foreground" : status === "paid" ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"}`}
                 >
-                  {status === "paid" ? "Paid" : "Pending"}
+                  {needsReview ? REVIEW_LABEL : status === "paid" ? "Paid" : "Pending"}
                 </Badge>
               </div>
             </div>

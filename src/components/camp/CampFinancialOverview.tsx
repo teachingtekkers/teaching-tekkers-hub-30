@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +19,7 @@ interface BookingFinance {
   amount_paid: number | null;
   amount_owed: number | null;
   refund_amount: number | null;
+  booking_status?: string | null;
   payment_type: string | null;
 }
 
@@ -46,10 +48,6 @@ function calcTotalCost(b: BookingFinance): number {
   return Math.max(0, (b.total_amount ?? 0));
 }
 
-function calcOwed(b: BookingFinance): number {
-  const owed = b.amount_owed ?? Math.max(0, calcTotalCost(b) - (b.amount_paid ?? 0) - (b.refund_amount ?? 0));
-  return Math.max(0, owed);
-}
 
 const fmt = (n: number) => `€${n.toLocaleString("en-IE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
@@ -73,7 +71,7 @@ export default function CampFinancialOverview({ campId, campName, clubName }: Pr
 
       const [bookingsRes, attendanceRes, rosterRes, invoiceRes, overridesRes] = await Promise.all([
         supabase.from("synced_bookings")
-          .select("total_amount, sibling_discount, amount_paid, amount_owed, refund_amount, payment_type")
+          .select("total_amount, sibling_discount, amount_paid, amount_owed, refund_amount, booking_status, payment_type")
           .eq("matched_camp_id", campId),
         supabase.from("attendance")
           .select("synced_booking_id")
@@ -178,7 +176,7 @@ export default function CampFinancialOverview({ campId, campName, clubName }: Pr
   // Calculated values
   const calcRevenue = bookings.reduce((s, b) => s + calcTotalCost(b), 0);
   const totalPaid = bookings.reduce((s, b) => s + (b.amount_paid ?? 0), 0);
-  const totalOutstanding = bookings.reduce((s, b) => s + calcOwed(b), 0);
+  const { total: totalOutstanding, excluded: reviewCount } = sumOutstanding(bookings);
 
   const onlineTotal = bookings
     .filter(b => {
@@ -213,7 +211,7 @@ export default function CampFinancialOverview({ campId, campName, clubName }: Pr
           onOverride={(v) => saveOverride("override_revenue", v)}
           sub={`${fmt(totalPaid)} paid`}
         />
-        <MetricCard icon={<Wallet className="h-4 w-4" />} label="Outstanding" value={fmt(totalOutstanding)} color={totalOutstanding > 0 ? "text-amber-600" : "text-emerald-600"} />
+        <MetricCard icon={<Wallet className="h-4 w-4" />} label={reviewCount ? `Outstanding (${excludedNote(reviewCount)})` : "Outstanding"} value={fmt(totalOutstanding)} color={totalOutstanding > 0 ? "text-amber-600" : "text-emerald-600"} />
         <MetricCard icon={<TrendingUp className="h-4 w-4" />} label="Est. Net Revenue" value={fmt(estimatedNet)} color={estimatedNet >= 0 ? "text-emerald-600" : "text-destructive"} />
       </div>
 

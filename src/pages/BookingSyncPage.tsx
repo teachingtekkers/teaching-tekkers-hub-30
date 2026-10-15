@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -549,7 +550,7 @@ export default function BookingSyncPage() {
                       <TableCell className="hidden md:table-cell text-sm font-medium">€{b.total_amount ?? 0}</TableCell>
                       <TableCell className="hidden md:table-cell text-sm text-emerald-600">€{b.amount_paid ?? 0}</TableCell>
                       <TableCell className="hidden lg:table-cell text-sm">
-                        <span className={(b.amount_owed ?? 0) > 0 ? "text-amber-600 font-medium" : "text-muted-foreground"}>€{b.amount_owed ?? 0}</span>
+                        {owedOrNull(b) === null ? <span className="text-destructive font-medium">{REVIEW_LABEL}</span> : <span className={(owedOrNull(b) ?? 0) > 0 ? "text-amber-600 font-medium" : "text-muted-foreground"}>€{owedOrNull(b)}</span>}
                       </TableCell>
                       <TableCell>{matchBadge(b.match_status, b.duplicate_warning)}</TableCell>
                       <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{format(new Date(b.imported_at), "dd MMM HH:mm")}</TableCell>
