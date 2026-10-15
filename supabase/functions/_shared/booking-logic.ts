@@ -142,7 +142,7 @@ export function normaliseIncoming(r: Incoming): Record<string, unknown> {
     amount_paid: paid,
     refund_amount: refund,
     amount_owed: owed,
-    payment_status: r.payment_status ? normPaymentStatus(r.payment_status) : (owed <= 0 && total > 0 ? "paid" : "pending"),
+    payment_status: r.payment_status ? normPaymentStatus(r.payment_status) : (owed !== null && owed <= 0 && total > 0 ? "paid" : "pending"),
     payment_type: r.payment_type?.trim() || null,
   };
 }
