@@ -783,6 +783,51 @@ export type Database = {
           },
         ]
       }
+      data_repair_audit: {
+        Row: {
+          after: Json | null
+          applied_at: string | null
+          batch: string
+          before: Json | null
+          created_at: string
+          evidence: Json | null
+          id: string
+          kind: string
+          reverted_at: string | null
+          status: string
+          target_id: string | null
+          target_table: string
+        }
+        Insert: {
+          after?: Json | null
+          applied_at?: string | null
+          batch: string
+          before?: Json | null
+          created_at?: string
+          evidence?: Json | null
+          id?: string
+          kind: string
+          reverted_at?: string | null
+          status?: string
+          target_id?: string | null
+          target_table: string
+        }
+        Update: {
+          after?: Json | null
+          applied_at?: string | null
+          batch?: string
+          before?: Json | null
+          created_at?: string
+          evidence?: Json | null
+          id?: string
+          kind?: string
+          reverted_at?: string | null
+          status?: string
+          target_id?: string | null
+          target_table?: string
+        }
+        Relationships: []
+      }
       equipment_assignments: {
         Row: {
           camp_id: string | null
