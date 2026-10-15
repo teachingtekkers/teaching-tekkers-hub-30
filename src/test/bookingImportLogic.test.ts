@@ -176,3 +176,17 @@ describe("computeOwed — refunds and cancellations are not established, so neve
   // Cancellation: whether the family owes nothing, keeps a fee, or is due money back depends on the provider's ledger.
   it("cancelled booking is undetermined", () => expect(computeOwed({ total: 85, paid: 0, refund: 0, cancelled: true })).toBeNull());
 });
+
+describe("confirmed duplicate bookings (Monasterevin Best family, source bookings 6757/6758/6759)", () => {
+  const dylan = { child_first_name: "Dylan", child_last_name: "Dupe", date_of_birth: "18/11/2015", parent_email: "dupe@example.test", total_amount: "85", amount_paid: "0", payment_status: "Unpaid" };
+  const brandon = { ...dylan, child_first_name: "Brandon", date_of_birth: "27/03/2019", total_amount: "75", sibling_discount: "10" };
+  const file = ["6757", "6758", "6759"].flatMap((b) => [{ ...dylan, source_booking_id: b }, { ...brandon, source_booking_id: b }]);
+  it("first import creates two participants and rejects the four repeats", () => {
+    expect(planImport(file, []).map((p) => p.classification)).toEqual(["new", "new", "rejected", "rejected", "rejected", "rejected"]);
+  });
+  it("re-import against the retained records never recreates duplicates", () => {
+    const plan = planImport(file, asExisting([dylan, brandon] as any));
+    expect(plan.filter((p) => p.classification === "new")).toHaveLength(0);
+    expect(plan.filter((p) => p.classification === "unchanged").map((p) => p.synced_booking_id)).toEqual(["db-0", "db-1"]);
+  });
+});
