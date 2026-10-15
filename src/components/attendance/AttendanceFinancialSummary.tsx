@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Banknote, CreditCard, Wallet, Building2 } from "lucide-react";
@@ -17,10 +18,7 @@ export default function AttendanceFinancialSummary({ participants, clubPaymentRa
 
   const totalRevenue = participants.reduce((s, p) => s + calcTotalCost(p), 0);
   const totalPaid = participants.reduce((s, p) => s + (p.amount_paid ?? 0), 0);
-  const totalOutstanding = participants.reduce((s, p) => {
-    const owed = p.amount_owed ?? Math.max(0, calcTotalCost(p) - (p.amount_paid ?? 0) - (p.refund_amount ?? 0));
-    return s + Math.max(0, owed);
-  }, 0);
+  const { total: totalOutstanding, excluded: reviewCount } = sumOutstanding(participants);
 
   const onlineTotal = participants
     .filter((p) => p.payment_type?.toLowerCase().includes("online") || p.payment_type?.toLowerCase().includes("card") || p.payment_type?.toLowerCase().includes("stripe"))
@@ -45,7 +43,7 @@ export default function AttendanceFinancialSummary({ participants, clubPaymentRa
           <div className="space-y-2">
             <Row label="Total Revenue" value={fmt(totalRevenue)} bold />
             <Row label="Amount Paid" value={fmt(totalPaid)} color="text-emerald-600" />
-            <Row label="Outstanding" value={fmt(totalOutstanding)} color={totalOutstanding > 0 ? "text-amber-600" : "text-emerald-600"} />
+            <Row label="Outstanding" value={`${fmt(totalOutstanding)}${reviewCount ? ` (${excludedNote(reviewCount)})` : ""}`} color={totalOutstanding > 0 ? "text-amber-600" : "text-emerald-600"} />
           </div>
         </CardContent>
       </Card>

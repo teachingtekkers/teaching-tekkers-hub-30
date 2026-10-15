@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,6 +54,7 @@ interface Participant {
   amount_owed: number | null;
   sibling_discount: number | null;
   refund_amount: number | null;
+  booking_status?: string | null;
   payment_type: string | null;
   photo_permission: boolean | null;
 }
@@ -104,7 +106,7 @@ export default function CampDetailPage() {
       supabase.from("camps").select("*").eq("id", id).single(),
       supabase
         .from("synced_bookings")
-        .select("id, child_first_name, child_last_name, parent_name, parent_phone, parent_email, emergency_contact, alternate_phone, medical_condition, medical_notes, kit_size, payment_status, age, date_of_birth, camp_date, booking_date, imported_at, total_amount, amount_paid, amount_owed, sibling_discount, refund_amount, payment_type, photo_permission")
+        .select("id, child_first_name, child_last_name, parent_name, parent_phone, parent_email, emergency_contact, alternate_phone, medical_condition, medical_notes, kit_size, payment_status, age, date_of_birth, camp_date, booking_date, imported_at, total_amount, amount_paid, amount_owed, sibling_discount, refund_amount, booking_status, payment_type, photo_permission")
         .eq("matched_camp_id", id)
         .order("child_last_name"),
       supabase.from("camp_coach_assignments").select("id, coach_id, role").eq("camp_id", id),
@@ -576,9 +578,9 @@ export default function CampDetailPage() {
                           </TableCell>
                           <TableCell className="hidden md:table-cell text-sm">
                             {(() => {
-                              const totalCost = Math.max(0, (p.total_amount ?? 0));
-                              const owed = (p.amount_owed ?? 0) > 0 ? p.amount_owed : Math.max(0, totalCost - (p.amount_paid ?? 0) - (p.refund_amount ?? 0));
-                              return (owed ?? 0) > 0 ? (
+                              const owed = owedOrNull(p);
+                              if (owed === null) return <span className="text-destructive font-medium">{REVIEW_LABEL}</span>;
+                              return owed > 0 ? (
                                 <span className="text-amber-600 font-medium">€{owed}</span>
                               ) : (
                                 <span className="text-muted-foreground">€0</span>

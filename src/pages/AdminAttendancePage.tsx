@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -67,7 +68,7 @@ export default function AdminAttendancePage() {
     if (!selectedCamp) return;
     const [pRes, aRes] = await Promise.all([
       supabase.from("synced_bookings")
-        .select("id, child_first_name, child_last_name, age, date_of_birth, kit_size, medical_condition, medical_notes, photo_permission, payment_status, amount_paid, amount_owed, total_amount, sibling_discount, refund_amount, payment_type, staff_notes, parent_name, parent_email, parent_phone, emergency_contact, alternate_phone, booking_date, kit_given")
+        .select("id, child_first_name, child_last_name, age, date_of_birth, kit_size, medical_condition, medical_notes, photo_permission, payment_status, amount_paid, amount_owed, total_amount, sibling_discount, refund_amount, booking_status, payment_type, staff_notes, parent_name, parent_email, parent_phone, emergency_contact, alternate_phone, booking_date, kit_given")
         .eq("matched_camp_id", selectedCamp)
         .order("child_last_name"),
       supabase.from("attendance")
@@ -196,15 +197,9 @@ export default function AdminAttendancePage() {
     const q = filters.search.toLowerCase().trim();
     if (q) list = list.filter((p) => `${p.child_first_name} ${p.child_last_name}`.toLowerCase().includes(q));
     if (filters.paymentFilter === "unpaid") {
-      list = list.filter((p) => {
-        const owed = p.amount_owed ?? Math.max(0, calcTotalCost(p) - (p.amount_paid ?? 0) - (p.refund_amount ?? 0));
-        return owed > 0;
-      });
+      list = list.filter((p) => { const o = owedOrNull(p); return o === null || o > 0; });
     } else if (filters.paymentFilter === "paid") {
-      list = list.filter((p) => {
-        const owed = p.amount_owed ?? Math.max(0, calcTotalCost(p) - (p.amount_paid ?? 0) - (p.refund_amount ?? 0));
-        return owed <= 0;
-      });
+      list = list.filter((p) => { const o = owedOrNull(p); return o !== null && o <= 0; });
     }
     if (filters.statusFilter === "present") list = list.filter((p) => getStatus(p.id) === "present");
     else if (filters.statusFilter === "absent") list = list.filter((p) => getStatus(p.id) !== "present");

@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,11 +52,12 @@ interface SyncedBookingRow {
 
 function derivePaymentStatus(b: SyncedBookingRow) {
   const totalCost = Math.max(0, (b.total_amount ?? 0));
-  const owed = Math.max(0, totalCost - (b.amount_paid ?? 0) - (b.refund_amount ?? 0));
+  const o = owedOrNull(b);
+  const owed: number | string = o === null ? REVIEW_LABEL : o;
   let status: string;
-  if ((b.refund_amount ?? 0) > 0) status = "Refunded";
-  else if (owed <= 0 && totalCost > 0) status = "Paid";
-  else if ((b.amount_paid ?? 0) > 0 && owed > 0) status = "Partial";
+  if (o === null) status = REVIEW_LABEL;
+  else if (o <= 0 && totalCost > 0) status = "Paid";
+  else if ((b.amount_paid ?? 0) > 0 && o > 0) status = "Partial";
   else status = "Pending";
   return { status, paid: b.amount_paid ?? 0, owed, totalCost };
 }

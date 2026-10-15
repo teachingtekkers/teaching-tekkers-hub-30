@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { BarChart3, TrendingUp, Tent, Users, Receipt, Wallet, Building2, Percent, PlusCircle, Trash2, DollarSign, PieChart } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +17,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { toast } from "sonner";
 
 interface CampRow { id: string; name: string; club_name: string; county: string; venue: string; start_date: string; end_date: string; price_per_child: number; }
-interface BookingRow { id: string; matched_camp_id: string | null; total_amount: number | null; amount_paid: number | null; sibling_discount: number | null; amount_owed: number | null; }
+interface BookingRow { id: string; matched_camp_id: string | null; total_amount: number | null; amount_paid: number | null; sibling_discount: number | null; amount_owed: number | null; refund_amount?: number | null; booking_status?: string | null; }
 interface AttendanceRow { camp_id: string; status: string; }
 interface InvoiceRow { camp_id: string; total_amount: number; manual_amount: number | null; status: string; }
 interface PayrollRow { camp_id: string; total_amount: number; }
@@ -54,7 +55,7 @@ const ReportsPage = () => {
   const loadData = useCallback(async () => {
     const [campsRes, bookingsRes, attendanceRes, invoicesRes, payrollRes, expensesRes] = await Promise.all([
       supabase.from("camps").select("id, name, club_name, county, venue, start_date, end_date, price_per_child").order("start_date", { ascending: false }),
-      supabase.from("synced_bookings").select("id, matched_camp_id, total_amount, amount_paid, sibling_discount, amount_owed"),
+      supabase.from("synced_bookings").select("id, matched_camp_id, total_amount, amount_paid, sibling_discount, amount_owed, refund_amount, booking_status"),
       supabase.from("attendance").select("camp_id, status"),
       supabase.from("club_invoices").select("camp_id, total_amount, manual_amount, status"),
       supabase.from("payroll_records").select("camp_id, total_amount"),
@@ -101,13 +102,13 @@ const ReportsPage = () => {
     const totalChildren = fb.length;
     const totalRevenue = fb.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0)), 0);
     const totalPaid = fb.reduce((s, b) => s + (b.amount_paid ?? 0), 0);
-    const outstanding = fb.reduce((s, b) => s + (b.amount_owed ?? 0), 0);
+    const { total: outstanding, excluded: outstandingReview } = sumOutstanding(fb);
     const totalClubPayments = fi.reduce((s, i) => s + (i.manual_amount ?? i.total_amount ?? 0), 0);
     const totalPayroll = fp.reduce((s, p) => s + (p.total_amount ?? 0), 0);
     const totalExpenses = filteredExpenses.reduce((s, e) => s + e.amount, 0);
     const totalExpenditure = totalClubPayments + totalPayroll + totalExpenses;
     const estimatedProfit = totalRevenue - totalExpenditure;
-    return { totalChildren, totalRevenue, totalPaid, outstanding, totalClubPayments, totalPayroll, totalExpenses, totalExpenditure, estimatedProfit };
+    return { totalChildren, totalRevenue, totalPaid, outstanding, outstandingReview, totalClubPayments, totalPayroll, totalExpenses, totalExpenditure, estimatedProfit };
   }, [bookings, invoices, payroll, campIds, filteredExpenses]);
 
   // Year-on-year data
@@ -230,7 +231,7 @@ const ReportsPage = () => {
         <StatCard label="Revenue" value={fmt(stats.totalRevenue)} icon={Receipt} description={`${fmt(stats.totalPaid)} collected`} />
         <StatCard label="Camps" value={filteredCamps.length} icon={Tent} />
         <StatCard label="Children" value={stats.totalChildren} icon={Users} />
-        <StatCard label="Outstanding" value={fmt(stats.outstanding)} icon={Wallet} />
+        <StatCard label={stats.outstandingReview ? `Outstanding (${excludedNote(stats.outstandingReview)})` : "Outstanding"} value={fmt(stats.outstanding)} icon={Wallet} />
         <StatCard label="Club Payments" value={fmt(stats.totalClubPayments)} icon={Building2} />
         <StatCard label="Staff Payroll" value={fmt(stats.totalPayroll)} icon={DollarSign} />
         <StatCard label="Other Expenses" value={fmt(stats.totalExpenses)} icon={PieChart} />

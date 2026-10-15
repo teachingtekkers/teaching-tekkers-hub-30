@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tent, Users, Banknote, AlertTriangle, ArrowRight, CheckCircle, ClipboardCheck, DollarSign, UserCog, Calendar, Building2, Wallet, CloudDownload, FileText, ChevronLeft, ChevronRight, CalendarIcon, MapPin, AlertCircle, BookOpen } from "lucide-react";
@@ -15,7 +16,7 @@ import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, isWithinInterval, i
 import { cn } from "@/lib/utils";
 
 interface CampRow { id: string; name: string; club_name: string; venue: string; start_date: string; end_date: string; }
-interface BookingRow { id: string; matched_camp_id: string | null; amount_paid: number | null; amount_owed: number | null; total_amount: number | null; sibling_discount: number | null; refund_amount: number | null; payment_status: string | null; child_first_name?: string | null; child_last_name?: string | null; date_of_birth?: string | null; }
+interface BookingRow { id: string; matched_camp_id: string | null; amount_paid: number | null; amount_owed: number | null; total_amount: number | null; sibling_discount: number | null; refund_amount: number | null; booking_status?: string | null; payment_status: string | null; child_first_name?: string | null; child_last_name?: string | null; date_of_birth?: string | null; }
 
 const CLUB_RATE = 15;
 
@@ -64,7 +65,7 @@ const DashboardPage = () => {
       while (true) {
         const { data: page, error: pageErr } = await supabase
           .from("synced_bookings")
-          .select("id, matched_camp_id, amount_paid, amount_owed, total_amount, sibling_discount, refund_amount, payment_status, child_first_name, child_last_name, date_of_birth")
+          .select("id, matched_camp_id, amount_paid, amount_owed, total_amount, sibling_discount, refund_amount, booking_status, payment_status, child_first_name, child_last_name, date_of_birth")
           .range(from, from + PAGE - 1);
         if (pageErr || !page || page.length === 0) break;
         allBookings.push(...(page as BookingRow[]));
@@ -139,10 +140,7 @@ const DashboardPage = () => {
     const weekBookings = bookings.filter(b => b.matched_camp_id && weekCampIds.has(b.matched_camp_id));
     const totalRevenue = weekBookings.reduce((s, b) => s + Math.max(0, (b.total_amount ?? 0)), 0);
     const totalPaid = weekBookings.reduce((s, b) => s + (b.amount_paid ?? 0), 0);
-    const totalOutstanding = weekBookings.reduce((s, b) => {
-      const owed = b.amount_owed ?? Math.max(0, (b.total_amount ?? 0) - (b.amount_paid ?? 0) - (b.refund_amount ?? 0));
-      return s + Math.max(0, owed);
-    }, 0);
+    const { total: totalOutstanding, excluded: outstandingReview } = sumOutstanding(weekBookings);
     const unpaidCount = weekBookings.filter(b => {
       const st = b.payment_status?.toLowerCase();
       return st === "pending" || st === "partial";
@@ -153,7 +151,7 @@ const DashboardPage = () => {
       .reduce((s, [, c]) => s + c, 0);
     const clubPaymentsDue = weekPresent * CLUB_RATE;
 
-    return { childrenCount: weekBookings.length, totalRevenue, totalPaid, totalOutstanding, unpaidCount, clubPaymentsDue, weekPresent };
+    return { childrenCount: weekBookings.length, totalRevenue, totalPaid, totalOutstanding, outstandingReview, unpaidCount, clubPaymentsDue, weekPresent };
   }, [bookings, weekCampIds, attendanceCounts]);
 
   // CSV audit — rows vs unique kids per camp (all camps, all time)
@@ -288,6 +286,7 @@ const DashboardPage = () => {
           title="Outstanding"
           value={`€${weekMetrics.totalOutstanding.toLocaleString()}`}
           icon={AlertTriangle}
+          description={weekMetrics.outstandingReview ? excludedNote(weekMetrics.outstandingReview) : undefined}
           variant={weekMetrics.totalOutstanding > 0 ? "warning" : "success"}
         />
         <StatCard title="Club Payments" value={`€${weekInvoiceMetrics.total.toLocaleString()}`} icon={Building2} description={`€${weekInvoiceMetrics.paid.toLocaleString()} paid`} />

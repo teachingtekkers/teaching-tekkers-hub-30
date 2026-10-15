@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -73,8 +74,10 @@ export default function AttendanceParticipantRow({
 
   const totalCost = calcTotalCost(p);
   const currentPaid = p.amount_paid ?? 0;
-  const currentOwed = p.amount_owed ?? Math.max(0, totalCost - currentPaid - (p.refund_amount ?? 0));
-  const status = deriveStatus(currentOwed);
+  const owedOrReview = owedOrNull(p);
+  const needsReview = owedOrReview === null;
+  const currentOwed = owedOrReview ?? 0; // only used for editing inputs; display shows "Needs review"
+  const status = needsReview ? "review" : deriveStatus(currentOwed);
 
   const medicalText = [p.medical_condition, p.medical_notes].filter(Boolean).join(" — ");
 
@@ -106,7 +109,9 @@ export default function AttendanceParticipantRow({
   }, []);
 
   // Payment summary line for the row
-  const paymentSummary = status === "paid"
+  const paymentSummary = needsReview
+    ? `${REVIEW_LABEL} (refund/cancelled)${p.payment_type ? ` • ${p.payment_type}` : ""}`
+    : status === "paid"
     ? `Paid${p.payment_type ? ` • ${p.payment_type}` : ""}`
     : `${formatCurrency(currentOwed)} owed${p.payment_type ? ` • ${p.payment_type}` : ""}`;
 

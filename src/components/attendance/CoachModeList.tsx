@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import { useCallback, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -43,8 +44,8 @@ export default function CoachModeList({ participants, getStatus, onToggle, onFie
         const hasMedical = !!(p.medical_condition || p.medical_notes);
         const noPhoto = p.photo_permission === false;
         const totalCost = calcTotalCost(p);
-        const owed = p.amount_owed ?? Math.max(0, totalCost - (p.amount_paid ?? 0) - (p.refund_amount ?? 0));
-        const isPaid = p.payment_status === "paid" || (totalCost > 0 && owed <= 0);
+        const owed = owedOrNull(p);
+        const isPaid = owed !== null && (p.payment_status === "paid" || (totalCost > 0 && owed <= 0));
         const showQuickInfo = quickInfoId === p.id;
 
         return (
