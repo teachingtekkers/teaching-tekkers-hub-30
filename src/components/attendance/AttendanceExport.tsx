@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import type { ParticipantData } from "./AttendanceParticipantRow";
@@ -20,7 +21,7 @@ export default function AttendanceExport({ participants, getStatus, campName, se
       p.kit_size ?? "",
       p.payment_status ?? "",
       p.amount_paid ?? 0,
-      p.amount_owed ?? 0,
+      owedOrNull(p) ?? REVIEW_LABEL,
       p.parent_name ?? "",
       p.parent_phone ?? "",
       (p.medical_condition || p.medical_notes || "").replace(/,/g, ";"),
