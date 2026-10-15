@@ -21,6 +21,7 @@ export interface ReceiptBooking {
   amount_owed: number | null;
   sibling_discount: number | null;
   refund_amount: number | null;
+  booking_status?: string | null;
   payment_status: string | null;
   payment_type: string | null;
   imported_at: string;

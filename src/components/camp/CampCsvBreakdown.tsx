@@ -1,3 +1,4 @@
+import { owedOrNull, sumOutstanding, excludedNote, REVIEW_LABEL } from "@/lib/bookingBalance";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -21,6 +22,8 @@ interface Row {
   total_amount: number | null;
   amount_paid: number | null;
   amount_owed: number | null;
+  refund_amount?: number | null;
+  booking_status?: string | null;
   booking_date: string | null;
   imported_at: string;
   camp_name: string;
@@ -50,7 +53,7 @@ export const CampCsvBreakdown = ({ campId, campName, onClose }: Props) => {
       while (true) {
         const { data, error } = await supabase
           .from("synced_bookings")
-          .select("id, child_first_name, child_last_name, date_of_birth, parent_name, parent_email, parent_phone, payment_status, total_amount, amount_paid, amount_owed, booking_date, imported_at, camp_name, camp_date")
+          .select("id, child_first_name, child_last_name, date_of_birth, parent_name, parent_email, parent_phone, payment_status, total_amount, amount_paid, amount_owed, refund_amount, booking_status, booking_date, imported_at, camp_name, camp_date")
           .eq("matched_camp_id", campId)
           .order("child_last_name", { ascending: true })
           .range(from, from + PAGE - 1);
@@ -124,7 +127,7 @@ export const CampCsvBreakdown = ({ campId, campName, onClose }: Props) => {
                       <TableCell className="text-xs">{r.booking_date || r.imported_at.slice(0,10)}</TableCell>
                       <TableCell className="text-right text-xs">€{Number(r.total_amount || 0).toFixed(0)}</TableCell>
                       <TableCell className="text-right text-xs">€{Number(r.amount_paid || 0).toFixed(0)}</TableCell>
-                      <TableCell className="text-right text-xs">€{Number(r.amount_owed || 0).toFixed(0)}</TableCell>
+                      <TableCell className="text-right text-xs">{owedOrNull(r) === null ? REVIEW_LABEL : `€${(owedOrNull(r) ?? 0).toFixed(0)}`}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[10px]">{r.payment_status || "—"}</Badge></TableCell>
                       <TableCell>{isDup && <Badge variant="destructive" className="text-[10px]">Dup</Badge>}</TableCell>
                     </TableRow>
