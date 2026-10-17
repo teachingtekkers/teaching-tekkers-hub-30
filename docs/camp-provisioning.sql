@@ -69,21 +69,7 @@ DECLARE
   v_inserted    int;
   v_status      text;
   v_hold_reason text;
-
-  PROCEDURE_audit(status text, camp uuid, reason text, extra jsonb) IS
-  LANGUAGE plpgsql AS $a$
-  BEGIN
-    INSERT INTO data_repair_audit (batch, kind, target_table, target_id, status, before, after, evidence)
-    VALUES (v_batch, 'camp_provision', 'camps', camp, status, NULL,
-            jsonb_build_object('source_system', v_system, 'source_camp_id', v_source_id,
-                               'camp_id', camp, 'name', v_name, 'club_name', v_club,
-                               'county', v_county, 'start_date', v_start, 'end_date', v_end,
-                               'daily_start_time', v_tstart, 'daily_end_time', v_tend,
-                               'age_group', v_age, 'capacity', v_capacity,
-                               'price_per_child', v_price, 'hold_reason', reason) || coalesce(extra, '{}'::jsonb),
-            v_evidence);
-  END;
-  $a$;
+  v_audit_after jsonb;
 BEGIN
   -- ---- validation: hold (write nothing) on any missing/invalid field ----
   IF v_system IS NULL OR v_source_id IS NULL OR v_batch IS NULL THEN
@@ -117,8 +103,17 @@ BEGIN
     END IF;
   END IF;
 
+  v_audit_after := jsonb_build_object(
+    'source_system', v_system, 'source_camp_id', v_source_id,
+    'name', v_name, 'club_name', v_club, 'county', v_county,
+    'start_date', v_start, 'end_date', v_end,
+    'daily_start_time', v_tstart, 'daily_end_time', v_tend,
+    'age_group', v_age, 'capacity', v_capacity, 'price_per_child', v_price);
+
   IF v_status = 'held' THEN
-    CALL PROCEDURE_audit('held', NULL, v_hold_reason, NULL);
+    INSERT INTO data_repair_audit (batch, kind, target_table, target_id, status, before, after, evidence)
+    VALUES (v_batch, 'camp_provision', 'camps', NULL, 'held', NULL,
+            v_audit_after || jsonb_build_object('hold_reason', v_hold_reason), v_evidence);
     RETURN;
   END IF;
 
@@ -139,10 +134,14 @@ BEGIN
         AND c.daily_start_time = v_tstart AND c.daily_end_time = v_tend
         AND c.age_group = v_age
     ) THEN
-      CALL PROCEDURE_audit('reused', v_mapped_camp, NULL, NULL);
+      INSERT INTO data_repair_audit (batch, kind, target_table, target_id, status, before, after, evidence)
+      VALUES (v_batch, 'camp_provision', 'camps', v_mapped_camp, 'reused', NULL,
+              v_audit_after || jsonb_build_object('camp_id', v_mapped_camp), v_evidence);
     ELSE
-      CALL PROCEDURE_audit('held', v_mapped_camp,
-        'existing mapping conflicts with incoming event identity', NULL);
+      INSERT INTO data_repair_audit (batch, kind, target_table, target_id, status, before, after, evidence)
+      VALUES (v_batch, 'camp_provision', 'camps', v_mapped_camp, 'held', NULL,
+              v_audit_after || jsonb_build_object('camp_id', v_mapped_camp,
+                'hold_reason', 'existing mapping conflicts with incoming event identity'), v_evidence);
     END IF;
     RETURN;
   END IF;
@@ -156,8 +155,10 @@ BEGIN
     AND c.age_group = v_age;
 
   IF v_candidates IS NOT NULL AND array_length(v_candidates, 1) > 1 THEN
-    CALL PROCEDURE_audit('held', NULL, 'ambiguous existing camp candidates',
-      jsonb_build_object('candidate_ids', to_jsonb(v_candidates)));
+    INSERT INTO data_repair_audit (batch, kind, target_table, target_id, status, before, after, evidence)
+    VALUES (v_batch, 'camp_provision', 'camps', NULL, 'held', NULL,
+            v_audit_after || jsonb_build_object('hold_reason', 'ambiguous existing camp candidates',
+              'candidate_ids', to_jsonb(v_candidates)), v_evidence);
     RETURN;
   END IF;
 
@@ -183,7 +184,9 @@ BEGIN
     RAISE EXCEPTION 'mapping insert conflicted for %/% — rolling back', v_system, v_source_id;
   END IF;
 
-  CALL PROCEDURE_audit(CASE WHEN v_candidates IS NULL THEN 'applied' ELSE 'reused' END,
-                       v_camp_id, NULL, NULL);
+  INSERT INTO data_repair_audit (batch, kind, target_table, target_id, status, before, after, evidence)
+  VALUES (v_batch, 'camp_provision', 'camps', v_camp_id,
+          CASE WHEN v_candidates IS NULL THEN 'applied' ELSE 'reused' END, NULL,
+          v_audit_after || jsonb_build_object('camp_id', v_camp_id), v_evidence);
 END;
 $prov$;
