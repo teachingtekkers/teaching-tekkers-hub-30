@@ -1,5 +1,6 @@
 // Shared import engine used by manual CSV imports and automatic sync.
 import { computePatch, planImport, SOURCE_FIELDS, type ExistingRow, type Incoming } from "./booking-logic.ts";
+import { prepareSafeRun } from "./booking-safe-engine.ts";
 
 export const DEFAULT_SOURCE = "bookings.teachingtekkers.com";
 export const EXISTING_COLS = [
@@ -44,6 +45,7 @@ export interface PrepareInput {
 
 /** Stage the source rows and classify them. Writes nothing to bookings. */
 export async function prepareRun(db: DB, inp: PrepareInput) {
+  if (inp.trigger === "manual") return prepareSafeRun(db, inp);
   if (!inp.sourceCampId) throw new EngineError("Source camp ID is required");
   if (!inp.campId) throw new EngineError("Choose the app camp this source camp belongs to");
   if (!inp.rows.length || inp.rows.length > 3000) throw new EngineError("Expected 1–3000 rows");
@@ -134,10 +136,16 @@ async function insertNew(db: DB, run: DB, camp: DB, r: DB, n: DB, identity: DB, 
   return data.id as string;
 }
 
-export interface ApplyOptions { resolutions?: Record<string, string>; auto: boolean; failAfterRows?: number }
+export interface ApplyOptions { resolutions?: Record<string, string>; auto: boolean; failAfterRows?: number; adminDb?: DB }
 
 /** Apply a staged run. Safe to retry: applied rows are skipped and new rows use deterministic IDs. */
 export async function applyRun(db: DB, runId: string, opts: ApplyOptions) {
+  if (!opts.auto) {
+    if (!opts.adminDb) throw new EngineError("Authenticated admin transaction required", 403);
+    const { data, error } = await opts.adminDb.rpc("commit_csv_safety_run", { _run_id: runId });
+    if (error) throw new EngineError(error.message, 409);
+    return data;
+  }
   const resolutions = opts.resolutions || {};
   const { data: run0 } = await db.from("booking_import_runs").select("*").eq("id", runId).maybeSingle();
   if (!run0) throw new EngineError("Import preview not found", 404);
@@ -278,6 +286,9 @@ export async function applyRun(db: DB, runId: string, opts: ApplyOptions) {
 
 /** Resolve one review-queue row. */
 export async function resolveRow(db: DB, rowId: string, decision: string) {
+  // Historical conflicts must not be force-applied by the old nontransactional resolver.
+  throw new EngineError("Held values are unchanged. Use a fresh preview; identity and sensitive-field decisions need separate verified review.", 409);
+  /* Deprecated nontransactional resolver retained below for historical reference.
   const { data: r } = await db.from("booking_import_run_rows").select("*").eq("id", rowId).maybeSingle();
   if (!r || r.review_status !== "pending") throw new EngineError("This item is no longer waiting for review", 409);
   const { data: run } = await db.from("booking_import_runs").select("*").eq("id", r.run_id).single();
@@ -311,6 +322,7 @@ export async function resolveRow(db: DB, rowId: string, decision: string) {
   const { count } = await db.from("booking_import_run_rows").select("id", { count: "exact", head: true }).eq("run_id", run.id).eq("review_status", "pending");
   if (!count) await db.from("booking_import_runs").update({ status: "committed" }).eq("id", run.id).eq("status", "needs_review");
   return { remaining_in_run: count || 0 };
+  */
 }
 
 /** Automatic path: only already-mapped camps; applies safe rows, queues the rest. */

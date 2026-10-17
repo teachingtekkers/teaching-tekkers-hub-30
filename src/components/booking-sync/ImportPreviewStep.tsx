@@ -86,7 +86,8 @@ export default function ImportPreviewStep({ jobs, onBack, onDone }: {
     try {
       for (const [f, p] of Object.entries(previews)) {
         if ("error" in p) continue;
-        const res = await invokeImport({ action: "commit", run_id: p.run_id, resolutions: resolutions[f] || {} });
+        await invokeImport({ action: "decisions", run_id: p.run_id, decisions: resolutions[f] || {} });
+        const res = await invokeImport({ action: "commit", run_id: p.run_id });
         for (const k of Object.keys(total) as (keyof typeof total)[]) total[k] += res.result?.[k] || 0;
       }
       onDone(total);
@@ -180,11 +181,11 @@ export default function ImportPreviewStep({ jobs, onBack, onDone }: {
                             <SelectTrigger className="h-7 text-xs w-72"><SelectValue placeholder="Choose…" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="unset" disabled>Choose what to do…</SelectItem>
-                              {r.candidate_ids.map((id) => {
+                              {!r.normalized._safety_hold && r.candidate_ids.map((id) => {
                                 const c = cand.get(id);
                                 return <SelectItem key={id} value={`link:${id}`}>Same child as {c ? `${c.child_first_name} ${c.child_last_name} (${c.date_of_birth || "no DOB"}, ${c.parent_email || c.parent_phone || "no contact"})` : id}</SelectItem>;
                               })}
-                              <SelectItem value="new">Add as a new child</SelectItem>
+                              {!r.normalized._safety_hold && <SelectItem value="new">Add as a new child</SelectItem>}
                               <SelectItem value="skip">Skip this row</SelectItem>
                             </SelectContent>
                           </Select>
