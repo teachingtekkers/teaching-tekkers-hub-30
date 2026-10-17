@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { planImport, parseMoney, safeParseDate, normaliseIncoming } from "../../supabase/functions/_shared/booking-logic";
+import { planImport, parseMoney, safeParseDate, normaliseIncoming, type Incoming } from "../../supabase/functions/_shared/booking-logic";
 import { applyGlobalSafety, proveIdentity, type PersonEvidence, type SafetySnapshot } from "../../supabase/functions/_shared/booking-safety";
 
 const row = { child_first_name: "Synthetic", child_last_name: "Child", date_of_birth: "29/02/2016", parent_email: "parent@example.test", parent_phone: "0871234567", total_amount: "75", sibling_discount: "10", amount_paid: "20" };
 const profile: PersonEvidence = { id: "profile-a", first_name: "Synthetic", last_name: "Child", date_of_birth: "2016-02-29", guardian_email: "PARENT@example.test", guardian_phone: "0871234567" };
 function state(p: PersonEvidence[] = [], registrations: PersonEvidence[] = []): SafetySnapshot { return { players: p, synced_bookings: registrations, bookings: [], held_audits: [], pending_rows: [] }; }
-function preview(s: SafetySnapshot, rows = [row], source = "test") { return applyGlobalSafety(planImport(rows, []), s, source); }
+function preview(s: SafetySnapshot, rows: Incoming[] = [row], source = "test") { return applyGlobalSafety(planImport(rows, []), s, source); }
 
 describe("global CSV identity safeguards", () => {
   it("allows another camp and reuses one proven profile without merging registrations", () => {
-    const reg = { ...normaliseIncoming(row), id: "reg-other", matched_player_id: profile.id, matched_camp_id: "other" } as PersonEvidence;
+    const reg = { ...normaliseIncoming(row), date_of_birth: "2016-02-29", id: "reg-other", matched_player_id: profile.id, matched_camp_id: "other" } as PersonEvidence;
     const [p] = preview(state([profile], [reg]));
     expect(p.classification).toBe("new"); expect(p.normalized._profile_id).toBe("profile-a");
   });

@@ -24,7 +24,7 @@ export function proveIdentity(a: PersonEvidence, b: PersonEvidence) {
 export function applyGlobalSafety(plan: PlannedRow[], snapshot: SafetySnapshot, sourceCampId: string) {
   const regs = snapshot.synced_bookings;
   const profiles = snapshot.players;
-  const native = snapshot.bookings.flatMap((b) => {
+  const native: PersonEvidence[] = snapshot.bookings.flatMap((b) => {
     const p = profiles.find((p) => p.id === b.player_id);
     return p ? [{ ...p, id: String(b.id), parent_email: b.parent_email as string, parent_phone: b.parent_phone as string, guardian_email: undefined, guardian_phone: undefined, matched_player_id: p.id }] : [];
   });
