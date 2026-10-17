@@ -59,7 +59,24 @@ Synthetic unit tests and an **isolated local PostgreSQL copy of schema only** ex
 identity, stale evidence, atomic failure/outer rollback, retry, audit, profile reuse,
 authorization and lock contention. Auth is a stub UUID in the isolated database only;
 no real auth calls/users/sessions are created. Every synthetic transaction rolls back.
-Exact test counts/results are recorded in the completion response/roadmap.
+Results: **73/73 regressions** (26 existing importer, 37 safeguard, 6 balance,
+4 connection-display) and **10/10 isolated database tests** passed. Preview harness
+build/typecheck: **build OK, 17 October 2026 15:34:02 UTC**.
+Commands: `bunx vitest run src/test/bookingImportLogic.test.ts src/test/csvSafeguards.test.ts src/test/bookingBalance.test.ts src/test/bookingConnectionStatus.test.tsx`
+and `CSV_ISOLATED_DB_TEST=1 bunx vitest run --config vitest.csv-db.config.ts`.
+The latter requires the isolated schema-only PostgreSQL instance at the fixed local
+Unix socket; it cannot fall back to live database credentials.
+
+Parallel validation is lock-contention testing in two isolated connections (same/different
+run attempts and ordinary writer), plus sequential second-run stale rejection; **not**
+a completed two-admin browser race or live concurrent commit experiment.
+Rollback coverage includes whole-transaction disappearance, mid-row-failure rollback,
+and later staff-state/dependency rejection checks; the documented post-commit reversal
+procedure is not an executable/tested automatic rollback feature.
+
+Live verification: zero safety-version runs and zero new import change-audit entries;
+425 staged payment corrections remain staged. Earlier camp counts from the previous
+conversation were not assumed current; no attempt was made to restore them.
 
 The full snapshot is deliberately conservative: an unrelated staff write in a relevant
 table invalidates a preview. Global locks briefly block staff writes during commit;
