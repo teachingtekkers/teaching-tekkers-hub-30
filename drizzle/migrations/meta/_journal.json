@@ -50,6 +50,13 @@
       "when": 1792251078799,
       "tag": "0006_fix_csv_candidate_uuid_staging",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792251214411,
+      "tag": "0007_csv_commit_policy_revalidation",
+      "breakpoints": true
     }
   ]
 }
