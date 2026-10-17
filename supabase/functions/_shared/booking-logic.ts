@@ -49,9 +49,11 @@ export function normPhone(s: unknown): string {
 }
 export function parseMoney(val: unknown): number {
   if (val == null || val === "") return 0;
-  if (typeof val === "number") return val;
-  const n = parseFloat(String(val).replace(/[€£$,\s]/g, ""));
-  return isNaN(n) ? 0 : n;
+  const s = String(val).trim().replace(/^[€£$]\s*/, "");
+  if (!/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$/.test(s)) throw new Error("Invalid money value");
+  const n = Number(s.replace(/,/g, ""));
+  if (!Number.isFinite(n) || n < 0 || n > 1000000) throw new Error("Invalid money value");
+  return n;
 }
 export function parseAge(val: unknown): number | null {
   if (val == null || val === "") return null;
@@ -66,12 +68,14 @@ export function safeParseDate(val: unknown): string | null {
   if (val == null) return null;
   const s = String(val).trim();
   let y: number, m: number, d: number;
-  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  const dmy = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const dmy = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
   if (iso) { y = +iso[1]; m = +iso[2]; d = +iso[3]; }
   else if (dmy) { d = +dmy[1]; m = +dmy[2]; y = +dmy[3]; }
   else return null;
   if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1900 || y > 2100) return null;
+  const leap = y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);
+  if (d > [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1]) return null;
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 function parseBool(val: unknown): boolean | null {
@@ -108,6 +112,7 @@ const NUMERIC = new Set(["total_amount", "sibling_discount", "amount_paid", "ref
  * a refund is never treated as a payment or a discount.
  */
 export function computeOwed(a: { total: number; paid: number; refund: number; cancelled?: boolean }): number | null {
+  if (![a.total, a.paid, a.refund].every((v) => Number.isFinite(v) && v >= 0)) throw new Error("Invalid money value");
   if (a.cancelled || a.refund > 0) return null;
   return Math.max(0, a.total - a.paid);
 }
@@ -228,7 +233,15 @@ export function planImport(rows: Incoming[], existing: ExistingRow[]): PlannedRo
   const out: PlannedRow[] = [];
 
   rows.forEach((r, i) => {
-    const inc = normaliseIncoming(r);
+    let inc: Record<string, unknown>;
+    try {
+      for (const f of ["total_amount", "amount_paid"]) if (r[f] == null || r[f]?.trim() === "") throw new Error(`Missing ${f}`);
+      for (const f of ["date_of_birth", "booking_date"]) if (r[f]?.trim() && !safeParseDate(r[f])) throw new Error(`Invalid ${f}`);
+      inc = normaliseIncoming(r);
+    } catch (e) {
+      out.push({ row_index: i, classification: "rejected", reason: e instanceof Error ? e.message : "Invalid input", participant_key: null, family_key: null, synced_booking_id: null, candidate_ids: [], normalized: {}, diff: null, protected_fields: [], conflict: false, family_verified: false });
+      return;
+    }
     const pid = r.source_participant_id?.trim() || null;
     const base: PlannedRow = {
       row_index: i, classification: "rejected", reason: null, participant_key: null, family_key: null,
@@ -247,7 +260,7 @@ export function planImport(rows: Incoming[], existing: ExistingRow[]): PlannedRo
 
     const dupKey = pid ? `pid:${pid}` : pKey;
     if (seenKeys.has(dupKey)) {
-      out.push({ ...base, reason: `Duplicate of row ${seenKeys.get(dupKey)! + 1} in this file` }); return;
+      out.push({ ...base, reason: `Duplicate of row ${(seenKeys.get(dupKey) ?? 0) + 1} in this file` }); return;
     }
     seenKeys.set(dupKey, i);
 
@@ -264,8 +277,9 @@ export function planImport(rows: Incoming[], existing: ExistingRow[]): PlannedRo
 
     // Pass 1: confident matches (source ID, or unique exact identity). Others wait for pass 2
     // so the outcome never depends on CSV row order.
-    if (pid && byPid.has(pid)) { finishMatch(byPid.get(pid)!, "Matched by source participant ID"); return; }
-    const hasIdentity = !!inc.date_of_birth || !!guardianKey(inc.parent_email, inc.parent_phone);
+    const pidMatch = pid ? byPid.get(pid) : undefined;
+    if (pidMatch) { finishMatch(pidMatch, "Matched by source participant ID"); return; }
+    const hasIdentity = !!inc.date_of_birth && !!guardianKey(inc.parent_email, inc.parent_phone);
     const exactAll = (byKey.get(pKey) || []).filter((e) => !pid || !e.source_participant_id);
     if (exactAll.length === 1 && hasIdentity && !claimed.has(exactAll[0].id)) { finishMatch(exactAll[0], "Matched by name + DOB + guardian"); return; }
 
