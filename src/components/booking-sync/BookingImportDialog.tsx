@@ -389,7 +389,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
       const hasCampCol = f.headers.some((h) => mapping[h] === "camp_name");
       const hasVenueCol = f.headers.some((h) => mapping[h] === "venue");
       const hasCountyCol = f.headers.some((h) => mapping[h] === "county");
-      f.rows.forEach((row, rowIdx) => {
+      f.rows.forEach((row) => {
         const mapped: Record<string, string> = {};
         for (const [csvCol, field] of Object.entries(mapping)) {
           if (field !== "skip" && row[csvCol] !== undefined && row[csvCol] !== "") mapped[field] = row[csvCol];
@@ -403,16 +403,6 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
           }
         }
 
-        if (rowIdx === 0) {
-          console.log("[BookingImport] Row 0 FINAL finance:", {
-            total_amount: mapped.total_amount,
-            amount_paid: mapped.amount_paid,
-            sibling_discount: mapped.sibling_discount,
-            refund_amount: mapped.refund_amount,
-            payment_status: mapped.payment_status,
-            payment_type: mapped.payment_type,
-          });
-        }
         // Inject metadata from filename if not mapped from columns
         if (!hasCampCol || !mapped.camp_name) mapped.camp_name = f.detectedCampName;
         if ((!hasVenueCol || !mapped.venue) && f.detectedVenue) mapped.venue = f.detectedVenue;
@@ -423,7 +413,8 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         allMapped.push({ ...mapped, __file: f.name });
       });
     });
-    return allMapped.filter((r) => r.child_first_name || r.child_last_name);
+    // Preserve original row positions for review evidence; invalid rows are rejected server-side.
+    return allMapped;
   }, [files, mapping]);
 
   const setTarget = useCallback((file: string, patch: Partial<{ sourceCampId: string; campId: string }>) => {

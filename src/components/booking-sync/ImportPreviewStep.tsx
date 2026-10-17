@@ -123,7 +123,6 @@ export default function ImportPreviewStep({ jobs, onBack, onDone }: {
             </div>
           );
         }
-        const cand = new Map(p.candidates.map((c) => [c.id, c]));
         const rows = p.rows.filter((r) => filter === "all" || r.classification === filter);
         return (
           <div key={j.fileName} className="rounded-md border p-3 space-y-3">
@@ -199,9 +198,10 @@ export default function ImportPreviewStep({ jobs, onBack, onDone }: {
       <p className="text-xs text-muted-foreground">
         Attendance, kit given, staff notes and payment changes made in the app are never overwritten. Rejected rows are not imported.
       </p>
+      {jobs.length !== 1 && <p className="text-sm text-destructive">Import one CSV at a time. Each file requires a fresh preview before confirmation.</p>}
       <div className="flex justify-between pt-2">
         <Button variant="outline" onClick={onBack} disabled={committing}>Back</Button>
-        <Button onClick={commit} disabled={committing || unresolved > 0 || (hasErrors && Object.values(previews).every((p) => "error" in p))}>
+        <Button onClick={commit} disabled={jobs.length !== 1 || committing || unresolved > 0 || hasErrors}>
           {committing && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
           {unresolved > 0 ? `Resolve ${unresolved} review row${unresolved > 1 ? "s" : ""}` : "Confirm import"}
         </Button>
