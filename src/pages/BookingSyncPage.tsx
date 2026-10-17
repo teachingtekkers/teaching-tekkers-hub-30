@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SyncReviewPanel from "@/components/booking-sync/SyncReviewPanel";
+import CsvImportTime from "@/components/booking-sync/CsvImportTime";
+import { latestCsvImportQuery, type CsvImport } from "@/lib/bookingConnectionStatus";
 import { Input } from "@/components/ui/input";
 import { RefreshCw, CloudDownload, AlertTriangle, CheckCircle, Clock, Search, ExternalLink, Upload, Zap, Wrench, Trash2, Users, AlertCircle, Eye } from "lucide-react";
 import { BookingReceiptButton } from "@/components/booking-sync/BookingReceipt";
@@ -74,6 +76,8 @@ export default function BookingSyncPage() {
   const [errorsExpectedCount, setErrorsExpectedCount] = useState(0);
   const [bookings, setBookings] = useState<SyncedBooking[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
+  const [latestCsvImport, setLatestCsvImport] = useState<CsvImport | null>(null);
+  const [csvHistoryError, setCsvHistoryError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [bookingFilter, setBookingFilter] = useState<BookingFilter>("all");
@@ -112,10 +116,13 @@ export default function BookingSyncPage() {
 
   const loadData = useCallback(async (offset = 0) => {
     setLoading(true);
-    const [bRes, lRes] = await Promise.all([
+    const [bRes, lRes, csvRes] = await Promise.all([
       supabase.from("synced_bookings").select("*").order("imported_at", { ascending: false }).range(offset, offset + PAGE_SIZE - 1),
       supabase.from("sync_logs").select("*").order("sync_started_at", { ascending: false }).limit(50),
+      latestCsvImportQuery(supabase),
     ]);
+    setLatestCsvImport(csvRes.data);
+    setCsvHistoryError(Boolean(csvRes.error));
     if (bRes.data) {
       if (offset === 0) {
         setBookings(bRes.data as unknown as SyncedBooking[]);
@@ -244,7 +251,6 @@ export default function BookingSyncPage() {
     }
   }, [toast, loadData]);
 
-  const lastSync = syncLogs[0];
   const totalSynced = dbCounts.total;
   const unmatched = dbCounts.unmatched;
   const duplicates = dbCounts.duplicates;
@@ -386,16 +392,16 @@ export default function BookingSyncPage() {
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-xs text-muted-foreground">Last Sync</p>
-            <p className="text-lg font-semibold text-foreground">
-              {lastSync ? format(new Date(lastSync.sync_started_at), "dd MMM HH:mm") : "Never"}
+            <p className="text-xs text-muted-foreground">Latest committed CSV import</p>
+            <p className="text-sm font-semibold text-foreground">
+              <CsvImportTime run={latestCsvImport} loading={loading} error={csvHistoryError} />
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-xs text-muted-foreground">Sync Status</p>
-            <div className="mt-1">{lastSync ? statusBadge(lastSync.status) : <Badge variant="secondary">No syncs</Badge>}</div>
+            <p className="text-xs text-muted-foreground">Source provider / live sync</p>
+            <div className="mt-1"><Badge variant="outline">Not connected</Badge></div>
           </CardContent>
         </Card>
         <Card>
@@ -769,7 +775,7 @@ export default function BookingSyncPage() {
         </TabsContent>
 
         <TabsContent value="sync">
-          <SyncReviewPanel />
+          <SyncReviewPanel latestCsvImport={latestCsvImport} csvHistoryError={csvHistoryError} csvHistoryLoading={loading} onRefreshHistory={() => loadData(0)} />
         </TabsContent>
 
         {/* Endpoint Info Tab */}

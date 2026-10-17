@@ -8,6 +8,8 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import CsvImportTime from "./CsvImportTime";
+import type { CsvImport } from "@/lib/bookingConnectionStatus";
 
 interface Settings { paused: boolean; last_success_at: string | null; last_failure_at: string | null; last_error: string | null }
 interface Run {
@@ -23,7 +25,9 @@ interface Cand { id: string; child_first_name: string; child_last_name: string; 
 
 const fmt = (d: string | null) => (d ? format(new Date(d), "dd MMM yyyy HH:mm") : "—");
 
-export default function SyncReviewPanel() {
+export default function SyncReviewPanel({ latestCsvImport, csvHistoryError, csvHistoryLoading, onRefreshHistory }: {
+  latestCsvImport: CsvImport | null; csvHistoryError: boolean; csvHistoryLoading: boolean; onRefreshHistory: () => void;
+}) {
   const { toast } = useToast();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [runs, setRuns] = useState<Run[]>([]);
@@ -91,21 +95,28 @@ export default function SyncReviewPanel() {
       <Card>
         <CardHeader className="flex flex-row items-start justify-between space-y-0">
           <div>
-            <CardTitle className="text-lg">Sync status</CardTitle>
-            <CardDescription>Automatic sync from the booking system is not connected yet. Manual imports use the same safeguards.</CardDescription>
+            <CardTitle className="text-lg">Booking connection status</CardTitle>
+            <CardDescription>Source provider / live sync: not connected.</CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Refresh</Button>
+          <Button variant="outline" size="sm" onClick={() => { load(); onRefreshHistory(); }} disabled={loading}><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Refresh</Button>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-4 text-sm">
-          <div><p className="text-xs text-muted-foreground">Last successful import</p><p className="font-medium">{fmt(settings?.last_success_at ?? null)}</p></div>
+          <div><p className="text-xs text-muted-foreground">Latest committed CSV import</p><p className="font-medium"><CsvImportTime run={latestCsvImport} loading={csvHistoryLoading} error={csvHistoryError} /></p></div>
           <div>
             <p className="text-xs text-muted-foreground">Last run</p>
             <p className="font-medium">{lastRun ? `${lastRun.counts.result?.created ?? 0} added · ${lastRun.counts.result?.updated ?? 0} updated` : "—"}</p>
           </div>
           <div><p className="text-xs text-muted-foreground">Waiting for review</p><p className="font-medium">{queue.length}</p></div>
-          <div className="flex items-center gap-2">
-            <Switch checked={!settings?.paused} onCheckedChange={(on) => togglePause(!on)} disabled={!settings} />
-            <span>{settings?.paused ? "Automatic updates paused" : "Automatic updates on"}</span>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Switch id="internal-intake" aria-label="Allow internal automatic intake" checked={settings ? !settings.paused : false} onCheckedChange={(on) => togglePause(!on)} disabled={!settings} />
+              <label htmlFor="internal-intake">{!settings ? "Internal intake setting unavailable" : settings.paused ? "Internal automatic intake paused" : "Internal automatic intake allowed"}</label>
+            </div>
+            <p className="text-xs text-muted-foreground">This setting neither connects the provider nor controls Codex.</p>
+          </div>
+          <div className="sm:col-span-4 border-t pt-3 space-y-1">
+            <p className="font-medium">Codex daily browser CSV workflow: configured externally</p>
+            <p className="text-muted-foreground">Requires the laptop, app login and Chrome login. Scheduler health cannot be verified by this app.</p>
           </div>
         </CardContent>
       </Card>
