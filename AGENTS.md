@@ -1,5 +1,7 @@
 # Agent rules
 
+- Booking connection displays share `latestCsvImportQuery` and `CsvImportTime` for committed manual import history; legacy sync logs are historical only. Why: one consistent query prevents stale sync activity being presented as current CSV imports.
+
 - All booking writes from outside sources (manual CSV import, automatic sync, `booking-intake` pushes) go through `supabase/functions/_shared/booking-engine.ts`, with matching rules in `_shared/booking-logic.ts` (tests in `src/test/bookingImportLogic.test.ts`). Why: one tested place decides identity and protects staff edits.
 - Participant identity is source participant ID, else name + DOB + guardian contact, scoped to an explicit source camp ID linked to one app camp; never row position or "Sr. No". Uncertain matches go to the review queue, never to a silent create. Why: CSVs have no stable IDs and get reordered.
 - An import only overwrites a field when it still equals the value the previous import wrote (`synced_bookings.source_values`); rows without stored source values never get payment changes automatically. Why: staff part-payments, refunds and corrections must survive.
