@@ -36,6 +36,27 @@
       "when": 1792225491419,
       "tag": "0004_unique_source_camp_mapping",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792250905924,
+      "tag": "0005_atomic_csv_safeguards",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792251078799,
+      "tag": "0006_fix_csv_candidate_uuid_staging",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792251214411,
+      "tag": "0007_csv_commit_policy_revalidation",
+      "breakpoints": true
     }
   ]
 }
