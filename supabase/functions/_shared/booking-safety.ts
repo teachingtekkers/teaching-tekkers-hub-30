@@ -49,11 +49,13 @@ export function applyGlobalSafety(plan: PlannedRow[], snapshot: SafetySnapshot, 
     });
     const contradictory = named.some((x) => !proveIdentity(n, x) && !verifiedProfiles.includes(x.id));
     const forcedDuplicate = (sourceCampId === "178" && [33, 34].includes(p.row_index)) || (sourceCampId === "181" && [23, 24].includes(p.row_index));
+    const inFileDuplicate = plan.some((other) => other !== p && proveIdentity(n, other.normalized as unknown as PersonEvidence));
+    const destinationDuplicate = p.classification === "new" && named.some((x) => proveIdentity(n, x) && (x.matched_camp_id === p.normalized._destination_camp || native.some((b) => b.id === x.id && snapshot.bookings.some((b) => b.id === x.id && b.camp_id === p.normalized._destination_camp))));
     const sensitiveDiff = Object.keys(p.diff ?? {}).some((f) => ["medical_notes", "medical_condition", "photo_permission"].includes(f));
-    const unsafe = held || forcedDuplicate || n.amount_owed === null || p.conflict || sensitiveDiff || (p.classification === "new" && (contradictory || profileIds.size > 1 || verifiedProfiles.length !== profileIds.size));
+    const unsafe = held || forcedDuplicate || inFileDuplicate || destinationDuplicate || n.amount_owed === null || p.conflict || sensitiveDiff || (p.classification === "new" && (contradictory || profileIds.size > 1 || verifiedProfiles.length !== profileIds.size));
     if (unsafe) {
       p.classification = "ambiguous";
-      p.reason = held ? "Historical identity/field hold: retain for admin review" : forcedDuplicate ? "Documented duplicate source-row candidate: held" : n.amount_owed === null ? "Refund/cancellation requires ledger review" : p.conflict || sensitiveDiff ? "Protected staff, medical or consent values require review" : "Conflicting or multiple cross-camp person identities";
+      p.reason = held ? "Historical identity/field hold: retain for admin review" : forcedDuplicate || inFileDuplicate || destinationDuplicate ? "Duplicate registration candidate: held" : n.amount_owed === null ? "Refund/cancellation requires ledger review" : p.conflict || sensitiveDiff ? "Protected staff, medical or consent values require review" : "Conflicting or multiple cross-camp person identities";
       // Only skipping is supported for these safety holds; no implicit approval or profile merge.
       p.normalized._safety_hold = true;
       p.candidate_ids = [];

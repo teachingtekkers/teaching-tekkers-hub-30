@@ -327,6 +327,8 @@ export async function resolveRow(db: DB, rowId: string, decision: string) {
 
 /** Automatic path: only already-mapped camps; applies safe rows, queues the rest. */
 export async function syncCamp(db: DB, inp: { sourceSystem: string; sourceCampId: string; rows: Incoming[]; extractedAt?: string | null }) {
+  throw new EngineError("Automatic import is not connected; use authenticated preview and explicit commit", 409);
+  /* Disabled legacy auto-apply path.
   const { data: settings } = await db.from("booking_sync_settings").select("paused").eq("id", 1).maybeSingle();
   if (settings?.paused) throw new EngineError("Automatic sync is paused", 423);
   const campId = await resolveMappedCamp(db, inp.sourceSystem, inp.sourceCampId);
@@ -334,4 +336,5 @@ export async function syncCamp(db: DB, inp: { sourceSystem: string; sourceCampId
   const prep = await prepareRun(db, { ...inp, campId, trigger: "auto", fileName: "automatic sync" });
   const applied = await applyRun(db, prep.run_id, { auto: true });
   return { run_id: prep.run_id, counts: prep.counts, ...applied };
+  */
 }

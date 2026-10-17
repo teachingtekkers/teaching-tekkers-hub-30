@@ -69,8 +69,8 @@ describe("booking import planner", () => {
 
   it("rows without DOB or guardian contact go to review; missing names and in-file duplicates are rejected", () => {
     const plan = planImport([
-      { child_first_name: "No", child_last_name: "Identity" },
-      { child_first_name: "", child_last_name: "Blank" },
+      { child_first_name: "No", child_last_name: "Identity", total_amount: "85", amount_paid: "0" },
+      { child_first_name: "", child_last_name: "Blank", total_amount: "85", amount_paid: "0" },
       csv[0], csv[0],
     ], []);
     expect(plan.map((p) => p.classification)).toEqual(["ambiguous", "rejected", "new", "rejected"]);
@@ -87,7 +87,7 @@ describe("booking import planner", () => {
 describe("order independence", () => {
   it("a different child with the same name is new regardless of row order", () => {
     const existing = asExisting([csv[0]]);
-    const other = { child_first_name: "Aoife", child_last_name: "Testerson", date_of_birth: "01/02/2017", parent_email: "other@example.test" };
+    const other = { child_first_name: "Aoife", child_last_name: "Testerson", date_of_birth: "01/02/2017", parent_email: "other@example.test", total_amount: "85", amount_paid: "0" };
     const a = planImport([csv[0], other], existing);
     const b = planImport([other, csv[0]], existing);
     expect(a.map((p) => p.classification)).toEqual(["unchanged", "new"]);

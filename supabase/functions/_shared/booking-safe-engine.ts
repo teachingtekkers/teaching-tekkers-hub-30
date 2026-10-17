@@ -14,7 +14,9 @@ export async function prepareSafeRun(db: any, inp: {
   const camp = camps.find((c) => c.id === inp.campId);
   if (!camp) throw new Error("App camp not found");
   const existing = scopedExisting(state, inp.sourceSystem, inp.sourceCampId, inp.campId);
-  const planned = applyGlobalSafety(planImport(inp.rows, existing), state, inp.sourceCampId);
+  const plan = planImport(inp.rows, existing);
+  for (const p of plan) p.normalized._destination_camp = inp.campId;
+  const planned = applyGlobalSafety(plan, state, inp.sourceCampId);
   const counts: Record<string, number> = { new: 0, updated: 0, unchanged: 0, ambiguous: 0, rejected: 0, conflicts: 0, source_rows: inp.rows.length };
   for (const r of planned) { counts[r.classification]++; if (r.conflict) counts.conflicts++; }
   const accepted = planned.filter((r) => r.classification !== "rejected");
