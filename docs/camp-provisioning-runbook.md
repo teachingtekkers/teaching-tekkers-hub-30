@@ -61,6 +61,16 @@ Reuse an existing app camp ONLY when the event identity fully matches:
 - Reuse never overwrites existing camp fields (staff edits are preserved); it
   only adds the mapping.
 
+## Executable template
+
+The reviewed, tested procedure lives at `docs/camp-provisioning.sql` — a single
+`DO` block taking one JSON payload (source evidence included). Operators paste
+the verified payload into the marked assignment and run the whole block; do not
+improvise SQL. Concurrency, identity validation, holds and audit behavior are
+exactly as described below and were verified with synthetic tests (create,
+repeat, conflicting mapping, ambiguous candidates, invalid payload — all
+rolled back, nothing persisted).
+
 ## Transaction / retry / rollback
 
 - The whole batch runs as ONE atomic block: any failure rolls back everything.
