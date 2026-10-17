@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS source_camp_mappings_source_unique ON public.source_camp_mappings (source_system, source_camp_id);
