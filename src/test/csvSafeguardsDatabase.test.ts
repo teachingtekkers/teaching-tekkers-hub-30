@@ -98,6 +98,48 @@ describe.skipIf(!enabled)("isolated PostgreSQL atomic CSV safeguards", () => {
       expect(n).toBe(1);
     });
   });
+  it("invalid calendar dates abort all inserted profiles and registrations", async () => {
+    await rollbackTest(async (tx) => {
+      const f = await fixture(tx);
+      await tx`update public.booking_import_run_rows set normalized=normalized||'{"date_of_birth":"2019-02-29"}'::jsonb where run_id=${f.id}`;
+      await expect(tx.savepoint(async (t: any) => { await t`select public.commit_csv_safety_run(${f.id})`; })).rejects.toThrow(/date\/time|out of range/);
+      const [{ n }] = await tx`select count(*)::int n from public.booking_import_changes where run_id=${f.id}`;
+      expect(n).toBe(0);
+    });
+  });
+  it("persisted skip is required for held identities; force create is rejected and skips retain review evidence", async () => {
+    await rollbackTest(async (tx) => {
+      const f = await fixture(tx);
+      await tx`update public.booking_import_run_rows set classification='ambiguous',normalized=normalized||'{"_safety_hold":true}'::jsonb where run_id=${f.id}`;
+      await expect(tx.savepoint(async (t: any) => { await t`select public.commit_csv_safety_run(${f.id})`; })).rejects.toThrow(/Save skip decisions/);
+      await expect(tx.savepoint(async (t: any) => { await t`select public.save_csv_decisions(${f.id},'{"0":"new"}'::jsonb)`; })).rejects.toThrow(/only skip/);
+      await tx`select public.save_csv_decisions(${f.id},'{"0":"skip"}'::jsonb)`;
+      const [{ result }] = await tx`select public.commit_csv_safety_run(${f.id}) result`;
+      expect(result.result.created).toBe(0); expect(result.result.skipped).toBe(1);
+      const [{ review_status }] = await tx`select review_status from public.booking_import_run_rows where run_id=${f.id}`;
+      expect(review_status).toBe('pending');
+      await tx`select public.save_csv_decisions(${f.id},'{"0":"skip"}'::jsonb)`;
+      const [{ result: retry }] = await tx`select public.commit_csv_safety_run(${f.id}) result`;
+      expect(retry.replayed).toBe(true);
+    });
+  });
+  it("staff changes to an imported row make an old preview unusable and rollback comparison detects them", async () => {
+    await rollbackTest(async (tx) => {
+      const f = await fixture(tx);
+      await tx`select public.commit_csv_safety_run(${f.id})`;
+      const [{ id: bid }] = await tx`select id from public.synced_bookings where matched_camp_id=${f.camp}`;
+      const [{ snapshot }] = await tx`select public.csv_safety_snapshot() snapshot`;
+      const next = { ...f.payload, snapshot };
+      const [{ id: nextId }] = await tx`select public.stage_csv_safety_run(${tx.json(next)}) id`;
+      await tx`update public.synced_bookings set staff_notes='later staff edit',kit_given=true where id=${bid}`;
+      await expect(tx.savepoint(async (t: any) => { await t`select public.commit_csv_safety_run(${nextId})`; })).rejects.toThrow(/Stale preview/);
+      const [{ same }] = await tx`select to_jsonb(b)=a.after_state same from public.synced_bookings b join public.booking_import_changes a on a.target_id=b.id and a.target_table='synced_bookings' where b.id=${bid}`;
+      expect(same).toBe(false);
+      await tx`insert into public.attendance(camp_id,synced_booking_id,date,status) values(${f.camp},${bid},'2026-10-27','present')`;
+      const [{ dependencies }] = await tx`select count(*)::int dependencies from public.attendance where synced_booking_id=${bid}`;
+      expect(dependencies).toBe(1);
+    });
+  });
   it("parallel same-run, different-run and ordinary writers serialize at the transaction lock", async () => {
     await rollbackTest(async (tx) => {
       const f = await fixture(tx);
