@@ -111,9 +111,9 @@ describe("changed details", () => {
     const [p] = planImport([{ ...csv[0], parent_phone: "0861234567" }], existing());
     expect(p.classification).toBe("updated");
   });
-  it("changed email goes to review", () => {
+  it("changed email can use unchanged normalized phone as identity proof", () => {
     const [p] = planImport([{ ...csv[0], parent_email: "new@example.test" }], existing());
-    expect(p.classification).toBe("ambiguous");
+    expect(p.classification).toBe("updated");
   });
   it("missing DOB goes to review, not a new duplicate", () => {
     const [p] = planImport([{ ...csv[0], date_of_birth: "" }], existing());

@@ -280,7 +280,10 @@ export function planImport(rows: Incoming[], existing: ExistingRow[]): PlannedRo
     const pidMatch = pid ? byPid.get(pid) : undefined;
     if (pidMatch) { finishMatch(pidMatch, "Matched by source participant ID"); return; }
     const hasIdentity = !!inc.date_of_birth && !!guardianKey(inc.parent_email, inc.parent_phone);
-    const exactAll = (byKey.get(pKey) || []).filter((e) => !pid || !e.source_participant_id);
+    const exactAll = (byName.get(`${normText(inc.child_first_name)}|${normText(inc.child_last_name)}`) || []).filter((e) =>
+      (!pid || !e.source_participant_id) && inc.date_of_birth && inc.date_of_birth === e.date_of_birth &&
+      ((normEmail(inc.parent_email) && normEmail(inc.parent_email) === normEmail(e.parent_email)) ||
+       (normPhone(inc.parent_phone) && normPhone(inc.parent_phone) === normPhone(e.parent_phone))));
     if (exactAll.length === 1 && hasIdentity && !claimed.has(exactAll[0].id)) { finishMatch(exactAll[0], "Matched by name + DOB + guardian"); return; }
 
     deferred.push(() => {
