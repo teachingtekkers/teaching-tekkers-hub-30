@@ -50,7 +50,7 @@ export function applyGlobalSafety(plan: PlannedRow[], snapshot: SafetySnapshot, 
     const contradictory = named.some((x) => !proveIdentity(n, x) && !verifiedProfiles.includes(x.id));
     const forcedDuplicate = (sourceCampId === "178" && [33, 34].includes(p.row_index)) || (sourceCampId === "181" && [23, 24].includes(p.row_index));
     const inFileDuplicate = plan.some((other) => other !== p && proveIdentity(n, other.normalized as unknown as PersonEvidence));
-    const destinationDuplicate = p.classification === "new" && named.some((x) => proveIdentity(n, x) && (x.matched_camp_id === p.normalized._destination_camp || native.some((b) => b.id === x.id && snapshot.bookings.some((b) => b.id === x.id && b.camp_id === p.normalized._destination_camp))));
+    const destinationDuplicate = p.classification === "new" && Boolean(p.normalized._destination_camp) && named.some((x) => proveIdentity(n, x) && (x.matched_camp_id === p.normalized._destination_camp || native.some((b) => b.id === x.id && snapshot.bookings.some((b) => b.id === x.id && b.camp_id === p.normalized._destination_camp))));
     const sensitiveDiff = Object.keys(p.diff ?? {}).some((f) => ["medical_notes", "medical_condition", "photo_permission"].includes(f));
     const unsafe = held || forcedDuplicate || inFileDuplicate || destinationDuplicate || n.amount_owed === null || p.conflict || sensitiveDiff || contradictory || profileIds.size > 1 || verifiedProfiles.length !== profileIds.size;
     if (unsafe) {
