@@ -30,7 +30,7 @@ describe("global CSV identity safeguards", () => {
     expect(preview(state([wrong], [reg]))[0].classification).toBe("ambiguous");
   });
   it("checks profiles beyond row 1000", () => {
-    const unrelated = Array.from({ length: 1500 }, (_, i) => ({ ...profile, id: `p${i}`, first_name: `Other${i}` }));
+    const unrelated = Array.from({ length: 1500 }, (_, i) => ({ ...profile, id: `p${i}`, first_name: `Other${i}`, date_of_birth: "2017-01-01", guardian_email: `other${i}@example.test`, guardian_phone: null }));
     expect(preview(state([...unrelated, profile]))[0].normalized._profile_id).toBe("profile-a");
   });
   it("holds audited records and pending identity evidence", () => {

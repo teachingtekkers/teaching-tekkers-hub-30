@@ -149,25 +149,7 @@ export default function SyncReviewPanel({ latestCsvImport, csvHistoryError, csvH
                       </TableCell>
                       <TableCell className="text-xs">
                         <div className="flex flex-col gap-1 items-start">
-                          {busy === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : r.conflict ? (
-                            <>
-                              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => resolve(r.id, "keep_app")}>Keep app value</Button>
-                              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => resolve(r.id, "accept_source")}>Use booking system value</Button>
-                            </>
-                          ) : (
-                            <>
-                              {(r.candidate_ids || []).map((id) => {
-                                const c = cands[id];
-                                return (
-                                  <Button key={id} size="sm" variant="outline" className="h-auto py-1 text-xs text-left whitespace-normal" onClick={() => resolve(r.id, `link:${id}`)}>
-                                    Same child as {c ? `${c.child_first_name} ${c.child_last_name} (${c.date_of_birth || "no DOB"})` : "existing record"}
-                                  </Button>
-                                );
-                              })}
-                              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => resolve(r.id, "new")}>Add as new child</Button>
-                              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => resolve(r.id, "skip")}>Skip</Button>
-                            </>
-                          )}
+                          <Badge variant="outline">Held — values unchanged</Badge>
                         </div>
                       </TableCell>
                     </TableRow>
