@@ -69,6 +69,47 @@ export type Database = {
           },
         ]
       }
+      booking_import_changes: {
+        Row: {
+          after_state: Json
+          before_state: Json | null
+          created_at: string
+          id: string
+          operation: string
+          run_id: string
+          target_id: string
+          target_table: string
+        }
+        Insert: {
+          after_state: Json
+          before_state?: Json | null
+          created_at?: string
+          id?: string
+          operation: string
+          run_id: string
+          target_id: string
+          target_table: string
+        }
+        Update: {
+          after_state?: Json
+          before_state?: Json | null
+          created_at?: string
+          id?: string
+          operation?: string
+          run_id?: string
+          target_id?: string
+          target_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_import_changes_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "booking_import_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_import_run_rows: {
         Row: {
           applied: boolean
@@ -76,6 +117,8 @@ export type Database = {
           classification: string
           conflict: boolean
           created_at: string
+          decision_at: string | null
+          decision_by: string | null
           diff: Json | null
           family_key: string | null
           id: string
@@ -96,6 +139,8 @@ export type Database = {
           classification: string
           conflict?: boolean
           created_at?: string
+          decision_at?: string | null
+          decision_by?: string | null
           diff?: Json | null
           family_key?: string | null
           id?: string
@@ -116,6 +161,8 @@ export type Database = {
           classification?: string
           conflict?: boolean
           created_at?: string
+          decision_at?: string | null
+          decision_by?: string | null
           diff?: Json | null
           family_key?: string | null
           id?: string
@@ -152,6 +199,8 @@ export type Database = {
           file_name: string | null
           id: string
           locked_at: string | null
+          safety_snapshot: Json | null
+          safety_version: number | null
           source_camp_id: string
           source_system: string
           status: string
@@ -168,6 +217,8 @@ export type Database = {
           file_name?: string | null
           id?: string
           locked_at?: string | null
+          safety_snapshot?: Json | null
+          safety_version?: number | null
           source_camp_id: string
           source_system: string
           status?: string
@@ -184,6 +235,8 @@ export type Database = {
           file_name?: string | null
           id?: string
           locked_at?: string | null
+          safety_snapshot?: Json | null
+          safety_version?: number | null
           source_camp_id?: string
           source_system?: string
           status?: string
@@ -2688,6 +2741,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      commit_csv_safety_run: { Args: { _run_id: string }; Returns: Json }
+      csv_safety_snapshot: { Args: never; Returns: Json }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -2709,6 +2764,11 @@ export type Database = {
           updated: number
         }[]
       }
+      save_csv_decisions: {
+        Args: { _decisions: Json; _run_id: string }
+        Returns: undefined
+      }
+      stage_csv_safety_run: { Args: { payload: Json }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "head_coach"
