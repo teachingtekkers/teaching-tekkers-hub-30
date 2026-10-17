@@ -48,11 +48,12 @@ export function applyGlobalSafety(plan: PlannedRow[], snapshot: SafetySnapshot, 
       return ev?.child && normText(ev.child) === normText(`${n.child_first_name} ${n.child_last_name}`);
     });
     const contradictory = named.some((x) => !proveIdentity(n, x) && !verifiedProfiles.includes(x.id));
+    const related = all.some((x) => name(x) !== name(n) && x.date_of_birth === n.date_of_birth && contact(n, x));
     const forcedDuplicate = (sourceCampId === "178" && [33, 34].includes(p.row_index)) || (sourceCampId === "181" && [23, 24].includes(p.row_index));
     const inFileDuplicate = plan.some((other) => other !== p && proveIdentity(n, other.normalized as unknown as PersonEvidence));
     const destinationDuplicate = p.classification === "new" && Boolean(p.normalized._destination_camp) && named.some((x) => proveIdentity(n, x) && (x.matched_camp_id === p.normalized._destination_camp || native.some((b) => b.id === x.id && snapshot.bookings.some((b) => b.id === x.id && b.camp_id === p.normalized._destination_camp))));
     const sensitiveDiff = Object.keys(p.diff ?? {}).some((f) => ["medical_notes", "medical_condition", "photo_permission"].includes(f));
-    const unsafe = held || forcedDuplicate || inFileDuplicate || destinationDuplicate || n.amount_owed === null || p.conflict || sensitiveDiff || contradictory || profileIds.size > 1 || verifiedProfiles.length !== profileIds.size;
+    const unsafe = held || forcedDuplicate || inFileDuplicate || destinationDuplicate || n.amount_owed === null || p.conflict || sensitiveDiff || contradictory || related || profileIds.size > 1 || verifiedProfiles.length !== profileIds.size;
     if (unsafe) {
       p.classification = "ambiguous";
       p.reason = held ? "Historical identity/field hold: retain for admin review" : forcedDuplicate || inFileDuplicate || destinationDuplicate ? "Duplicate registration candidate: held" : n.amount_owed === null ? "Refund/cancellation requires ledger review" : p.conflict || sensitiveDiff ? "Protected staff, medical or consent values require review" : "Conflicting or multiple cross-camp person identities";
