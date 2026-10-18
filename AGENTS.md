@@ -1,5 +1,8 @@
 # Agent rules
 
+- Booking CSV uploads use `src/lib/bookingCsv.ts` with Papa Parse logical records and strict column alignment; never split physical lines. Why: quoted multiline fields must not create phantom participants or shift payments/consent columns.
+- Known invalid persisted CSV previews are blocked at the database commit transition without changing their evidence rows. Why: correcting the upload parser cannot make an already-staged corrupt plan safe.
+
 - Booking connection displays share `latestCsvImportQuery` and `CsvImportTime` for committed manual import history; legacy sync logs are historical only. Why: one consistent query prevents stale sync activity being presented as current CSV imports.
 
 - All booking writes from outside sources (manual CSV import, automatic sync, `booking-intake` pushes) go through `supabase/functions/_shared/booking-engine.ts`, with matching rules in `_shared/booking-logic.ts` (tests in `src/test/bookingImportLogic.test.ts`). Why: one tested place decides identity and protects staff edits.
