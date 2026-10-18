@@ -1,4 +1,4 @@
-import { normEmail, normPhone, normText, type ExistingRow, type PlannedRow } from "./booking-logic.ts";
+import { normEmail, normPhone, normText, PAYMENT_FIELDS, type ExistingRow, type PlannedRow } from "./booking-logic.ts";
 
 export interface PersonEvidence {
   id: string; first_name?: string; last_name?: string; child_first_name?: string; child_last_name?: string;
