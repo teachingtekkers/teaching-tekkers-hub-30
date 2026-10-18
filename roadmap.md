@@ -1,7 +1,7 @@
 # CSV safety implementation
-- [ ] Fix quoted CSV parsing, enforce one-file upload, and test 20 logical records without lost/aligned fields.
-- [ ] Inspect source 179 preview read-only and block its invalid commit; preserve all holds and financial records.
-- [ ] Run focused regression tests and report official-file/authenticated-UI limits.
+- [x] Fix quoted CSV parsing, enforce one-file upload, and test 20 logical records without lost/misaligned fields.
+- [x] Inspect source 179 preview read-only and block its invalid commit; preserve all holds and financial records.
+- [x] 84 focused tests passed including isolated commit-blocker rollback; harness build OK. Official file absent; corrected authenticated upload/fresh preview not exercised. See docs/parkville-csv-parser-validation.md.
 - [x] Global snapshot (no 1,000-row cap), conservative cross-camp/profile proof and historical holds.
 - [x] Strict Gregorian calendar and bounded finite money; refund/cancellation and duplicate holds.
 - [x] Admin-only persisted skip decisions and atomic immutable-plan commit, snapshot revalidation, policy trigger, complete audit and retry serialization; migrations 0005–0007 applied.
