@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Loader2, X, Files } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { parseBookingCsv } from "@/lib/bookingCsv";
 
 interface ParsedRow {
   [key: string]: string;
@@ -134,58 +135,6 @@ function autoMapColumn(header: string): string {
   return "skip";
 }
 
-function parseCSV(text: string): { headers: string[]; rows: ParsedRow[] } {
-  // Strip BOM and normalise line endings
-  const clean = text.replace(/^\uFEFF/, "");
-  const lines = clean.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length === 0) return { headers: [], rows: [] };
-  const firstLine = lines[0];
-
-  // Detect delimiter by trying each and picking the one that yields the most columns
-  const candidates: Array<{ delim: string; count: number }> = [
-    { delim: ",", count: firstLine.split(",").length },
-    { delim: ";", count: firstLine.split(";").length },
-    { delim: "\t", count: firstLine.split("\t").length },
-  ];
-  candidates.sort((a, b) => b.count - a.count);
-  const delimiter = candidates[0].count > 1 ? candidates[0].delim : ",";
-  console.log(`[BookingImport] Detected delimiter: "${delimiter === "\t" ? "TAB" : delimiter}" (${candidates[0].count} columns)`);
-
-  const parseRow = (line: string): string[] => {
-    const result: string[] = [];
-    let current = "";
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-        else inQuotes = !inQuotes;
-      } else if (ch === delimiter && !inQuotes) { result.push(current.trim()); current = ""; }
-      else current += ch;
-    }
-    result.push(current.trim());
-    return result;
-  };
-
-  const rawHeaders = parseRow(lines[0]);
-  // Normalize headers for consistent key access — strip BOM, exotic whitespace, smart quotes
-  const headers = rawHeaders.map((h) =>
-    h.replace(/^\uFEFF/, "")
-     .replace(/[\u00A0\u200B\u200C\u200D\uFEFF\u2000-\u200A\u202F\u205F\u3000]/g, " ")
-     .replace(/[""'']/g, "")
-     .replace(/\s+/g, " ")
-     .trim()
-  );
-  console.log("[BookingImport] Parsed CSV headers:", headers);
-  const rows = lines.slice(1).map((line) => {
-    const vals = parseRow(line);
-    const obj: ParsedRow = {};
-    headers.forEach((h, i) => { obj[h] = vals[i] || ""; });
-    return obj;
-  });
-  return { headers, rows };
-}
-
 interface FilenameMetadata {
   campName: string;
   venue: string | null;
@@ -278,6 +227,10 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
       toast({ title: "No valid files", description: "Please select CSV, TSV, or TXT files.", variant: "destructive" });
       return;
     }
+    if (validFiles.length !== 1 || files.length > 0) {
+      toast({ title: "One file per confirmation", description: "Remove the current file before selecting another CSV.", variant: "destructive" });
+      return;
+    }
 
     let loaded = 0;
     const parsed: ParsedFile[] = [...files];
@@ -288,7 +241,14 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
       const reader = new FileReader();
       reader.onload = (ev) => {
         const text = ev.target?.result as string;
-        const { headers, rows } = parseCSV(text);
+        let csv;
+        try {
+          csv = parseBookingCsv(text);
+        } catch (error) {
+          toast({ title: "CSV could not be read", description: error instanceof Error ? error.message : "Check the export and try again.", variant: "destructive" });
+          return;
+        }
+        const { headers, rows } = csv;
         if (headers.length > 0 && rows.length > 0) {
           const meta = extractMetadataFromFilename(file.name);
           const hasCampCol = headers.some((h) => autoMapColumn(h) === "camp_name");
@@ -470,7 +430,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
         {step === "upload" && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Upload one or more CSV files exported from the Teaching Tekkers booking system. The camp name is detected from the filename.
+              Upload one CSV exported from the Teaching Tekkers booking system. Each file requires its own preview and confirmation.
             </p>
             <div
               className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
@@ -483,15 +443,14 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
             >
               <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
               <p className="font-medium text-sm">
-                {dragOver ? "Drop files here" : "Drag & drop files or click to select"}
+                {dragOver ? "Drop file here" : "Drag & drop a file or click to select"}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">CSV, TSV, or TXT • Multiple files supported</p>
+              <p className="text-xs text-muted-foreground mt-1">CSV, TSV, or TXT • One file per confirmation</p>
             </div>
             <input
               ref={fileRef}
               type="file"
               accept=".csv,.tsv,.txt"
-              multiple
               className="hidden"
               onChange={handleFileSelect}
             />
@@ -507,9 +466,6 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
                   <Files className="h-4 w-4" />
                   {files.length} file{files.length > 1 ? "s" : ""} • {totalRows} total rows
                 </p>
-                <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-                  <Upload className="h-3 w-3 mr-1.5" /> Add More
-                </Button>
               </div>
               <div className="space-y-2">
                 {files.map((f) => (
@@ -578,7 +534,7 @@ export default function BookingImportDialog({ open, onOpenChange, onImportComple
               ))}
             </div>
 
-            <input ref={fileRef} type="file" accept=".csv,.tsv,.txt" multiple className="hidden" onChange={handleFileSelect} />
+            <input ref={fileRef} type="file" accept=".csv,.tsv,.txt" className="hidden" onChange={handleFileSelect} />
 
             <div className="flex justify-between pt-2">
               <Button variant="outline" onClick={reset}>Back</Button>
