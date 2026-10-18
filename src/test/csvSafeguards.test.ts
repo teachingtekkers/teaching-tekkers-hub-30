@@ -44,9 +44,32 @@ describe("global CSV identity safeguards", () => {
   });
   it("holds both in-file duplicates, no row is silently retained as a verified registration", () => expect(preview(state(), [row, row]).map((r) => r.classification)).toEqual(["ambiguous", "ambiguous"]));
   it("holds matching identities even with different email but matching phone within one file", () => expect(preview(state(), [row, { ...row, parent_email: "another@example.test" }]).map((r) => r.classification)).toEqual(["ambiguous", "ambiguous"]));
-  it.each([["178", 33], ["178", 34], ["181", 23], ["181", 24]])("preserves documented source %s zero-based row %s hold", (source, index) => {
-    const p = planImport([row], []); p[0].row_index = Number(index);
-    expect(applyGlobalSafety(p, state(), String(source))[0].classification).toBe("ambiguous");
+  it("detects identity duplicates regardless of row position (Noah Moloney 178, Axel Cosgrave 181)", () => {
+    for (const [first, last, source] of [["Noah", "Moloney", "178"], ["Axel", "Cosgrave", "181"]] as const) {
+      const dup = { ...row, child_first_name: first, child_last_name: last };
+      for (const positions of [[0, 1], [5, 40], [33, 34], [23, 24]] as const) {
+        const rows: Incoming[] = Array.from({ length: Math.max(...positions) + 1 }, (_, i) => ({ ...row, child_first_name: `Other${i}`, parent_email: `other${i}@example.test` }));
+        rows[positions[0]] = dup; rows[positions[1]] = dup;
+        const classes = preview(state(), rows, source).map((r) => r.classification);
+        expect(classes[positions[0]]).toBe("ambiguous"); expect(classes[positions[1]]).toBe("ambiguous");
+        expect(classes.filter((c) => c === "ambiguous")).toHaveLength(2);
+      }
+    }
+  });
+  it("does not hold unrelated rows merely because they sit at old index positions", () => {
+    const rows: Incoming[] = Array.from({ length: 35 }, (_, i) => ({ ...row, child_first_name: `Child${i}`, parent_email: `child${i}@example.test` }));
+    for (const source of ["178", "181"]) {
+      const classes = preview(state(), rows, source).map((r) => r.classification);
+      expect(classes[33]).toBe("new"); expect(classes[34]).toBe("new"); expect(classes[23]).toBe("new"); expect(classes[24]).toBe("new");
+    }
+  });
+  it("holds any financial diff on an existing record, even when not staff-edited", () => {
+    const existing = { ...normaliseIncoming(row), id: "reg-1", source_values: normaliseIncoming(row), matched_camp_id: "camp-1", source_camp_id: "999" } as PersonEvidence;
+    const s = state([], [existing]);
+    const changed = { ...row, amount_paid: "40" }; // parent paid more since last import
+    const [p] = preview(s, [changed]);
+    expect(p.classification).toBe("ambiguous");
+    expect(p.reason).toMatch(/Financial change/);
   });
   it.each([{ refund_amount: "20" }, { booking_status: "Cancelled" }])("holds refund/cancellation without guessing ledger", (extra) => expect(preview(state(), [{ ...row, ...extra }])[0].classification).toBe("ambiguous"));
   it("uses total after discount: 75 minus paid20 equals55, not45", () => expect(normaliseIncoming(row).amount_owed).toBe(55));
