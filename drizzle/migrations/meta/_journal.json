@@ -57,6 +57,13 @@
       "when": 1792251214411,
       "tag": "0007_csv_commit_policy_revalidation",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792348310770,
+      "tag": "0008_block_invalid_parkville_csv_preview",
+      "breakpoints": true
     }
   ]
 }
