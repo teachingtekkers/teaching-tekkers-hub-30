@@ -91,3 +91,9 @@ tested because the user forbids auth calls/session generation and real imports.
 - Cross-camp tests caught undefined destination comparisons; corrected.
 - Browser-only default test setup could not run PostgreSQL tests; dedicated config added.
 - Type errors in synthetic fixture/combined evidence types corrected; preview build checked.
+## 18 Oct 2026 follow-up
+- Removed row-position identity holds (source 178 rows 33/34, source 181 rows 23/24): row order is never identity; reordered exports would have falsely held different children. Duplicate detection now relies solely on identity (name + DOB + normalized guardian email OR phone).
+- Added shuffle/reorder tests: Noah Moloney (178) and Axel Cosgrave (181) duplicate pairs are held at any positions (0/1, 5/40, 33/34, 23/24); unrelated rows at the old index positions are NOT held.
+- Existing-record financial diffs (total/paid/owed/refund/payment-status/type) are now held explicitly as ambiguous ("Financial change to an existing record requires review"), even when not staff-edited. Tested.
+- Owner decision recorded (memory): each documented pair (Moloney 178, Cosgrave 181) is ONE child attending once, both source booking histories retained; case-specific only, no delete/merge, no financial totals chosen, source booking IDs still need website evidence.
+- Tests: 73 passed (62 booking-logic/safeguards + others). Isolated DB suite skipped this run — sandbox-local cluster was cleaned; no SQL changed this turn, prior 10/10 results stand for unchanged RPCs. Build OK.
