@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CsvImportTime from "./CsvImportTime";
+import SavedPreviewsPanel from "./SavedPreviewsPanel";
 import type { CsvImport } from "@/lib/bookingConnectionStatus";
 
 interface Settings { paused: boolean; last_success_at: string | null; last_failure_at: string | null; last_error: string | null }
@@ -35,6 +36,8 @@ export default function SyncReviewPanel({ latestCsvImport, csvHistoryError, csvH
   const [cands, setCands] = useState<Record<string, Cand>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,6 +48,7 @@ export default function SyncReviewPanel({ latestCsvImport, csvHistoryError, csvH
       supabase.from("booking_import_run_rows").select("id,row_index,reason,conflict,candidate_ids,synced_booking_id,normalized,protected_fields,booking_import_runs(source_camp_id,camps(name))")
         .eq("review_status", "pending").order("created_at").limit(200),
     ]);
+    setLoadError(!!(s.error || r.error || q.error));
     setSettings(s.data as Settings | null);
     setRuns((r.data || []) as unknown as Run[]);
     const rows = (q.data || []) as unknown as ReviewRow[];
@@ -82,11 +86,12 @@ export default function SyncReviewPanel({ latestCsvImport, csvHistoryError, csvH
 
   return (
     <div className="space-y-4">
-      {(failing || queue.length > 0) && (
+      {(failing || loadError || queue.length > 0) && (
         <div className="flex items-start gap-2 rounded-md border border-destructive bg-destructive/5 px-3 py-2 text-sm text-destructive">
           <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
           <div>
             {failing && <p>The last import failed: {settings?.last_error}. Retry it from the import history below.</p>}
+            {loadError && <p>Part of this page couldn't be loaded; counts below may be incomplete. Press Refresh.</p>}
             {queue.length > 0 && <p>{queue.length} item{queue.length > 1 ? "s" : ""} need your review.</p>}
           </div>
         </div>
@@ -98,7 +103,7 @@ export default function SyncReviewPanel({ latestCsvImport, csvHistoryError, csvH
             <CardTitle className="text-lg">Booking connection status</CardTitle>
             <CardDescription>Source provider / live sync: not connected.</CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={() => { load(); onRefreshHistory(); }} disabled={loading}><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Refresh</Button>
+          <Button variant="outline" size="sm" onClick={() => { load(); onRefreshHistory(); setReloadKey((k) => k + 1); }} disabled={loading}><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Refresh</Button>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-4 text-sm">
           <div><p className="text-xs text-muted-foreground">Latest committed CSV import</p><p className="font-medium"><CsvImportTime run={latestCsvImport} loading={csvHistoryLoading} error={csvHistoryError} /></p></div>
@@ -106,7 +111,7 @@ export default function SyncReviewPanel({ latestCsvImport, csvHistoryError, csvH
             <p className="text-xs text-muted-foreground">Last run</p>
             <p className="font-medium">{lastRun ? `${lastRun.counts.result?.created ?? 0} added · ${lastRun.counts.result?.updated ?? 0} updated` : "—"}</p>
           </div>
-          <div><p className="text-xs text-muted-foreground">Waiting for review</p><p className="font-medium">{queue.length}</p></div>
+          <div><p className="text-xs text-muted-foreground">Review queue (pending decisions, rows)</p><p className="font-medium">{loading ? "Loading…" : loadError ? "Unknown" : queue.length}</p></div>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Switch id="internal-intake" aria-label="Allow internal automatic intake" checked={settings ? !settings.paused : false} onCheckedChange={(on) => togglePause(!on)} disabled={!settings} />
@@ -124,7 +129,7 @@ export default function SyncReviewPanel({ latestCsvImport, csvHistoryError, csvH
       <Card>
         <CardHeader><CardTitle className="text-lg">Review queue</CardTitle><CardDescription>Uncertain matches and differences between the booking system and changes made in the app.</CardDescription></CardHeader>
         <CardContent>
-          {queue.length === 0 ? <p className="text-sm text-muted-foreground">Nothing waiting.</p> : (
+          {loading ? <p className="text-sm text-muted-foreground">Loading…</p> : loadError ? <p className="text-sm text-destructive">Review queue couldn't be loaded — unknown.</p> : queue.length === 0 ? <p className="text-sm text-muted-foreground">No pending decisions in the review queue. Saved previews are listed separately below.</p> : (
             <Table>
               <TableHeader><TableRow>
                 <TableHead className="text-xs">Camp</TableHead><TableHead className="text-xs">From booking system</TableHead>
@@ -161,8 +166,10 @@ export default function SyncReviewPanel({ latestCsvImport, csvHistoryError, csvH
         </CardContent>
       </Card>
 
+      <SavedPreviewsPanel reloadKey={reloadKey} />
+
       <Card>
-        <CardHeader><CardTitle className="text-lg">Import history</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-lg">Import history</CardTitle><CardDescription>Committed and failed imports only; saved previews are not included.</CardDescription></CardHeader>
         <CardContent>
           <Table>
             <TableHeader><TableRow>
