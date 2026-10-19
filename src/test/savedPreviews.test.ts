@@ -54,7 +54,7 @@ describe("saved preview visibility", () => {
     expect(calls).toContain('eq:["status","preview"]');
     expect(PREVIEW_ROW_SELECT).not.toMatch(/email|phone|medical|raw_row|amount|diff/);
   });
-  it("panel performs no writes, resolves or function calls", () => {, () => {
+  it("panel performs no writes, resolves or function calls", () => {
     const mig = readFileSync("src/components/booking-sync/SavedPreviewsPanel.tsx", "utf8");
     expect(mig).not.toMatch(/\.(insert|update|upsert|delete|rpc)\(|functions\.invoke/);
   });
