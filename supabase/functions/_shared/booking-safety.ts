@@ -8,7 +8,9 @@ export interface PersonEvidence {
 }
 export interface SafetySnapshot {
   players: PersonEvidence[]; synced_bookings: PersonEvidence[]; bookings: Record<string, unknown>[];
-  held_audits: Record<string, unknown>[]; pending_rows: Record<string, unknown>[];
+  held_audits: Record<string, unknown>[];
+  /** DEPRECATED: uncommitted preview rows are not decisions and are no longer used for holds. */
+  pending_rows: Record<string, unknown>[];
   [key: string]: unknown;
 }
 function name(p: PersonEvidence) { return `${normText(p.first_name ?? p.child_first_name)}|${normText(p.last_name ?? p.child_last_name)}`; }

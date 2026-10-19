@@ -33,11 +33,29 @@ describe("global CSV identity safeguards", () => {
     const unrelated = Array.from({ length: 1500 }, (_, i) => ({ ...profile, id: `p${i}`, first_name: `Other${i}`, date_of_birth: "2017-01-01", guardian_email: `other${i}@example.test`, guardian_phone: null }));
     expect(preview(state([...unrelated, profile]))[0].normalized._profile_id).toBe("profile-a");
   });
-  it("holds audited records and pending identity evidence", () => {
+  it("holds audited records and staff-flagged identities", () => {
     const s = state([profile]); s.held_audits = [{ target_id: profile.id }];
     expect(preview(s)[0].classification).toBe("ambiguous");
-    const other = state(); other.pending_rows = [{ normalized: normaliseIncoming(row) }];
-    expect(preview(other)[0].classification).toBe("ambiguous");
+    const flagged = state([{ ...profile, needs_admin_review: true }]);
+    expect(preview(flagged)[0].classification).toBe("ambiguous");
+  });
+  it("does not hold on an unrelated same-name pending preview row (name alone is not evidence)", () => {
+    const s = state();
+    s.pending_rows = [{ normalized: { ...normaliseIncoming(row), date_of_birth: "2014-05-05", guardian_email: "someone-else@example.test", guardian_phone: "0899999999" } }];
+    expect(preview(s)[0].classification).toBe("new");
+  });
+  it("does not hold on a repeat/shuffled import's own pending preview rows, even with identical identity", () => {
+    const pending = { normalized: normaliseIncoming(row) };
+    const s = state(); s.pending_rows = [pending];
+    expect(preview(s)[0].classification).toBe("new"); // repeat preview of the same row
+    const shuffled: Incoming[] = Array.from({ length: 10 }, (_, i) => ({ ...row, child_first_name: `Other${i}`, parent_email: `o${i}@example.test`, parent_phone: `0870000${String(i).padStart(3, "0")}` }));
+    shuffled[7] = row;
+    const s2 = state(); s2.pending_rows = [pending];
+    expect(preview(s2, shuffled).map((r) => r.classification)).toEqual(Array(10).fill("new"));
+  });
+  it("still holds true identity contradictions without any pending rows", () => {
+    const conflict = { ...profile, guardian_email: "other@example.test", guardian_phone: "0879999999" };
+    expect(preview(state([conflict]))[0].classification).toBe("ambiguous");
   });
   it.each(["Noah Byrnes", "Conall Bishop", "Caden Moore"])("keeps documented identity %s held", (name) => {
     const [first, last] = name.split(" "); expect(preview(state(), [{ ...row, child_first_name: first, child_last_name: last }])[0].classification).toBe("ambiguous");
