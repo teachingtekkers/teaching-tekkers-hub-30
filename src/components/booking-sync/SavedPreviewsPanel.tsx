@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,8 +63,8 @@ export default function SavedPreviewsPanel({ reloadKey }: { reloadKey: number })
             <TableBody>
               {groups.map((g) => {
                 const r = g.latest; const c = previewRowCounts(r);
-                return (<>
-                  <TableRow key={r.id}>
+                return (<Fragment key={g.key}>
+                  <TableRow>
                     <TableCell className="text-xs">{r.camps?.name || "Unmapped camp"}<div className="text-muted-foreground">{r.camps?.start_date || "no date"} · source {r.source_camp_id} · {r.source_system}</div></TableCell>
                     <TableCell className="text-xs">{r.file_name || "—"}<div className="text-muted-foreground">{fmt(r.created_at)}</div></TableCell>
                     <TableCell className="text-xs">{n(c.new)} / {n(c.updated)} / {n(c.unchanged)} / {n(c.review)} / {n(c.rejected)}<div className="text-muted-foreground">{n(c.rows)} file rows</div></TableCell>
@@ -83,7 +83,7 @@ export default function SavedPreviewsPanel({ reloadKey }: { reloadKey: number })
                       <TableCell><Button size="sm" variant="ghost" onClick={() => setOpen(o)}>View details</Button></TableCell>
                     </TableRow>
                   ))}
-                </>);
+                </Fragment>);
               })}
             </TableBody>
           </Table>
