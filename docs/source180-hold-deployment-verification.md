@@ -30,7 +30,7 @@ The authenticated 18:27:40 POST returned HTTP 200 on deployed `booking-import` r
 
 Only `booking-import` was explicitly redeployed through the supported deployment tool in this investigation. It returned success and submitted source/settings SHA-256 `4af53a8cbdebf8d2b6fa389ab57e72d78d17250bb2f1732c1cda1e707739c349`. The corrected local safety file SHA-256 is `d49d7400983e6b4d511b501b2ba02e7a48156a2c19db84df5072e20a1a3b5342`.
 
-An unauthenticated OPTIONS-only readiness request returned HTTP 200 at approximately 18:30:09 UTC. It does not execute preview matching or auth. A fresh normal authenticated preview is required to validate post-deployment matching; no such request was performed here. Existing persisted previews are not recomputed by a deployment. Expect the six staged-audit holds to persist, not necessarily a drop in review count.
+An unauthenticated OPTIONS-only readiness request returned HTTP 200 at approximately 18:30:09 UTC. It does not execute preview matching or auth. Subsequent analytics reads still exposed only pre-deployment revision-21 requests: the new live revision number/source digest is not independently verified. Deployment-tool success and submitted digest are confirmed, not authenticated post-deployment execution. A fresh normal authenticated preview is required to validate post-deployment matching; no such request was performed here. Existing persisted previews are not recomputed by a deployment. Expect the six staged-audit holds to persist, not necessarily a drop in review count.
 
 ## Sync & Review visibility gap (documented only)
 
@@ -44,4 +44,4 @@ Owner-authorized one-attendance decision remains design-only. Independent local 
 
 ## Validation and preserved scope
 
-65 synthetic tests passed: 39 CSV safeguards and 26 booking-import logic tests. No application code or schema changed; no new build was run or claimed. No real preview/import/commit, booking mutation, auth/session/mint/logout, provider activation or financial/medical/consent update was performed. The 425 payment corrections remain staged.
+65 synthetic tests passed: 39 CSV safeguards and 26 booking-import logic tests. No application code or schema changed; no manual build was run. The automatic preview build log reports `build OK` at 18:30:45 UTC. No real preview/import/commit, booking mutation, auth/session/mint/logout, provider activation or financial/medical/consent update was performed. The 425 payment corrections remain staged.
