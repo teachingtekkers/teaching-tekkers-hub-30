@@ -2742,7 +2742,9 @@ export type Database = {
     }
     Functions: {
       commit_csv_safety_run: { Args: { _run_id: string }; Returns: Json }
+      csv_safety_evidence: { Args: never; Returns: Json }
       csv_safety_snapshot: { Args: never; Returns: Json }
+      csv_safety_snapshot_digest: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]

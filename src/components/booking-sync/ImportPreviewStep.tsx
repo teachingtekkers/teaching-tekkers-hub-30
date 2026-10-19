@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle, Loader2 } from "lucide-react";
+import { assertPreviewContract, readableImportError } from "@/lib/importPreviewContract";
 
 export interface ImportJob {
   fileName: string;
@@ -40,9 +41,9 @@ const CLS_STYLE: Record<Cls, "default" | "secondary" | "outline" | "destructive"
 async function invokeImport(body: unknown) {
   const { data, error } = await supabase.functions.invoke("booking-import", { body });
   if (error) {
-    let msg = error.message;
-    try { const ctx = await (error as { context?: Response }).context?.json(); if (ctx?.error) msg = ctx.error; } catch { /* keep default */ }
-    throw new Error(msg);
+    let ctx: unknown = null;
+    try { ctx = await (error as { context?: Response }).context?.json(); } catch { /* keep default */ }
+    throw new Error(readableImportError(ctx, readableImportError(error, "The import service could not be reached. Nothing was imported.")));
   }
   return data;
 }
@@ -64,9 +65,9 @@ export default function ImportPreviewStep({ jobs, onBack, onDone }: {
       const out: Record<string, Preview | { error: string }> = {};
       for (const j of jobs) {
         try {
-          out[j.fileName] = await invokeImport({ action: "preview", source_camp_id: j.sourceCampId, camp_id: j.campId, file_name: j.fileName, rows: j.rows });
+          out[j.fileName] = assertPreviewContract<Preview>(await invokeImport({ action: "preview", source_camp_id: j.sourceCampId, camp_id: j.campId, file_name: j.fileName, rows: j.rows }));
         } catch (e) {
-          out[j.fileName] = { error: e instanceof Error ? e.message : String(e) };
+          out[j.fileName] = { error: readableImportError(e instanceof Error ? e.message : e, "The preview failed. Nothing was imported.") };
         }
       }
       if (!cancelled) { setPreviews(out); setLoading(false); }

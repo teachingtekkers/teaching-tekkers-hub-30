@@ -22,13 +22,13 @@ async function fixture(tx: any, rows = [csv], options: { invalidLast?: boolean; 
     const [p] = await tx`insert into public.players(first_name,last_name,date_of_birth,guardian_email) values('Synthetic','Atomic','2016-02-29','atomic@example.test') returning id`;
     profile = p.id;
   }
-  const [{ snapshot }] = await tx`select public.csv_safety_snapshot() snapshot`;
+  const [{ snapshot_digest }] = await tx`select public.csv_safety_snapshot_digest() snapshot_digest`;
   const plans = rows.map((row, i) => {
     const n = normaliseIncoming(row);
     return { row_index: i, classification: "new", reason: "synthetic server-staged fixture", participant_key: participantKey(n.child_first_name,n.child_last_name,n.date_of_birth,n.parent_email,n.parent_phone), family_key: `e:${row.parent_email}`, synced_booking_id: null, candidate_ids: [], raw_row: row,
       normalized: { ...n, _profile_id: profile, ...(options.invalidLast && i === rows.length - 1 ? { total_amount: "NaN" } : {}) }, diff: null, protected_fields: [], conflict: false };
   });
-  const payload = { user_id: admin, source_system: "synthetic-test", source_camp_id: source, camp_id: camp.id, snapshot, counts: {}, rows: plans };
+  const payload = { user_id: admin, source_system: "synthetic-test", source_camp_id: source, camp_id: camp.id, snapshot_digest, counts: {}, rows: plans };
   const [{ id }] = await tx`select public.stage_csv_safety_run(${tx.json(payload)}) id`;
   return { id, camp: camp.id, source, payload, profile };
 }
@@ -128,8 +128,8 @@ describe.skipIf(!enabled)("isolated PostgreSQL atomic CSV safeguards", () => {
       const f = await fixture(tx);
       await tx`select public.commit_csv_safety_run(${f.id})`;
       const [{ id: bid }] = await tx`select id from public.synced_bookings where matched_camp_id=${f.camp}`;
-      const [{ snapshot }] = await tx`select public.csv_safety_snapshot() snapshot`;
-      const next = { ...f.payload, snapshot };
+      const [{ snapshot_digest }] = await tx`select public.csv_safety_snapshot_digest() snapshot_digest`;
+      const next = { ...f.payload, snapshot_digest };
       const [{ id: nextId }] = await tx`select public.stage_csv_safety_run(${tx.json(next)}) id`;
       await tx`update public.synced_bookings set staff_notes='later staff edit',kit_given=true where id=${bid}`;
       await expect(tx.savepoint(async (t: any) => { await t`select public.commit_csv_safety_run(${nextId})`; })).rejects.toThrow(/Stale preview/);

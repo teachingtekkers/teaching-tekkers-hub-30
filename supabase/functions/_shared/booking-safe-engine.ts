@@ -7,9 +7,13 @@ export async function prepareSafeRun(db: any, inp: {
   fileName?: string | null; userId?: string | null;
 }) {
   if (!inp.userId || !inp.sourceCampId || !inp.campId || inp.rows.length < 1 || inp.rows.length > 3000) throw new Error("Authenticated admin, mapped camp and 1–3000 rows required");
-  const { data: snapshot, error } = await db.rpc("csv_safety_snapshot");
+  // One server call returns the snapshot and the digest of that exact snapshot; staging
+  // re-verifies only the digest (no multi-MB round trip that can hit the statement timeout).
+  const { data: evidence, error } = await db.rpc("csv_safety_evidence");
   if (error) throw error;
-  const state = snapshot as SafetySnapshot;
+  const digest = (evidence as { digest?: unknown } | null)?.digest;
+  if (!evidence || typeof digest !== "string" || !/^[0-9a-f]{32}$/.test(digest)) throw new Error("Safety evidence unavailable; nothing was saved. Please preview again.");
+  const state = (evidence as { snapshot: SafetySnapshot }).snapshot;
   const camps = state.camps as { id: string; name: string }[];
   const camp = camps.find((c) => c.id === inp.campId);
   if (!camp) throw new Error("App camp not found");
@@ -26,7 +30,7 @@ export async function prepareSafeRun(db: any, inp: {
   counts.existing_in_app = existing.length;
   const { data: id, error: stageError } = await db.rpc("stage_csv_safety_run", { payload: {
     source_system: inp.sourceSystem, source_camp_id: inp.sourceCampId, camp_id: inp.campId,
-    user_id: inp.userId, file_name: inp.fileName ?? null, counts, snapshot,
+    user_id: inp.userId, file_name: inp.fileName ?? null, counts, snapshot_digest: digest,
     rows: planned.map(({ family_verified: _fv, ...p }) => ({ ...p, raw_row: inp.rows[p.row_index] })),
   } });
   if (stageError) throw stageError;

@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { applyRun, DEFAULT_SOURCE, EngineError, prepareRun, resolveRow, syncCamp } from "../_shared/booking-engine.ts";
+import { describeBackendError } from "../_shared/booking-errors.ts";
 import { z } from "npm:zod@3.25.76";
 
 const requestSchema = z.object({
@@ -57,6 +58,7 @@ Deno.serve(async (req) => {
   } catch (err) {
     if (err instanceof EngineError) return json({ error: err.message }, err.status);
     console.error("booking-import error", err);
-    return json({ error: err instanceof Error ? err.message : String(err) }, 500);
+    const info = describeBackendError(err);
+    return json({ error: info.message, ...(info.code ? { code: info.code } : {}) }, info.status);
   }
 });
