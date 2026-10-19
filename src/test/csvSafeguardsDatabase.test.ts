@@ -166,4 +166,40 @@ describe.skipIf(!enabled)("isolated PostgreSQL atomic CSV safeguards", () => {
       expect(allowed).toBe(false);
     });
   });
+  it("staging rejects missing, malformed and tampered digests without creating a run", async () => {
+    await rollbackTest(async (tx) => {
+      const f = await fixture(tx);
+      const [{ before }] = await tx`select count(*)::int before from public.booking_import_runs`;
+      for (const snapshot_digest of [undefined, "not-a-digest", "0".repeat(32)]) {
+        const p = { ...f.payload, snapshot_digest };
+        await expect(tx.savepoint(async (t: any) => { await t`select public.stage_csv_safety_run(${t.json(p)})`; })).rejects.toThrow(/digest required|Evidence changed/);
+      }
+      const { snapshot_digest: _d, ...legacy } = f.payload as Record<string, unknown>;
+      const [{ snapshot }] = await tx`select public.csv_safety_snapshot() snapshot`;
+      await expect(tx.savepoint(async (t: any) => { await t`select public.stage_csv_safety_run(${t.json({ ...legacy, snapshot })})`; })).rejects.toThrow(/digest required/);
+      const [{ after }] = await tx`select count(*)::int after from public.booking_import_runs`;
+      expect(after).toBe(before);
+    });
+  });
+  it("evidence pair digest matches its own snapshot; old full-snapshot and tampered previews are stale at commit", async () => {
+    await rollbackTest(async (tx) => {
+      const [{ ok }] = await tx`select (e->>'digest') = md5((e->'snapshot')::text) and (e->>'digest') = public.csv_safety_snapshot_digest() ok from (select public.csv_safety_evidence() e) x`;
+      expect(ok).toBe(true);
+      const f = await fixture(tx);
+      const [{ stored }] = await tx`select safety_snapshot stored from public.booking_import_runs where id=${f.id}`;
+      expect(Object.keys(stored)).toEqual(["digest"]);
+      await tx`update public.booking_import_runs set safety_snapshot=public.csv_safety_snapshot() where id=${f.id}`;
+      await expect(tx.savepoint(async (t: any) => { await t`select public.commit_csv_safety_run(${f.id})`; })).rejects.toThrow(/Stale preview/);
+      await tx`update public.booking_import_runs set safety_snapshot=jsonb_build_object('digest',repeat('a',32)) where id=${f.id}`;
+      await expect(tx.savepoint(async (t: any) => { await t`select public.commit_csv_safety_run(${f.id})`; })).rejects.toThrow(/Stale preview/);
+      const [{ n }] = await tx`select count(*)::int n from public.synced_bookings where matched_camp_id=${f.camp}`;
+      expect(n).toBe(0);
+    });
+  });
+  it("digest and evidence functions are not executable by anon or authenticated clients", async () => {
+    await rollbackTest(async (tx) => {
+      const [r] = await tx`select has_function_privilege('authenticated','public.csv_safety_evidence()','EXECUTE') a1, has_function_privilege('anon','public.csv_safety_snapshot_digest()','EXECUTE') a2, has_function_privilege('authenticated','public.stage_csv_safety_run(jsonb)','EXECUTE') a3, has_function_privilege('service_role','public.csv_safety_evidence()','EXECUTE') s1`;
+      expect([r.a1, r.a2, r.a3, r.s1]).toEqual([false, false, false, true]);
+    });
+  });
 });
