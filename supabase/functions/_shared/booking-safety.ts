@@ -40,10 +40,11 @@ export function applyGlobalSafety(plan: PlannedRow[], snapshot: SafetySnapshot, 
       const profile = profiles.find((x) => x.id === id);
       return profile && (proveIdentity(n, profile) || (!normEmail(profile.guardian_email) && !normPhone(profile.guardian_phone) && name(n) === name(profile) && n.date_of_birth === profile.date_of_birth && matched.some((r) => r.matched_player_id === id)));
     });
-    const held = ["noah|byrnes", "conall|bishop", "caden|moore"].includes(name(n)) || named.some((x) => holdIds.has(x.id) || x.needs_admin_review || x.duplicate_warning) || snapshot.pending_rows.some((r) => {
-      const v = r.normalized as PersonEvidence | undefined;
-      return v && name(v) === name(n);
-    }) || snapshot.held_audits.some((h) => {
+    // A pending (uncommitted) preview row is NOT an admin decision and must not hold
+    // future previews — otherwise every repeat preview perpetuates its own incidental
+    // holds by name alone. Durable holds come only from explicit evidence: documented
+    // identities, staff flags (needs_admin_review/duplicate_warning) and held audits.
+    const held = ["noah|byrnes", "conall|bishop", "caden|moore"].includes(name(n)) || named.some((x) => holdIds.has(x.id) || x.needs_admin_review || x.duplicate_warning) || snapshot.held_audits.some((h) => {
       const ev = h.evidence as Record<string, unknown> | undefined;
       return ev?.child && normText(ev.child) === normText(`${n.child_first_name} ${n.child_last_name}`);
     });
